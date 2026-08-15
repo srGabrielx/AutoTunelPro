@@ -166,6 +166,28 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     complexity: 3,
     description: "Acordes maiores e 7ª no piano/pad com log-drums característicos.",
   },
+  "reggae-bob": {
+    label: "Reggae Roots (Bob Marley)",
+    artist: "Bob Marley",
+    songRef: "Is This Love · Jamming",
+    key: "A",
+    scale: "natural-minor",
+    bpm: 75,
+    style: "hip-hop",
+    complexity: 2,
+    description: "Vibe positiva, contratempo marcante e melodias suaves estilo Reggae.",
+  },
+  "para-melody": {
+    label: "Melody do Pará (Tecnobrega)",
+    artist: "Música do Pará",
+    songRef: "Aquele 2 por 1",
+    key: "E",
+    scale: "natural-minor",
+    bpm: 165,
+    style: "funk",
+    complexity: 4,
+    description: "BPM acelerado, batida marcante do Norte e synth leads penetrantes.",
+  },
 };
 
 // 3. Estilos Base

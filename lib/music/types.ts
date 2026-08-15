@@ -19,7 +19,9 @@ export type ArtistPresetId =
   | "post-rockstar"
   | "matue-trapbr"
   | "funk-mandelao"
-  | "kabza-amapiano";
+  | "kabza-amapiano"
+  | "reggae-bob"
+  | "para-melody";
 
 export type MelodySynthType = "lead" | "pad" | "pluck" | "arp";
 

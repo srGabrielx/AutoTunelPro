@@ -1155,6 +1155,46 @@ h1 {
   transform: translateY(-1px);
 }
 
+/* Transport Floating Action Button (Closed State) */
+.transport-fab {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 8, 10, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line-strong);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9900;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.transport-fab:hover {
+  transform: translateX(-50%) scale(1.05);
+  background: rgba(15, 15, 18, 0.95);
+  box-shadow: 0 10px 40px rgba(200, 255, 61, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.transport-fab.pulse-glow {
+  animation: pulseAcid 2s infinite;
+  border-color: var(--acid);
+}
+
+@keyframes pulseAcid {
+  0% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0.4); transform: translateX(-50%) scale(1); }
+  50% { box-shadow: 0 0 0 12px rgba(200, 255, 61, 0); transform: translateX(-50%) scale(1.02); }
+  100% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0); transform: translateX(-50%) scale(1); }
+}
+
 /* Transport Drawer Container (Bottom) */
 .transport-drawer-container {
   position: fixed;
@@ -1248,6 +1288,11 @@ h1 {
 }
 
 @media (max-width: 768px) {
+  .transport-fab {
+    bottom: 90px;
+    width: 56px;
+    height: 56px;
+  }
   .transport-drawer-container {
     bottom: 90px;
     width: 90%;
