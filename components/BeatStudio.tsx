@@ -1362,7 +1362,8 @@ export default function BeatStudio() {
           </div>
         </div>
       )}
-      </>
+    </>
+  )}
 
       <footer className="footer-note">
         {error ? (
