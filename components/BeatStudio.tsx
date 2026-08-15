@@ -268,10 +268,12 @@ interface MelodyLayerCardProps {
   index: number;
   totalLayers: number;
   busy: string | null;
+  playbackMode: PlaybackMode | null;
   onUpdate: (id: string, patch: Partial<MelodyLayer>) => void;
   onGenerate: (layerId: string) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
+  onTogglePlayMelody: () => void;
   registerContainer?: (id: string, el: HTMLElement | null) => void;
   registerPlayhead?: (id: string, el: HTMLElement | null) => void;
 }
@@ -281,10 +283,12 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   index,
   totalLayers,
   busy,
+  playbackMode,
   onUpdate,
   onGenerate,
   onRemove,
   onToggleStep,
+  onTogglePlayMelody,
   registerContainer,
   registerPlayhead,
 }: MelodyLayerCardProps) {
@@ -400,7 +404,7 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
         registerPlayhead={registerPlayhead}
       />
 
-      <div className="actions">
+      <div className="actions layer-actions-row">
         <button className="primary" disabled={busy !== null} onClick={() => onGenerate(layer.id)}>
           {busy === layer.id ? (
             <span>Gerando...</span>
@@ -408,6 +412,23 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
             <span className="flex items-center justify-center gap-2">
               <IconDice className="w-4 h-4" /> Gerar {layer.label}
             </span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`btn-layer-play ${playbackMode === "melody" ? "playing" : ""}`}
+          disabled={!layer.result}
+          onClick={onTogglePlayMelody}
+          title={playbackMode === "melody" ? "Parar Reprodução" : "Reproduzir Melodia"}
+        >
+          {playbackMode === "melody" ? (
+            <>
+              <IconStop size={14} /> Parar
+            </>
+          ) : (
+            <>
+              <IconPlay size={14} /> Reproduzir
+            </>
           )}
         </button>
       </div>
@@ -888,7 +909,7 @@ export default function BeatStudio() {
       <main className="shell">
         <nav className="topbar">
           <div className="topbar-brand">
-            <span className="brand-mark">A</span>
+            <img src="/logo.png" alt="AutoTunel" className="brand-logo-img" />
             <span className="brand-text">AutoTunel</span>
             <span className="version-pill">STUDIO</span>
           </div>
@@ -904,7 +925,7 @@ export default function BeatStudio() {
           ========================================== */}
       <nav className="topbar">
         <div className="topbar-brand">
-          <span className="brand-mark">A</span>
+          <img src="/logo.png" alt="AutoTunel" className="brand-logo-img" />
           <span className="brand-text">AutoTunel</span>
           <span className="version-pill">PRO ENGINE</span>
         </div>
@@ -1018,10 +1039,18 @@ export default function BeatStudio() {
             </div>
           </div>
           <div className="section-actions">
-
+            <button
+              type="button"
+              className={`ghost-sm ${playbackMode === "melody" ? "active-play" : ""}`}
+              disabled={!melodyLayers.some((l) => l.result)}
+              onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
+              title="Reproduzir todas as camadas melódicas"
+            >
+              {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Reproduzir Melodias
+            </button>
             {melodyLayers.length < MAX_MELODY_LAYERS && (
               <button className="btn-add-layer" onClick={addMelodyLayer} title="Adicionar nova camada (Lead, Pad, Pluck ou Arp)">
-                <IconPlus size={14} /> Adicionar Camada de Melodia
+                <IconPlus size={14} /> Adicionar Camada
               </button>
             )}
           </div>
@@ -1035,10 +1064,12 @@ export default function BeatStudio() {
               index={idx}
               totalLayers={melodyLayers.length}
               busy={busy}
+              playbackMode={playbackMode}
               onUpdate={updateLayer}
               onGenerate={generateMelodyLayer}
               onRemove={removeMelodyLayer}
               onToggleStep={toggleMelodyStep}
+              onTogglePlayMelody={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
               registerContainer={registerContainer}
               registerPlayhead={registerPlayhead}
             />
@@ -1322,11 +1353,12 @@ export default function BeatStudio() {
 
               <div className="transport-popup">
                 <button
-                  className="solo-btn active"
+                  className="solo-btn active btn-transport-close"
                   onClick={() => setIsTransportOpen(false)}
                   title="Ocultar Painel"
                 >
-                  <IconClose size={16} /> Fechar
+                  <img src="/logo.png" alt="AutoTunel Logo" className="btn-logo-inline" />
+                  <span>Fechar</span>
                 </button>
                 <div className="transport-divider" />
             <button
