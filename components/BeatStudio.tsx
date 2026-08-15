@@ -929,13 +929,42 @@ export default function BeatStudio() {
     }
   };
 
-  // Lifecycle Initialization & Worker Cleanup
+  // Lifecycle Initialization & Worker Cleanup (Runs ONLY ONCE on mount)
   useEffect(() => {
     const engine = audioEngineRef.current;
-    workerClientRef.current = new StudioWorkerClient();
+    const workerClient = new StudioWorkerClient();
+    workerClientRef.current = workerClient;
 
-    // Trigger initial generation
-    generateFullBeat();
+    // Trigger initial beat generation on mount only
+    workerClient
+      .generateAll({
+        bpm: stateRef.current.bpm,
+        key: stateRef.current.key,
+        globalScale: stateRef.current.globalScale,
+        complexity: stateRef.current.complexity,
+        bassStyle: stateRef.current.bassStyle,
+        bassOctave: stateRef.current.bassOctave,
+        drumStyle: stateRef.current.drumStyle,
+        drumPattern: stateRef.current.drumPattern,
+        melodyLayers: stateRef.current.melodyLayers.map((l) => ({
+          id: l.id,
+          style: l.style,
+          key: l.key,
+          scale: l.scale,
+          muted: l.muted,
+        })),
+      })
+      .then((allData) => {
+        setBass(allData.bass);
+        setDrums(allData.drums);
+        setMelodyLayers((prev) =>
+          prev.map((l) => {
+            const found = allData.melodyResults.find((m) => m.layerId === l.id);
+            return found ? { ...l, result: found.result } : l;
+          })
+        );
+      })
+      .catch(() => {});
 
     return () => {
       engine.stop();
@@ -944,7 +973,7 @@ export default function BeatStudio() {
         workerClientRef.current = null;
       }
     };
-  }, [generateFullBeat]);
+  }, []);
 
   // Visualizations
   const bassSteps = new Set(bass?.notes.map((n) => n.step) ?? []);
