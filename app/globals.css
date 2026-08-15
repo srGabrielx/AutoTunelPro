@@ -1216,12 +1216,12 @@ h1 {
   cursor: not-allowed;
 }
 
-/* Transport Floating Action Button (Closed State) - BOTTOM LEFT */
+/* Transport Floating Action Button (Closed State) - BOTTOM LEFT with 20px Margin */
 .transport-fab {
   position: fixed;
-  bottom: 110px;
-  left: 28px;
-  background: rgba(8, 8, 10, 0.85);
+  bottom: 100px;
+  left: 20px;
+  background: rgba(8, 8, 10, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line-strong);
@@ -1232,16 +1232,22 @@ h1 {
   align-items: center;
   justify-content: center;
   z-index: 9900;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.transport-fab:active {
+  cursor: grabbing;
+  transform: scale(0.95);
 }
 
 .transport-fab:hover {
   transform: scale(1.08);
-  background: rgba(15, 15, 18, 0.95);
-  box-shadow: 0 10px 40px rgba(200, 255, 61, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  background: rgba(18, 18, 22, 0.98);
+  box-shadow: 0 10px 40px rgba(200, 255, 61, 0.3), 0 0 0 1px rgba(200, 255, 61, 0.3) inset;
 }
 
 .transport-fab.pulse-glow {
@@ -1250,46 +1256,47 @@ h1 {
 }
 
 @keyframes pulseAcid {
-  0% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0.4); transform: scale(1); }
-  50% { box-shadow: 0 0 0 14px rgba(200, 255, 61, 0); transform: scale(1.04); }
-  100% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0); transform: scale(1); }
+  0% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0.4); }
+  50% { box-shadow: 0 0 0 14px rgba(200, 255, 61, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0); }
 }
 
-/* Transport Drawer Container (Bottom Left) */
+/* Transport Drawer Container (Bottom Left with 20px Margin) */
 .transport-drawer-container {
   position: fixed;
-  bottom: 110px;
-  left: 28px;
+  bottom: 100px;
+  left: 20px;
   z-index: 9900;
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Aligns drawer to the left edge of the popup to form an "L" shape */
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  align-items: flex-start;
+  max-width: calc(100vw - 40px);
+  animation: fadeScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeScale {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .transport-drawer {
-  background: rgba(8, 8, 10, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 8, 10, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--line-strong);
   border-radius: 20px;
   padding: 16px;
   margin-bottom: 12px;
   display: grid;
-  grid-template-columns: 1fr 1fr; /* 2x2 grid for parameters */
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  width: 340px; /* Fixed width to act as the vertical bar of the L shape */
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  animation: fadeUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 .transport-popup {
-  background: rgba(8, 8, 10, 0.85);
+  background: rgba(8, 8, 10, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line-strong);
@@ -1297,8 +1304,9 @@ h1 {
   padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  gap: 14px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 
 .transport-popup .master-btn {
@@ -1314,6 +1322,7 @@ h1 {
 .transport-solos {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .solo-btn {
@@ -1332,7 +1341,7 @@ h1 {
 }
 
 .solo-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
 }
 
@@ -1349,21 +1358,23 @@ h1 {
 @media (max-width: 768px) {
   .transport-fab {
     bottom: 90px;
-    left: 16px;
-    width: 56px;
-    height: 56px;
+    left: 20px;
+    width: 58px;
+    height: 58px;
   }
   .transport-drawer-container {
     bottom: 90px;
-    left: 16px;
-    width: calc(100% - 32px);
-    max-width: 400px;
+    left: 20px;
+    width: calc(100vw - 40px);
+    max-width: calc(100vw - 40px);
   }
   .transport-drawer {
     width: 100%;
+    max-width: 100%;
   }
   .transport-popup {
     width: 100%;
+    max-width: 100%;
     flex-direction: column;
     border-radius: 24px;
     padding: 14px;

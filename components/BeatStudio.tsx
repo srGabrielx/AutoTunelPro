@@ -470,6 +470,67 @@ export default function BeatStudio() {
   const [complexity, setComplexity] = useState(3);
   const [isTransportOpen, setIsTransportOpen] = useState(false);
 
+  // Draggable FAB state
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    initialPosX: number;
+    initialPosY: number;
+    hasMoved: boolean;
+  } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const currentX = fabPos?.x ?? rect.left;
+    const currentY = fabPos?.y ?? rect.top;
+
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialPosX: currentX,
+      initialPosY: currentY,
+      hasMoved: false,
+    };
+
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      dragRef.current.hasMoved = true;
+    }
+
+    if (dragRef.current.hasMoved) {
+      const maxX = typeof window !== "undefined" ? window.innerWidth - 80 : 800;
+      const maxY = typeof window !== "undefined" ? window.innerHeight - 80 : 800;
+      const newX = Math.max(20, Math.min(maxX, dragRef.current.initialPosX + dx));
+      const newY = Math.max(20, Math.min(maxY, dragRef.current.initialPosY + dy));
+      setFabPos({ x: newX, y: newY });
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const hadMoved = dragRef.current.hasMoved;
+    dragRef.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (!hadMoved) {
+      setIsTransportOpen((prev) => !prev);
+    }
+  };
+
   // Multi-Layer Melody State
   const [melodyLayers, setMelodyLayers] = useState<MelodyLayer[]>(() => [
     createDefaultLayer("trap-br", "C", "natural-minor", "lead"),
@@ -1274,15 +1335,21 @@ export default function BeatStudio() {
           {!isTransportOpen && (
             <button
               className={`transport-fab ${playbackMode ? "pulse-glow" : ""}`}
-              onClick={() => setIsTransportOpen(true)}
-              title="Abrir Controles e Configurações"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              style={fabPos ? { left: `${fabPos.x}px`, top: `${fabPos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+              title="Arraste para mover ou clique para abrir controles"
             >
-              <img src="/logo.png" alt="AutoTunel" className="w-8 h-8 object-contain" />
+              <img src="/logo.png" alt="AutoTunel" className="w-9 h-9 object-contain pointer-events-none" />
             </button>
           )}
 
           {isTransportOpen && (
-            <div className="transport-drawer-container">
+            <div
+              className="transport-drawer-container"
+              style={fabPos ? { left: `${fabPos.x}px`, top: `${fabPos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+            >
               <div className="transport-drawer">
                 <label className="param-field">
                   <span className="param-label">BPM Geral</span>
