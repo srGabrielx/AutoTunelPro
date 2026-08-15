@@ -26,7 +26,7 @@ import { usePlayheadController } from "../lib/music/usePlayheadController";
 // ==========================================
 function IconPlay({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={`ui-icon ${className}`}>
       <path d="M8 5v14l11-7z" />
     </svg>
   );
@@ -34,7 +34,7 @@ function IconPlay({ size = 16, className = "" }: { size?: number; className?: st
 
 function IconStop({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={`ui-icon ${className}`}>
       <path d="M6 6h12v12H6z" />
     </svg>
   );
@@ -42,7 +42,7 @@ function IconStop({ size = 16, className = "" }: { size?: number; className?: st
 
 function IconDice({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
       <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
       <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
@@ -55,7 +55,7 @@ function IconDice({ size = 16, className = "" }: { size?: number; className?: st
 
 function IconDownload({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -63,19 +63,9 @@ function IconDownload({ size = 16, className = "" }: { size?: number; className?
   );
 }
 
-function IconMusic({ size = 16, className = "" }: { size?: number; className?: string }) {
+function IconMusic({ size = 22, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
-    </svg>
-  );
-}
-
-function IconMelody({ size = 18, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <path d="M9 18V5l12-2v13" />
       <circle cx="6" cy="18" r="3" fill="currentColor" fillOpacity="0.25" />
       <circle cx="18" cy="16" r="3" fill="currentColor" fillOpacity="0.25" />
@@ -83,17 +73,27 @@ function IconMelody({ size = 18, className = "" }: { size?: number; className?: 
   );
 }
 
-function IconBass({ size = 18, className = "" }: { size?: number; className?: string }) {
+function IconMelody({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
-      <path d="M2 12h2.5l2.5-8 5 16 4-11 3 6 3-3H22" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" fill="currentColor" fillOpacity="0.25" />
+      <circle cx="18" cy="16" r="3" fill="currentColor" fillOpacity="0.25" />
     </svg>
   );
 }
 
-function IconDrums({ size = 18, className = "" }: { size?: number; className?: string }) {
+function IconBass({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <path d="M2 12h3l2.5-7 5 14 4-9 3 5 2.5-3H22" />
+    </svg>
+  );
+}
+
+function IconDrums({ size = 24, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <ellipse cx="12" cy="8" rx="8" ry="4" fill="currentColor" fillOpacity="0.25" />
       <path d="M4 8v8c0 2.21 3.58 4 8 4s8-1.79 8-4V8" />
       <path d="m5 4 4 4" />
@@ -104,7 +104,7 @@ function IconDrums({ size = 18, className = "" }: { size?: number; className?: s
 
 function IconPlus({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
@@ -113,7 +113,7 @@ function IconPlus({ size = 16, className = "" }: { size?: number; className?: st
 
 function IconTrash({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -122,7 +122,7 @@ function IconTrash({ size = 16, className = "" }: { size?: number; className?: s
 
 function IconRefresh({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <polyline points="23 4 23 10 17 10" />
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>

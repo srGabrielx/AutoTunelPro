@@ -473,15 +473,20 @@ h1 {
   height: 44px;
   min-width: 44px;
   min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   border-radius: 12px;
   background: #181822;
   border: 1px solid var(--line-strong);
   margin: 0 auto;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
+}
+
+.engine-icon-badge svg,
+.engine-icon-badge .ui-icon {
+  display: block !important;
+  margin: auto !important;
 }
 
 .engine-icon-badge.acid {
