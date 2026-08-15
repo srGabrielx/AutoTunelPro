@@ -460,7 +460,7 @@ h1 {
   color: #ffffff;
 }
 
-.section-title span {
+.section-title > div > span {
   display: block;
   color: #a8a69e;
   font-size: 11.5px;
@@ -707,7 +707,7 @@ h1 {
   color: #ffffff;
 }
 
-.engine-title span {
+.engine-title > div > span {
   display: block;
   color: #a8a69e;
   font-size: 11px;
