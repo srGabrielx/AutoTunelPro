@@ -803,12 +803,29 @@ h1 {
 
 /* Sequencer Grid */
 .sequence {
+  position: relative;
+  overflow: hidden;
   margin: 6px 16px 14px;
   background: #08080a;
   border: 1px solid #22222a;
   border-radius: 14px;
   padding: 10px 8px 6px;
   min-height: 104px;
+}
+
+.playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  width: 2px;
+  background: var(--accent, var(--acid));
+  box-shadow: 0 0 10px var(--accent-glow, var(--acid-glow));
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  will-change: transform;
+  transition: opacity 0.15s ease;
 }
 
 .sequence.is-muted {

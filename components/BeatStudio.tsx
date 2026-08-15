@@ -1,26 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import type {
   ArtistPresetId,
   BassDrive,
-  BassNote,
   BassOctave,
   BassResult,
-  DrumHit,
   DrumKitMode,
   DrumPatternMode,
   DrumResult,
   MelodyLayer,
-  MelodyNote,
-  MelodyResult,
   MelodySynthType,
   ScaleId,
   StyleId,
 } from "../lib/music/types";
-import { createMidiFile, downloadMidiBlob } from "../lib/export/midi";
-import { renderAndDownloadWav } from "../lib/export/wav";
-import { ARTIST_PRESETS, KEYS, SCALES, STYLES } from "../lib/music/styles";
+import { downloadMidiBlob } from "../lib/export/midi";
+import { downloadWavBlob } from "../lib/export/wav";
+import { ARTIST_PRESETS, KEYS, SCALES } from "../lib/music/styles";
+import { StudioWorkerClient } from "../lib/workers/studio-worker-client";
+import { SampleAccurateAudioEngine, type PlaybackMode } from "../lib/music/audio-transport";
+import { usePlayheadController } from "../lib/music/usePlayheadController";
 
 // ==========================================
 // SVG ICONS (Explicit dimensions & zero bugs)
@@ -121,22 +120,6 @@ function IconTrash({ size = 16, className = "" }: { size?: number; className?: s
   );
 }
 
-function IconSliders({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
-      <line x1="4" y1="21" x2="4" y2="14" />
-      <line x1="4" y1="10" x2="4" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12" y2="3" />
-      <line x1="20" y1="21" x2="20" y2="16" />
-      <line x1="20" y1="12" x2="20" y2="3" />
-      <line x1="1" y1="14" x2="7" y2="14" />
-      <line x1="9" y1="8" x2="15" y2="8" />
-      <line x1="17" y1="16" x2="23" y2="16" />
-    </svg>
-  );
-}
-
 function IconRefresh({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`} style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}>
@@ -194,263 +177,55 @@ function createDefaultLayer(style: StyleId, key: string, scale: ScaleId, synthTy
 }
 
 // ==========================================
-// REAL-TIME AUDIO SYNTHESIZER
+// ISOLATED SEQUENCER GRID (Zero React Re-renders on Playback)
 // ==========================================
-class WebAudioStudio {
-  private ctx: AudioContext | null = null;
-  private delayNode: DelayNode | null = null;
-  private delayGain: GainNode | null = null;
-
-  init() {
-    if (!this.ctx || this.ctx.state === "closed") {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-      this.delayNode = this.ctx.createDelay();
-      this.delayNode.delayTime.value = 0.24;
-      this.delayGain = this.ctx.createGain();
-      this.delayGain.gain.value = 0.22;
-      this.delayNode.connect(this.delayGain);
-      this.delayGain.connect(this.delayNode);
-      this.delayGain.connect(this.ctx.destination);
-    }
-    if (this.ctx.state === "suspended") this.ctx.resume();
-    return this.ctx;
-  }
-
-  getContext() {
-    return this.init();
-  }
-
-  playKick(when: number, velocity = 90, kit: DrumKitMode = "trap-808") {
-    const ctx = this.init();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const vol = (velocity / 127) * (kit === "funk-tamborzao" ? 0.55 : 0.45);
-    const startFreq = kit === "drill-punch" ? 180 : kit === "funk-tamborzao" ? 140 : 155;
-    const endFreq = kit === "funk-tamborzao" ? 52 : 44;
-
-    osc.type = kit === "funk-tamborzao" ? "triangle" : "sine";
-    osc.frequency.setValueAtTime(startFreq, when);
-    osc.frequency.exponentialRampToValueAtTime(endFreq, when + 0.08);
-
-    gain.gain.setValueAtTime(vol, when);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.32);
-
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(when);
-    osc.stop(when + 0.33);
-  }
-
-  play808Bass(
-    when: number,
-    midiNote: number,
-    durationSec: number,
-    velocity = 100,
-    isSlide = false,
-    drive: BassDrive = "warm"
-  ) {
-    const ctx = this.init();
-    const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * 0.48;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const dist = ctx.createWaveShaper();
-
-    // Saturação configurável (Clean, Warm, Overdrive)
-    const curve = new Float32Array(128);
-    const k = drive === "overdrive" ? 8 : drive === "warm" ? 2 : 0;
-    for (let i = 0; i < 128; i++) {
-      const x = (i * 2) / 128 - 1;
-      if (k === 0) {
-        curve[i] = x;
-      } else {
-        curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
-      }
-    }
-    dist.curve = curve;
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq * 1.5, when);
-    osc.frequency.exponentialRampToValueAtTime(freq, when + 0.05);
-
-    if (isSlide) {
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
-    }
-
-    gain.gain.setValueAtTime(vol, when);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
-
-    osc.connect(dist).connect(gain).connect(ctx.destination);
-    osc.start(when);
-    osc.stop(when + durationSec + 0.05);
-  }
-
-  playSnare(when: number, velocity = 90, kit: DrumKitMode = "trap-808") {
-    const ctx = this.init();
-    const vol = (velocity / 127) * 0.36;
-    const dur = kit === "funk-tamborzao" ? 0.09 : 0.13;
-
-    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = kit === "drill-punch" ? 2200 : 1600;
-    filter.Q.value = 1.2;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(vol, when);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
-
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(when);
-
-    // Body tone
-    const osc = ctx.createOscillator();
-    const tGain = ctx.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(190, when);
-    osc.frequency.exponentialRampToValueAtTime(85, when + 0.07);
-
-    tGain.gain.setValueAtTime(vol * 0.75, when);
-    tGain.gain.exponentialRampToValueAtTime(0.001, when + 0.08);
-
-    osc.connect(tGain).connect(ctx.destination);
-    osc.start(when);
-    osc.stop(when + 0.09);
-  }
-
-  playHat(when: number, velocity = 75) {
-    const ctx = this.init();
-    const dur = 0.04;
-    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 7500;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime((velocity / 127) * 0.18, when);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
-
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(when);
-  }
-
-  playOpenHat(when: number, velocity = 80) {
-    const ctx = this.init();
-    const dur = 0.22;
-    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 6200;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime((velocity / 127) * 0.22, when);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
-
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(when);
-  }
-
-  playMelodyNote(
-    when: number,
-    midiNote: number,
-    durationSec: number,
-    velocity = 90,
-    synthType: MelodySynthType = "lead"
-  ) {
-    const ctx = this.init();
-    const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * (synthType === "pad" ? 0.28 : 0.22);
-
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
-    const gain = ctx.createGain();
-
-    osc1.type = synthType === "pad" ? "triangle" : synthType === "arp" ? "sawtooth" : "sawtooth";
-    osc1.frequency.setValueAtTime(freq, when);
-
-    osc2.type = synthType === "pluck" ? "sine" : "triangle";
-    osc2.frequency.setValueAtTime(freq * 1.003, when);
-
-    filter.type = "lowpass";
-    const cutoff = synthType === "pad" ? 1800 : synthType === "pluck" ? 4200 : synthType === "arp" ? 3600 : 3000;
-    filter.frequency.setValueAtTime(cutoff, when);
-    filter.frequency.exponentialRampToValueAtTime(450, when + durationSec * 0.9);
-    filter.Q.value = synthType === "pluck" ? 5.0 : 3.2;
-
-    gain.gain.setValueAtTime(vol, when);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (this.delayNode) gain.connect(this.delayNode);
-
-    osc1.start(when);
-    osc2.start(when);
-    osc1.stop(when + durationSec + 0.05);
-    osc2.stop(when + durationSec + 0.05);
-  }
-}
-
-const studioAudio = new WebAudioStudio();
-
-// ==========================================
-// SEQUENCER GRID COMPONENT
-// ==========================================
-function InteractiveSequencer({
-  active,
-  heights,
-  labels,
-  currentStep,
-  colorTheme,
-  onStepClick,
-  muted = false,
-}: {
+interface InteractiveSequencerProps {
+  sequencerId: string;
   active: Set<number>;
   heights?: Record<number, number>;
   labels?: Record<number, string>;
-  currentStep: number | null;
   colorTheme: "acid" | "cyan" | "violet";
   onStepClick: (stepIndex: number) => void;
   muted?: boolean;
-}) {
+  registerContainer?: (id: string, el: HTMLElement | null) => void;
+  registerPlayhead?: (id: string, el: HTMLElement | null) => void;
+}
+
+const InteractiveSequencer = memo(function InteractiveSequencer({
+  sequencerId,
+  active,
+  heights,
+  labels,
+  colorTheme,
+  onStepClick,
+  muted = false,
+  registerContainer,
+  registerPlayhead,
+}: InteractiveSequencerProps) {
   return (
-    <div className={`sequence ${colorTheme} ${muted ? "is-muted" : ""}`} aria-label="Sequenciador Interativo de 16 passos">
+    <div
+      ref={(el) => registerContainer?.(sequencerId, el)}
+      data-sequencer-id={sequencerId}
+      className={`sequence ${colorTheme} ${muted ? "is-muted" : ""}`}
+      aria-label="Sequenciador Interativo de 16 passos"
+    >
+      {/* 60FPS Hardware-Accelerated Continuous Playhead Line */}
+      <div
+        ref={(el) => registerPlayhead?.(sequencerId, el)}
+        className="playhead-line"
+      />
+
       <div className="grid16">
         {Array.from({ length: 16 }, (_, step) => {
           const isHit = active.has(step);
-          const isCurrent = currentStep === step;
           const height = heights?.[step] ?? (isHit ? 64 : 14);
           const label = labels?.[step];
           return (
             <button
               type="button"
               key={step}
-              className={`step-col ${isHit ? "has-hit" : ""} ${isCurrent ? "is-playing" : ""}`}
+              data-step-index={step}
+              className={`step-col ${isHit ? "has-hit" : ""}`}
               onClick={() => onStepClick(step)}
               title={`Passo ${step + 1}${label ? `: ${label}` : ""} (Clique para editar)`}
             >
@@ -464,34 +239,36 @@ function InteractiveSequencer({
       </div>
     </div>
   );
-}
+});
 
 // ==========================================
 // MELODY LAYER CARD COMPONENT
 // ==========================================
-function MelodyLayerCard({
-  layer,
-  index,
-  totalLayers,
-  currentStep,
-  playbackActive,
-  busy,
-  onUpdate,
-  onGenerate,
-  onRemove,
-  onToggleStep,
-}: {
+interface MelodyLayerCardProps {
   layer: MelodyLayer;
   index: number;
   totalLayers: number;
-  currentStep: number | null;
-  playbackActive: boolean;
   busy: string | null;
   onUpdate: (id: string, patch: Partial<MelodyLayer>) => void;
   onGenerate: (layerId: string) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
-}) {
+  registerContainer?: (id: string, el: HTMLElement | null) => void;
+  registerPlayhead?: (id: string, el: HTMLElement | null) => void;
+}
+
+const MelodyLayerCard = memo(function MelodyLayerCard({
+  layer,
+  index,
+  totalLayers,
+  busy,
+  onUpdate,
+  onGenerate,
+  onRemove,
+  onToggleStep,
+  registerContainer,
+  registerPlayhead,
+}: MelodyLayerCardProps) {
   const steps = new Set(layer.result?.notes.map((n) => n.step) ?? []);
   const heights: Record<number, number> = {};
   const labels: Record<number, string> = {};
@@ -593,13 +370,15 @@ function MelodyLayerCard({
       </div>
 
       <InteractiveSequencer
+        sequencerId={layer.id}
         active={steps}
         heights={heights}
         labels={labels}
-        currentStep={playbackActive ? currentStep : null}
         colorTheme="acid"
         onStepClick={(step) => onToggleStep(layer.id, step)}
         muted={layer.muted}
+        registerContainer={registerContainer}
+        registerPlayhead={registerPlayhead}
       />
 
       <div className="actions">
@@ -625,13 +404,22 @@ function MelodyLayerCard({
       </div>
     </div>
   );
+});
+
+const emptySubscribe = () => () => {};
+function useIsClient() {
+  return React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 }
 
 // ==========================================
 // MAIN STUDIO COMPONENT
 // ==========================================
 export default function BeatStudio() {
-  const [mounted, setMounted] = useState(false);
+  const isClient = useIsClient();
 
   // Global settings
   const [bpm, setBpm] = useState(140);
@@ -646,14 +434,14 @@ export default function BeatStudio() {
     createDefaultLayer("trap-br", "C", "natural-minor", "lead"),
   ]);
 
-  // 808 Bass Engine State (Functional controls)
+  // 808 Bass Engine State
   const [bassStyle, setBassStyle] = useState<StyleId>("trap-br");
   const [bassOctave, setBassOctave] = useState<BassOctave>(-24); // C1 default
   const [bassDrive, setBassDrive] = useState<BassDrive>("warm");
   const [bass, setBass] = useState<BassResult | null>(null);
   const [muteBass, setMuteBass] = useState(false);
 
-  // Drum Engine State (Functional controls)
+  // Drum Engine State
   const [drumStyle, setDrumStyle] = useState<StyleId>("trap-br");
   const [drumPattern, setDrumPattern] = useState<DrumPatternMode>("standard");
   const [drumKit, setDrumKit] = useState<DrumKitMode>("trap-808");
@@ -666,31 +454,123 @@ export default function BeatStudio() {
   const [error, setError] = useState("");
 
   // Playback state
-  const [playbackMode, setPlaybackMode] = useState<"all" | "melody" | "bass" | "drums" | null>(null);
-  const [currentStep, setCurrentStep] = useState<number | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode | null>(null);
   const [isLooping, setIsLooping] = useState(true);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const stepRef = useRef(0);
-  const playbackModeRef = useRef(playbackMode);
-  playbackModeRef.current = playbackMode;
+  // Audio Engine & Web Worker RPC Client References
+  const audioEngineRef = useRef<SampleAccurateAudioEngine>(new SampleAccurateAudioEngine());
+  const workerClientRef = useRef<StudioWorkerClient | null>(null);
 
-  const melodyLayersRef = useRef(melodyLayers);
-  melodyLayersRef.current = melodyLayers;
-  const bassRef = useRef(bass);
-  bassRef.current = bass;
-  const drumsRef = useRef(drums);
-  drumsRef.current = drums;
-  const muteBassRef = useRef(muteBass);
-  muteBassRef.current = muteBass;
-  const muteDrumsRef = useRef(muteDrums);
-  muteDrumsRef.current = muteDrums;
-  const bassDriveRef = useRef(bassDrive);
-  bassDriveRef.current = bassDrive;
-  const drumKitRef = useRef(drumKit);
-  drumKitRef.current = drumKit;
+  // Playhead 60FPS RAF Controller
+  const { registerContainer, registerPlayhead } = usePlayheadController({
+    audioEngineRef,
+    isPlaying: playbackMode !== null,
+  });
 
-  // ---- BPM Input Handler (Prevents locking to 0 on backspace) ----
+  // Keep state refs for immediate access
+  const stateRef = useRef({
+    bpm,
+    key,
+    globalScale,
+    complexity,
+    melodyLayers,
+    bass,
+    drums,
+    muteBass,
+    muteDrums,
+    bassDrive,
+    drumKit,
+    bassStyle,
+    bassOctave,
+    drumStyle,
+    drumPattern,
+    isLooping,
+    playbackMode,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      bpm,
+      key,
+      globalScale,
+      complexity,
+      melodyLayers,
+      bass,
+      drums,
+      muteBass,
+      muteDrums,
+      bassDrive,
+      drumKit,
+      bassStyle,
+      bassOctave,
+      drumStyle,
+      drumPattern,
+      isLooping,
+      playbackMode,
+    };
+
+    // Update real-time step events map without restarting playback
+    if (audioEngineRef.current.getIsPlaying()) {
+      audioEngineRef.current.prepareStepEvents({
+        melodyLayers,
+        bass,
+        drums,
+        muteBass,
+        muteDrums,
+        bassDrive,
+        drumKit,
+      });
+    }
+  }, [
+    bpm,
+    key,
+    globalScale,
+    complexity,
+    melodyLayers,
+    bass,
+    drums,
+    muteBass,
+    muteDrums,
+    bassDrive,
+    drumKit,
+    bassStyle,
+    bassOctave,
+    drumStyle,
+    drumPattern,
+    isLooping,
+    playbackMode,
+  ]);
+
+  // Stop playback helper
+  const stopPlayback = useCallback(() => {
+    audioEngineRef.current.stop();
+    setPlaybackMode(null);
+  }, []);
+
+  // Start playback helper with sample-accurate lookahead
+  const startPlayback = useCallback((mode: PlaybackMode) => {
+    stopPlayback();
+    setPlaybackMode(mode);
+
+    const s = stateRef.current;
+    audioEngineRef.current.start({
+      bpm: s.bpm,
+      isLooping: s.isLooping,
+      playbackMode: mode,
+      melodyLayers: s.melodyLayers,
+      bass: s.bass,
+      drums: s.drums,
+      muteBass: s.muteBass,
+      muteDrums: s.muteDrums,
+      bassDrive: s.bassDrive,
+      drumKit: s.drumKit,
+      onStop: () => {
+        setPlaybackMode(null);
+      },
+    });
+  }, [stopPlayback]);
+
+  // BPM Input Handler
   const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setBpmInput(val);
@@ -712,7 +592,7 @@ export default function BeatStudio() {
     setBpmInput(String(num));
   };
 
-  // ---- Artist Preset Handler (FL Studio Style) ----
+  // Artist Preset Handler
   const applyArtistPreset = (presetId: ArtistPresetId) => {
     setArtistPreset(presetId);
     if (presetId === "custom") return;
@@ -727,7 +607,6 @@ export default function BeatStudio() {
     setBassStyle(config.style);
     setDrumStyle(config.style);
 
-    // Apply to melody layers
     setMelodyLayers((prev) =>
       prev.map((l) => ({
         ...l,
@@ -738,7 +617,7 @@ export default function BeatStudio() {
     );
   };
 
-  // ---- Layer CRUD ----
+  // Layer CRUD
   const updateLayer = useCallback((id: string, patch: Partial<MelodyLayer>) => {
     setMelodyLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   }, []);
@@ -776,30 +655,25 @@ export default function BeatStudio() {
     );
   }, []);
 
-  // ---- Generator: Single Melody Layer ----
+  // Worker-Powered Generator: Single Melody Layer
   const generateMelodyLayer = useCallback(
     async (layerId: string) => {
-      const layer = melodyLayersRef.current.find((l) => l.id === layerId);
-      if (!layer) return;
+      const layer = stateRef.current.melodyLayers.find((l) => l.id === layerId);
+      if (!layer || !workerClientRef.current) return;
       setBusy(layerId);
       setError("");
       try {
-        const res = await fetch("/api/melody", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            style: layer.style,
-            bpm,
-            key: layer.key,
-            scale: layer.scale,
-            complexity,
-          }),
+        const result = await workerClientRef.current.generateMelody({
+          layerId,
+          style: layer.style,
+          bpm,
+          key: layer.key,
+          scale: layer.scale,
+          complexity,
         });
-        if (!res.ok) throw new Error();
-        const data: MelodyResult = await res.json();
-        updateLayer(layerId, { result: data });
-      } catch {
-        setError("Erro ao gerar camada de melodia.");
+        updateLayer(layerId, { result });
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Erro ao gerar camada de melodia.");
       } finally {
         setBusy(null);
       }
@@ -807,45 +681,34 @@ export default function BeatStudio() {
     [bpm, complexity, updateLayer]
   );
 
-  // ---- Generator: Bass / Drums ----
+  // Worker-Powered Generator: Bass / Drums
   const generateEngine = useCallback(
     async (engine: "bass" | "drums") => {
+      if (!workerClientRef.current) return;
       setBusy(engine);
       setError("");
       try {
         if (engine === "bass") {
-          const res = await fetch("/api/bass", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              style: bassStyle,
-              bpm,
-              key,
-              scale: globalScale,
-              bassOctave,
-              complexity,
-            }),
+          const bassData = await workerClientRef.current.generateBass({
+            style: bassStyle,
+            bpm,
+            key,
+            scale: globalScale,
+            bassOctave,
+            complexity,
           });
-          if (!res.ok) throw new Error();
-          const data = await res.json();
-          setBass(data);
+          setBass(bassData);
         } else {
-          const res = await fetch("/api/drums", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              style: drumStyle,
-              bpm,
-              drumPattern,
-              complexity,
-            }),
+          const drumsData = await workerClientRef.current.generateDrums({
+            style: drumStyle,
+            bpm,
+            drumPattern,
+            complexity,
           });
-          if (!res.ok) throw new Error();
-          const data = await res.json();
-          setDrums(data);
+          setDrums(drumsData);
         }
-      } catch {
-        setError(`Erro ao gerar ${engine}.`);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : `Erro ao gerar ${engine}.`);
       } finally {
         setBusy(null);
       }
@@ -853,162 +716,44 @@ export default function BeatStudio() {
     [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity]
   );
 
-  // ---- Generator: Full Beat ----
+  // Worker-Powered Generator: Full Beat (Simultaneous Promise.all Orchestrated in Worker)
   const generateFullBeat = useCallback(async () => {
+    if (!workerClientRef.current) return;
     setBusy("all");
     setError("");
     try {
-      const layerPromises = melodyLayersRef.current.map((layer) =>
-        fetch("/api/melody", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            style: layer.style,
-            bpm,
-            key: layer.key,
-            scale: layer.scale,
-            complexity,
-          }),
-        }).then((r) => {
-          if (!r.ok) throw new Error();
-          return r.json() as Promise<MelodyResult>;
+      const allData = await workerClientRef.current.generateAll({
+        bpm,
+        key,
+        globalScale,
+        complexity,
+        bassStyle,
+        bassOctave,
+        drumStyle,
+        drumPattern,
+        melodyLayers: stateRef.current.melodyLayers.map((l) => ({
+          id: l.id,
+          style: l.style,
+          key: l.key,
+          scale: l.scale,
+          muted: l.muted,
+        })),
+      });
+
+      setBass(allData.bass);
+      setDrums(allData.drums);
+      setMelodyLayers((prev) =>
+        prev.map((l) => {
+          const found = allData.melodyResults.find((m) => m.layerId === l.id);
+          return found ? { ...l, result: found.result } : l;
         })
       );
-
-      const [bassRes, drumsRes, ...melodyResults] = await Promise.all([
-        fetch("/api/bass", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            style: bassStyle,
-            bpm,
-            key,
-            scale: globalScale,
-            bassOctave,
-            complexity,
-          }),
-        }),
-        fetch("/api/drums", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            style: drumStyle,
-            bpm,
-            drumPattern,
-            complexity,
-          }),
-        }),
-        ...layerPromises,
-      ]);
-
-      if (!bassRes.ok || !drumsRes.ok) throw new Error();
-      const [bassData, drumsData] = await Promise.all([bassRes.json(), drumsRes.json()]);
-
-      setMelodyLayers((prev) => prev.map((l, i) => ({ ...l, result: melodyResults[i] ?? l.result })));
-      setBass(bassData);
-      setDrums(drumsData);
-    } catch {
-      setError("Erro ao gerar beat completo.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar beat completo.");
     } finally {
       setBusy(null);
     }
   }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity]);
-
-  // Initial load
-  useEffect(() => {
-    setMounted(true);
-    generateFullBeat();
-  }, []);
-
-  // Playback helper
-  const stopPlayback = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setPlaybackMode(null);
-    setCurrentStep(null);
-    stepRef.current = 0;
-  }, []);
-
-  const triggerStep = useCallback(
-    (stepIdx: number, mode: "all" | "melody" | "bass" | "drums") => {
-      const ctx = studioAudio.getContext();
-      const now = ctx.currentTime + 0.01;
-      const stepDuration = 60 / bpm / 4;
-
-      // 1. Melody Layers
-      if (mode === "all" || mode === "melody") {
-        const layers = melodyLayersRef.current;
-        const activeLayers = layers.filter((l) => !l.muted && l.result);
-        const volScale = activeLayers.length > 1 ? 0.75 / activeLayers.length : 1;
-
-        activeLayers.forEach((layer) => {
-          const note = layer.result!.notes.find((n) => n.step === stepIdx);
-          if (note) {
-            studioAudio.playMelodyNote(
-              now,
-              note.note,
-              stepDuration * (note.duration || 1) * 0.95 * volScale,
-              note.velocity,
-              layer.synthType
-            );
-          }
-        });
-      }
-
-      // 2. 808 Bass
-      if ((mode === "all" || mode === "bass") && !muteBassRef.current && bassRef.current) {
-        const bNote = bassRef.current.notes.find((n) => n.step === stepIdx);
-        if (bNote) {
-          studioAudio.play808Bass(
-            now,
-            bNote.note,
-            stepDuration * (bNote.duration || 2) * 0.98,
-            bNote.velocity,
-            bNote.slide,
-            bassDriveRef.current
-          );
-        }
-      }
-
-      // 3. Drums
-      if ((mode === "all" || mode === "drums") && !muteDrumsRef.current && drumsRef.current) {
-        drumsRef.current.hits
-          .filter((h) => h.step === stepIdx)
-          .forEach((h) => {
-            if (h.drum === "kick") studioAudio.playKick(now, h.velocity, drumKitRef.current);
-            else if (h.drum === "snare") studioAudio.playSnare(now, h.velocity, drumKitRef.current);
-            else if (h.drum === "open-hat") studioAudio.playOpenHat(now, h.velocity);
-            else studioAudio.playHat(now, h.velocity);
-          });
-      }
-    },
-    [bpm]
-  );
-
-  const startPlayback = useCallback(
-    (mode: "all" | "melody" | "bass" | "drums") => {
-      stopPlayback();
-      studioAudio.init();
-      setPlaybackMode(mode);
-      stepRef.current = 0;
-      setCurrentStep(0);
-      triggerStep(0, mode);
-
-      const stepIntervalMs = (60 / bpm / 4) * 1000;
-      timerRef.current = setInterval(() => {
-        stepRef.current = (stepRef.current + 1) % 16;
-        if (stepRef.current === 0 && !isLooping) {
-          stopPlayback();
-          return;
-        }
-        setCurrentStep(stepRef.current);
-        triggerStep(stepRef.current, playbackModeRef.current || mode);
-      }, stepIntervalMs);
-    },
-    [bpm, isLooping, stopPlayback, triggerStep]
-  );
 
   // Bass step edit
   const toggleBassStep = (stepIdx: number) => {
@@ -1030,49 +775,71 @@ export default function BeatStudio() {
   const toggleDrumStep = (stepIdx: number) => {
     if (!drums) return;
     const currentHits = drums.hits.filter((h) => h.step === stepIdx);
-    let updatedHits = drums.hits.filter((h) => h.step !== stepIdx);
+    const updatedHits = drums.hits.filter((h) => h.step !== stepIdx);
     if (currentHits.length === 0) updatedHits.push({ step: stepIdx, drum: "kick", velocity: 95 });
     else if (currentHits.some((h) => h.drum === "kick")) updatedHits.push({ step: stepIdx, drum: "snare", velocity: 95 });
     else if (currentHits.some((h) => h.drum === "snare")) updatedHits.push({ step: stepIdx, drum: "hat", velocity: 75 });
     setDrums({ ...drums, hits: updatedHits.sort((a, b) => a.step - b.step) });
   };
 
-  // Export MIDI
-  const handleExportMidi = () => {
+  // Export MIDI (Processed in Worker with Zero-Copy ArrayBuffer Transfer)
+  const handleExportMidi = async () => {
+    if (!workerClientRef.current) return;
+    setError("");
     try {
-      const midiData = createMidiFile({ bpm, melodyLayers, bass, drums });
-      downloadMidiBlob(midiData, `AutoTunel-${key}-${bpm}BPM.mid`);
-    } catch {
-      setError("Erro ao gerar arquivo MIDI.");
+      const result = await workerClientRef.current.exportMidi({
+        bpm,
+        melodyLayers: stateRef.current.melodyLayers,
+        bass: stateRef.current.bass,
+        drums: stateRef.current.drums,
+        filename: `AutoTunel-${key}-${bpm}BPM.mid`,
+      });
+      downloadMidiBlob(result.buffer, result.filename);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar arquivo MIDI no worker.");
     }
   };
 
-  // Export WAV
+  // Export WAV (Pure Float32 DSP Processed in Worker with Zero-Copy ArrayBuffer Transfer)
   const handleExportWav = async () => {
+    if (!workerClientRef.current) return;
     setExportingWav(true);
     setError("");
     try {
-      await renderAndDownloadWav({
+      const result = await workerClientRef.current.exportWav({
         bpm,
-        melodyLayers: melodyLayers.filter((l) => !l.muted),
+        melodyLayers: stateRef.current.melodyLayers.filter((l) => !l.muted),
         bass: muteBass ? null : bass,
         drums: muteDrums ? null : drums,
         loops: 2,
+        bassDrive,
+        drumKit,
         filename: `AutoTunel-${key}-${bpm}BPM-Master.wav`,
       });
-    } catch {
-      setError("Erro ao renderizar áudio WAV.");
+      downloadWavBlob(result.buffer, result.filename);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao renderizar áudio WAV no worker.");
     } finally {
       setExportingWav(false);
     }
   };
 
-  // Cleanup
+  // Lifecycle Initialization & Worker Cleanup
   useEffect(() => {
+    const engine = audioEngineRef.current;
+    workerClientRef.current = new StudioWorkerClient();
+
+    // Trigger initial generation
+    generateFullBeat();
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      engine.stop();
+      if (workerClientRef.current) {
+        workerClientRef.current.terminate();
+        workerClientRef.current = null;
+      }
     };
-  }, []);
+  }, [generateFullBeat]);
 
   // Visualizations
   const bassSteps = new Set(bass?.notes.map((n) => n.step) ?? []);
@@ -1091,9 +858,9 @@ export default function BeatStudio() {
     drumLabels[h.step] = h.drum.toUpperCase();
   });
 
-  const hasAnyData = melodyLayers.some((l) => l.result) || bass || drums;
+  const hasAnyData = melodyLayers.some((l) => l.result) || bass !== null || drums !== null;
 
-  if (!mounted) {
+  if (!isClient) {
     return (
       <main className="shell">
         <nav className="topbar">
@@ -1110,7 +877,7 @@ export default function BeatStudio() {
   return (
     <main className="shell">
       {/* ==========================================
-          1. TOPBAR (Minimalista e Elegante)
+          1. TOPBAR
           ========================================== */}
       <nav className="topbar">
         <div className="topbar-brand">
@@ -1183,7 +950,7 @@ export default function BeatStudio() {
               <IconRefresh className="w-3.5 h-3.5" /> Loop: {isLooping ? "ON" : "OFF"}
             </button>
 
-            {/* EXPORT BUTTONS (Now positioned comfortably in the Master Hub) */}
+            {/* EXPORT BUTTONS */}
             <div className="export-hub">
               <button
                 className="btn-export-midi"
@@ -1331,13 +1098,13 @@ export default function BeatStudio() {
               layer={layer}
               index={idx}
               totalLayers={melodyLayers.length}
-              currentStep={playbackMode ? currentStep : null}
-              playbackActive={!!playbackMode}
               busy={busy}
               onUpdate={updateLayer}
               onGenerate={generateMelodyLayer}
               onRemove={removeMelodyLayer}
               onToggleStep={toggleMelodyStep}
+              registerContainer={registerContainer}
+              registerPlayhead={registerPlayhead}
             />
           ))}
         </div>
@@ -1409,13 +1176,15 @@ export default function BeatStudio() {
           </div>
 
           <InteractiveSequencer
+            sequencerId="bass-sequencer"
             active={bassSteps}
             heights={bassHeights}
             labels={bassLabels}
-            currentStep={playbackMode ? currentStep : null}
             colorTheme="cyan"
             onStepClick={toggleBassStep}
             muted={muteBass}
+            registerContainer={registerContainer}
+            registerPlayhead={registerPlayhead}
           />
 
           <div className="actions">
@@ -1506,13 +1275,15 @@ export default function BeatStudio() {
           </div>
 
           <InteractiveSequencer
+            sequencerId="drums-sequencer"
             active={drumSteps}
             heights={drumHeights}
             labels={drumLabels}
-            currentStep={playbackMode ? currentStep : null}
             colorTheme="violet"
             onStepClick={toggleDrumStep}
             muted={muteDrums}
+            registerContainer={registerContainer}
+            registerPlayhead={registerPlayhead}
           />
 
           <div className="actions">

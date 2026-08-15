@@ -1,4 +1,4 @@
-import type { BassResult, DrumResult, MelodyLayer, MelodyResult } from "../music/types";
+import type { BassResult, DrumResult, MelodyLayer } from "../music/types";
 
 // Helper to write Variable-Length Quantities in MIDI
 function writeVarLength(value: number): number[] {
@@ -28,7 +28,11 @@ function numToBytes(num: number, byteCount: number): number[] {
 }
 
 function stringToBytes(str: string): number[] {
-  return str.split("").map((c) => c.charCodeAt(0));
+  const bytes: number[] = [];
+  for (let i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i));
+  }
+  return bytes;
 }
 
 interface MidiEvent {
@@ -36,6 +40,10 @@ interface MidiEvent {
   data: number[];
 }
 
+/**
+ * Pure binary MIDI Format 1 compiler.
+ * Safe to execute inside Web Worker, Node.js, and browser main thread.
+ */
 export function createMidiFile({
   bpm,
   melodyLayers,
@@ -195,9 +203,8 @@ export function createMidiFile({
     ...numToBytes(TICKS_PER_BEAT, 2), // 480 Ticks per quarter note
   ];
 
-  const fullFile = new Uint8Array(
-    tracks.reduce((acc, trk) => acc + trk.length, header.length)
-  );
+  const totalLength = tracks.reduce((acc, trk) => acc + trk.length, header.length);
+  const fullFile = new Uint8Array(totalLength);
 
   fullFile.set(header, 0);
   let offset = header.length;
@@ -209,8 +216,13 @@ export function createMidiFile({
   return fullFile;
 }
 
-export function downloadMidiBlob(data: Uint8Array, filename = "AutoTunel-Beat.mid") {
-  const blob = new Blob([data as unknown as BlobPart], { type: "audio/midi" });
+/**
+ * Main-thread only: downloads the MIDI data as a file.
+ */
+export function downloadMidiBlob(data: Uint8Array | ArrayBuffer, filename = "AutoTunel-Beat.mid") {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const uint8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const blob = new Blob([uint8 as unknown as BlobPart], { type: "audio/midi" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
