@@ -268,12 +268,10 @@ interface MelodyLayerCardProps {
   index: number;
   totalLayers: number;
   busy: string | null;
-  playbackMode: PlaybackMode | null;
   onUpdate: (id: string, patch: Partial<MelodyLayer>) => void;
   onGenerate: (layerId: string) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
-  onTogglePlayMelody: () => void;
   registerContainer?: (id: string, el: HTMLElement | null) => void;
   registerPlayhead?: (id: string, el: HTMLElement | null) => void;
 }
@@ -283,12 +281,10 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   index,
   totalLayers,
   busy,
-  playbackMode,
   onUpdate,
   onGenerate,
   onRemove,
   onToggleStep,
-  onTogglePlayMelody,
   registerContainer,
   registerPlayhead,
 }: MelodyLayerCardProps) {
@@ -404,7 +400,7 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
         registerPlayhead={registerPlayhead}
       />
 
-      <div className="actions layer-actions-row">
+      <div className="actions">
         <button className="primary" disabled={busy !== null} onClick={() => onGenerate(layer.id)}>
           {busy === layer.id ? (
             <span>Gerando...</span>
@@ -412,23 +408,6 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
             <span className="flex items-center justify-center gap-2">
               <IconDice className="w-4 h-4" /> Gerar {layer.label}
             </span>
-          )}
-        </button>
-        <button
-          type="button"
-          className={`btn-layer-play ${playbackMode === "melody" ? "playing" : ""}`}
-          disabled={!layer.result}
-          onClick={onTogglePlayMelody}
-          title={playbackMode === "melody" ? "Parar Reprodução" : "Reproduzir Melodia"}
-        >
-          {playbackMode === "melody" ? (
-            <>
-              <IconStop size={14} /> Parar
-            </>
-          ) : (
-            <>
-              <IconPlay size={14} /> Reproduzir
-            </>
           )}
         </button>
       </div>
@@ -1061,6 +1040,23 @@ export default function BeatStudio() {
             </button>
 
             <button
+              className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
+              onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
+              disabled={!hasAnyData}
+              title={playbackMode === "all" ? "Parar Reprodução do Mix" : "Reproduzir Mix Completo"}
+            >
+              {playbackMode === "all" ? (
+                <span className="flex items-center gap-2">
+                  <IconStop className="w-4 h-4" /> Parar
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <IconPlay className="w-4 h-4" /> Reproduzir
+                </span>
+              )}
+            </button>
+
+            <button
               className={`btn-loop ${isLooping ? "active" : ""}`}
               onClick={() => setIsLooping(!isLooping)}
               title={isLooping ? "Loop Contínuo Ativo" : "Tocar apenas 1 ciclo"}
@@ -1129,18 +1125,9 @@ export default function BeatStudio() {
             </div>
           </div>
           <div className="section-actions">
-            <button
-              type="button"
-              className={`ghost-sm ${playbackMode === "melody" ? "active-play" : ""}`}
-              disabled={!melodyLayers.some((l) => l.result)}
-              onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
-              title="Reproduzir todas as camadas melódicas"
-            >
-              {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Reproduzir Melodias
-            </button>
             {melodyLayers.length < MAX_MELODY_LAYERS && (
               <button className="btn-add-layer" onClick={addMelodyLayer} title="Adicionar nova camada (Lead, Pad, Pluck ou Arp)">
-                <IconPlus size={14} /> Adicionar Camada
+                <IconPlus size={14} /> Adicionar Camada de Melodia
               </button>
             )}
           </div>
@@ -1154,12 +1141,10 @@ export default function BeatStudio() {
               index={idx}
               totalLayers={melodyLayers.length}
               busy={busy}
-              playbackMode={playbackMode}
               onUpdate={updateLayer}
               onGenerate={generateMelodyLayer}
               onRemove={removeMelodyLayer}
               onToggleStep={toggleMelodyStep}
-              onTogglePlayMelody={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
               registerContainer={registerContainer}
               registerPlayhead={registerPlayhead}
             />
