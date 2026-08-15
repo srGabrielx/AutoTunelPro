@@ -660,6 +660,7 @@ export default function BeatStudio() {
     async (layerId: string) => {
       const layer = stateRef.current.melodyLayers.find((l) => l.id === layerId);
       if (!layer || !workerClientRef.current) return;
+      stopPlayback();
       setBusy(layerId);
       setError("");
       try {
@@ -685,6 +686,7 @@ export default function BeatStudio() {
   const generateEngine = useCallback(
     async (engine: "bass" | "drums") => {
       if (!workerClientRef.current) return;
+      stopPlayback();
       setBusy(engine);
       setError("");
       try {
@@ -719,6 +721,7 @@ export default function BeatStudio() {
   // Worker-Powered Generator: Full Beat (Simultaneous Promise.all Orchestrated in Worker)
   const generateFullBeat = useCallback(async () => {
     if (!workerClientRef.current) return;
+    stopPlayback();
     setBusy("all");
     setError("");
     try {
@@ -891,23 +894,7 @@ export default function BeatStudio() {
           <span className="status-text">{key} {SCALES[globalScale]?.label.split(" ")[0]} · {bpm} BPM</span>
         </div>
 
-        <div className="topbar-play">
-          <button
-            className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
-            onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
-            disabled={!hasAnyData}
-          >
-            {playbackMode === "all" ? (
-              <>
-                <IconStop className="w-4 h-4" /> Parar Mix
-              </>
-            ) : (
-              <>
-                <IconPlay className="w-4 h-4" /> Tocar Beat Completo
-              </>
-            )}
-          </button>
-        </div>
+
       </nav>
 
       {/* ==========================================
@@ -1075,14 +1062,7 @@ export default function BeatStudio() {
             </div>
           </div>
           <div className="section-actions">
-            <button
-              className={`ghost-sm ${playbackMode === "melody" ? "active-play" : ""}`}
-              disabled={!melodyLayers.some((l) => l.result)}
-              onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
-              title="Prévia solo apenas das melodias"
-            >
-              {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Solo Melodia
-            </button>
+
             {melodyLayers.length < MAX_MELODY_LAYERS && (
               <button className="btn-add-layer" onClick={addMelodyLayer} title="Adicionar nova camada (Lead, Pad, Pluck ou Arp)">
                 <IconPlus size={14} /> Adicionar Camada de Melodia
@@ -1135,14 +1115,7 @@ export default function BeatStudio() {
               >
                 {muteBass ? "MUTADO" : "MUTE"}
               </button>
-              <button
-                className={`ghost-sm ${playbackMode === "bass" ? "active-play" : ""}`}
-                disabled={!bass}
-                onClick={() => (playbackMode === "bass" ? stopPlayback() : startPlayback("bass"))}
-                title="Solo do 808"
-              >
-                {playbackMode === "bass" ? <IconStop size={14} /> : <IconPlay size={14} />}
-              </button>
+
             </div>
           </header>
 
@@ -1231,14 +1204,7 @@ export default function BeatStudio() {
               >
                 {muteDrums ? "MUTADO" : "MUTE"}
               </button>
-              <button
-                className={`ghost-sm ${playbackMode === "drums" ? "active-play" : ""}`}
-                disabled={!drums}
-                onClick={() => (playbackMode === "drums" ? stopPlayback() : startPlayback("drums"))}
-                title="Solo da Bateria"
-              >
-                {playbackMode === "drums" ? <IconStop size={14} /> : <IconPlay size={14} />}
-              </button>
+
             </div>
           </header>
 
@@ -1313,6 +1279,44 @@ export default function BeatStudio() {
       {/* ==========================================
           5. FOOTER
           ========================================== */}
+      {/* ==========================================
+          TRANSPORT BAR POPUP (BOTTOM)
+          ========================================== */}
+      {hasAnyData && (
+        <div className="transport-popup">
+          <button
+            className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
+            onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
+          >
+            {playbackMode === "all" ? <IconStop size={18} /> : <IconPlay size={18} />} Tocar Mix
+          </button>
+          <div className="transport-divider" />
+          <div className="transport-solos">
+            <button
+              className={`solo-btn ${playbackMode === "melody" ? "active" : ""}`}
+              onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
+              disabled={!melodyLayers.some((l) => l.result)}
+            >
+              {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Melodias
+            </button>
+            <button
+              className={`solo-btn ${playbackMode === "bass" ? "active" : ""}`}
+              onClick={() => (playbackMode === "bass" ? stopPlayback() : startPlayback("bass"))}
+              disabled={!bass}
+            >
+              {playbackMode === "bass" ? <IconStop size={14} /> : <IconPlay size={14} />} 808
+            </button>
+            <button
+              className={`solo-btn ${playbackMode === "drums" ? "active" : ""}`}
+              onClick={() => (playbackMode === "drums" ? stopPlayback() : startPlayback("drums"))}
+              disabled={!drums}
+            >
+              {playbackMode === "drums" ? <IconStop size={14} /> : <IconPlay size={14} />} Baterias
+            </button>
+          </div>
+        </div>
+      )}
+
       <footer className="footer-note">
         {error ? (
           <span className="error-text">⚠️ {error}</span>

@@ -1058,3 +1058,193 @@ h1 {
     margin-top: 8px;
   }
 }
+
+/* PWA Install Banner */
+.install-banner-overlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: 90%;
+  max-width: 480px;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 40px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.install-banner {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.install-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.install-banner-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.install-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.install-banner-text strong {
+  color: #fff;
+  font-size: 15px;
+}
+
+.install-banner-text span {
+  color: #a8a69e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.install-banner-actions button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-close {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: #a8a69e;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.btn-install {
+  background: var(--acid);
+  color: #08080a;
+  border: none;
+  box-shadow: 0 0 12px var(--acid-glow);
+}
+
+.btn-install:hover {
+  background: #d6ff5c;
+  transform: translateY(-1px);
+}
+
+/* Transport Popup Bottom */
+.transport-popup {
+  position: fixed;
+  bottom: 110px; /* Above PWA banner and avoiding ad zones */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 8, 10, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line-strong);
+  border-radius: 50px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 9900;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.transport-popup .master-btn {
+  margin: 0; /* Override any inherited margins */
+}
+
+.transport-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--line-strong);
+}
+
+.transport-solos {
+  display: flex;
+  gap: 6px;
+}
+
+.solo-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #a8a69e;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.solo-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.solo-btn.active {
+  background: rgba(200, 255, 61, 0.15); /* acid tint */
+  color: var(--acid);
+}
+
+.solo-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .transport-popup {
+    bottom: 24px; /* Move down on mobile if needed, but PWA banner is there. Let's keep 90px to be safe */
+    bottom: 90px;
+    width: 90%;
+    max-width: 400px;
+    flex-direction: column;
+    border-radius: 24px;
+    padding: 14px;
+    gap: 12px;
+  }
+  .transport-divider {
+    width: 100%;
+    height: 1px;
+  }
+  .transport-solos {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .solo-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .transport-popup .master-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
