@@ -1155,12 +1155,41 @@ h1 {
   transform: translateY(-1px);
 }
 
-/* Transport Popup Bottom */
-.transport-popup {
+/* Transport Drawer Container (Bottom) */
+.transport-drawer-container {
   position: fixed;
-  bottom: 110px; /* Above PWA banner and avoiding ad zones */
+  bottom: 110px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 9900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Aligns drawer to the left edge of the popup to form an "L" shape */
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.transport-drawer {
+  background: rgba(8, 8, 10, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 2x2 grid for parameters */
+  gap: 12px;
+  width: 340px; /* Fixed width to act as the vertical bar of the L shape */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  animation: fadeUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.transport-popup {
   background: rgba(8, 8, 10, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1170,13 +1199,11 @@ h1 {
   display: flex;
   align-items: center;
   gap: 16px;
-  z-index: 9900;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .transport-popup .master-btn {
-  margin: 0; /* Override any inherited margins */
+  margin: 0;
 }
 
 .transport-divider {
@@ -1211,7 +1238,7 @@ h1 {
 }
 
 .solo-btn.active {
-  background: rgba(200, 255, 61, 0.15); /* acid tint */
+  background: rgba(200, 255, 61, 0.15);
   color: var(--acid);
 }
 
@@ -1221,11 +1248,16 @@ h1 {
 }
 
 @media (max-width: 768px) {
-  .transport-popup {
-    bottom: 24px; /* Move down on mobile if needed, but PWA banner is there. Let's keep 90px to be safe */
+  .transport-drawer-container {
     bottom: 90px;
     width: 90%;
     max-width: 400px;
+  }
+  .transport-drawer {
+    width: 100%;
+  }
+  .transport-popup {
+    width: 100%;
     flex-direction: column;
     border-radius: 24px;
     padding: 14px;

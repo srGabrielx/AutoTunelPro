@@ -129,6 +129,16 @@ function IconRefresh({ size = 16, className = "" }: { size?: number; className?:
   );
 }
 
+function IconMenu({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </svg>
+  );
+}
+
 // ==========================================
 // CONSTANTS & HELPERS
 // ==========================================
@@ -428,6 +438,7 @@ export default function BeatStudio() {
   const [globalScale, setGlobalScale] = useState<ScaleId>("natural-minor");
   const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("custom");
   const [complexity, setComplexity] = useState(3);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Multi-Layer Melody State
   const [melodyLayers, setMelodyLayers] = useState<MelodyLayer[]>(() => [
@@ -976,71 +987,7 @@ export default function BeatStudio() {
               </select>
             </label>
 
-            <label className="param-field">
-              <span className="param-label">BPM Geral</span>
-              <input
-                type="text"
-                className="param-input bpm-input"
-                value={bpmInput}
-                onChange={handleBpmChange}
-                onBlur={handleBpmBlur}
-                placeholder="140"
-              />
-            </label>
 
-            <label className="param-field">
-              <span className="param-label">Tom Geral</span>
-              <select
-                className="param-select"
-                value={key}
-                onChange={(e) => {
-                  const newKey = e.target.value;
-                  setKey(newKey);
-                  setMelodyLayers((prev) => prev.map((l) => ({ ...l, key: newKey })));
-                  if (playbackMode) stopPlayback();
-                }}
-              >
-                {KEYS_LIST.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="param-field">
-              <span className="param-label">Escala (FL Scale)</span>
-              <select
-                className="param-select"
-                value={globalScale}
-                onChange={(e) => {
-                  const newScale = e.target.value as ScaleId;
-                  setGlobalScale(newScale);
-                  setMelodyLayers((prev) => prev.map((l) => ({ ...l, scale: newScale })));
-                }}
-              >
-                {Object.entries(SCALES).map(([id, info]) => (
-                  <option key={id} value={id}>
-                    {info.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="param-field">
-              <span className="param-label">Complexidade</span>
-              <select
-                className="param-select"
-                value={complexity}
-                onChange={(e) => setComplexity(Number(e.target.value))}
-              >
-                {[1, 2, 3, 4, 5].map((v) => (
-                  <option key={v} value={v}>
-                    Nível {v} / 5
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
       </section>
@@ -1283,36 +1230,116 @@ export default function BeatStudio() {
           TRANSPORT BAR POPUP (BOTTOM)
           ========================================== */}
       {hasAnyData && (
-        <div className="transport-popup">
-          <button
-            className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
-            onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
-          >
-            {playbackMode === "all" ? <IconStop size={18} /> : <IconPlay size={18} />} Tocar Mix
-          </button>
-          <div className="transport-divider" />
-          <div className="transport-solos">
+        <div className="transport-drawer-container">
+          {isDrawerOpen && (
+            <div className="transport-drawer">
+              <label className="param-field">
+                <span className="param-label">BPM Geral</span>
+                <input
+                  type="text"
+                  className="param-input bpm-input"
+                  value={bpmInput}
+                  onChange={handleBpmChange}
+                  onBlur={handleBpmBlur}
+                  placeholder="140"
+                />
+              </label>
+
+              <label className="param-field">
+                <span className="param-label">Tom Geral</span>
+                <select
+                  className="param-select"
+                  value={key}
+                  onChange={(e) => {
+                    const newKey = e.target.value;
+                    setKey(newKey);
+                    setMelodyLayers((prev) => prev.map((l) => ({ ...l, key: newKey })));
+                    if (playbackMode) stopPlayback();
+                  }}
+                >
+                  {KEYS_LIST.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="param-field">
+                <span className="param-label">Escala (FL Scale)</span>
+                <select
+                  className="param-select"
+                  value={globalScale}
+                  onChange={(e) => {
+                    const newScale = e.target.value as ScaleId;
+                    setGlobalScale(newScale);
+                    setMelodyLayers((prev) => prev.map((l) => ({ ...l, scale: newScale })));
+                  }}
+                >
+                  {Object.entries(SCALES).map(([id, info]) => (
+                    <option key={id} value={id}>
+                      {info.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="param-field">
+                <span className="param-label">Complexidade</span>
+                <select
+                  className="param-select"
+                  value={complexity}
+                  onChange={(e) => setComplexity(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <option key={v} value={v}>
+                      Nível {v} / 5
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          <div className="transport-popup">
             <button
-              className={`solo-btn ${playbackMode === "melody" ? "active" : ""}`}
-              onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
-              disabled={!melodyLayers.some((l) => l.result)}
+              className={`solo-btn ${isDrawerOpen ? "active" : ""}`}
+              onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+              title="Configurações (BPM, Tom, Escala, Complexidade)"
             >
-              {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Melodias
+              <IconMenu size={16} /> Config
             </button>
+            <div className="transport-divider" />
             <button
-              className={`solo-btn ${playbackMode === "bass" ? "active" : ""}`}
-              onClick={() => (playbackMode === "bass" ? stopPlayback() : startPlayback("bass"))}
-              disabled={!bass}
+              className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
+              onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
             >
-              {playbackMode === "bass" ? <IconStop size={14} /> : <IconPlay size={14} />} 808
+              {playbackMode === "all" ? <IconStop size={18} /> : <IconPlay size={18} />} Tocar Mix
             </button>
-            <button
-              className={`solo-btn ${playbackMode === "drums" ? "active" : ""}`}
-              onClick={() => (playbackMode === "drums" ? stopPlayback() : startPlayback("drums"))}
-              disabled={!drums}
-            >
-              {playbackMode === "drums" ? <IconStop size={14} /> : <IconPlay size={14} />} Baterias
-            </button>
+            <div className="transport-divider" />
+            <div className="transport-solos">
+              <button
+                className={`solo-btn ${playbackMode === "melody" ? "active" : ""}`}
+                onClick={() => (playbackMode === "melody" ? stopPlayback() : startPlayback("melody"))}
+                disabled={!melodyLayers.some((l) => l.result)}
+              >
+                {playbackMode === "melody" ? <IconStop size={14} /> : <IconPlay size={14} />} Melodias
+              </button>
+              <button
+                className={`solo-btn ${playbackMode === "bass" ? "active" : ""}`}
+                onClick={() => (playbackMode === "bass" ? stopPlayback() : startPlayback("bass"))}
+                disabled={!bass}
+              >
+                {playbackMode === "bass" ? <IconStop size={14} /> : <IconPlay size={14} />} 808
+              </button>
+              <button
+                className={`solo-btn ${playbackMode === "drums" ? "active" : ""}`}
+                onClick={() => (playbackMode === "drums" ? stopPlayback() : startPlayback("drums"))}
+                disabled={!drums}
+              >
+                {playbackMode === "drums" ? <IconStop size={14} /> : <IconPlay size={14} />} Baterias
+              </button>
+            </div>
           </div>
         </div>
       )}
