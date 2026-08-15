@@ -284,7 +284,7 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
       <div className="layer-header">
         <div className="layer-identity">
           <span className="engine-icon-badge acid">
-            <IconMusic size={16} />
+            <IconMusic size={24} />
           </span>
           <div className="layer-info">
             <span className="layer-label">
@@ -1065,7 +1065,7 @@ export default function BeatStudio() {
         <div className="section-header">
           <div className="section-title">
             <span className="engine-icon-badge acid">
-              <IconMelody size={20} />
+              <IconMelody size={24} />
             </span>
             <div>
               <b>Melody Engine (Multi-Camadas)</b>
@@ -1119,7 +1119,7 @@ export default function BeatStudio() {
           <header className="engine-head">
             <div className="engine-title">
               <span className="engine-icon-badge cyan">
-                <IconBass size={20} />
+                <IconBass size={24} />
               </span>
               <div>
                 <b>808 & Sub-Bass Engine</b>
@@ -1215,7 +1215,7 @@ export default function BeatStudio() {
           <header className="engine-head">
             <div className="engine-title">
               <span className="engine-icon-badge violet">
-                <IconDrums size={20} />
+                <IconDrums size={24} />
               </span>
               <div>
                 <b>Drum Engine</b>
