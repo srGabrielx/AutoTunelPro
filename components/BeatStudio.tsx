@@ -425,20 +425,10 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   );
 });
 
-const emptySubscribe = () => () => {};
-function useIsClient() {
-  return React.useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
-}
-
 // ==========================================
 // MAIN STUDIO COMPONENT
 // ==========================================
 export default function BeatStudio() {
-  const isClient = useIsClient();
 
   // Global settings
   const [bpm, setBpm] = useState(140);
@@ -651,7 +641,7 @@ export default function BeatStudio() {
     });
   }, [stopPlayback]);
 
-  // BPM Input Handler
+  // BPM Input Handler (Live Tempo Update Without Stopping Music)
   const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setBpmInput(val);
@@ -659,7 +649,9 @@ export default function BeatStudio() {
       const num = Number(val);
       if (!isNaN(num) && num >= 40 && num <= 300) {
         setBpm(num);
-        if (playbackMode) stopPlayback();
+        if (playbackMode) {
+          audioEngineRef.current.updateLiveParams({ bpm: num });
+        }
       }
     }
   };
@@ -671,7 +663,26 @@ export default function BeatStudio() {
     }
     setBpm(num);
     setBpmInput(String(num));
+    if (playbackMode) {
+      audioEngineRef.current.updateLiveParams({ bpm: num });
+    }
   };
+
+  // Sync any live changes to playing audio smoothly without stopping playback
+  useEffect(() => {
+    if (playbackMode) {
+      audioEngineRef.current.updateLiveParams({
+        bpm,
+        melodyLayers,
+        bass,
+        drums,
+        muteBass,
+        muteDrums,
+        bassDrive,
+        drumKit,
+      });
+    }
+  }, [bpm, melodyLayers, bass, drums, muteBass, muteDrums, bassDrive, drumKit, playbackMode]);
 
   // Artist Preset Handler
   const applyArtistPreset = (presetId: ArtistPresetId) => {
@@ -972,20 +983,6 @@ export default function BeatStudio() {
   });
 
   const hasAnyData = melodyLayers.some((l) => l.result) || bass !== null || drums !== null;
-
-  if (!isClient) {
-    return (
-      <main className="shell">
-        <nav className="topbar">
-          <div className="topbar-brand">
-            <img src="/logo.png" alt="AutoTunel" className="brand-logo-img" />
-            <span className="brand-text">AutoTunel</span>
-            <span className="version-pill">STUDIO</span>
-          </div>
-        </nav>
-      </main>
-    );
-  }
 
   return (
     <main className="shell">
@@ -1386,7 +1383,6 @@ export default function BeatStudio() {
                       const newKey = e.target.value;
                       setKey(newKey);
                       setMelodyLayers((prev) => prev.map((l) => ({ ...l, key: newKey })));
-                      if (playbackMode) stopPlayback();
                     }}
                   >
                     {KEYS_LIST.map((v) => (

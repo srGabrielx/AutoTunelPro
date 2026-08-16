@@ -1,9 +1,12 @@
 {
+  "id": "/",
   "name": "AutoTunel Studio - Gerador de Melodias & Beats",
   "short_name": "AutoTunel",
   "description": "Estúdio Musical PWA com Motores Melódicos, 808 e Baterias",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#08080a",
   "theme_color": "#08080a",
   "icons": [

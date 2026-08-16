@@ -225,6 +225,44 @@ export class SampleAccurateAudioEngine {
   }
 
   /**
+   * Update BPM or musical events live on the fly without cutting playback.
+   */
+  public updateLiveParams({
+    bpm,
+    melodyLayers,
+    bass,
+    drums,
+    muteBass,
+    muteDrums,
+    bassDrive,
+    drumKit,
+  }: {
+    bpm?: number;
+    melodyLayers?: MelodyLayer[];
+    bass?: BassResult | null;
+    drums?: DrumResult | null;
+    muteBass?: boolean;
+    muteDrums?: boolean;
+    bassDrive?: BassDrive;
+    drumKit?: DrumKitMode;
+  }) {
+    if (bpm !== undefined) {
+      this.bpm = Math.max(40, Math.min(300, bpm || 140));
+    }
+    if (melodyLayers !== undefined || bass !== undefined || drums !== undefined) {
+      this.prepareStepEvents({
+        melodyLayers: melodyLayers ?? [],
+        bass: bass ?? null,
+        drums: drums ?? null,
+        muteBass: muteBass ?? false,
+        muteDrums: muteDrums ?? false,
+        bassDrive: bassDrive ?? "warm",
+        drumKit: drumKit ?? "trap-808",
+      });
+    }
+  }
+
+  /**
    * Start sample-accurate lookahead playback.
    */
   public start({

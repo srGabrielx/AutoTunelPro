@@ -2,67 +2,74 @@
 
 import { useEffect, useState } from "react";
 
-// The BeforeInstallPromptEvent interface
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: "accepted" | "dismissed";
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
-
 export default function InstallBanner() {
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user already dismissed in this session
+    // Check if already in standalone PWA mode (installed app)
+    const isStandalone =
+      typeof window !== "undefined" &&
+      (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone);
+
+    if (isStandalone) {
+      setIsVisible(false);
+      return;
+    }
+
     const isDismissed = typeof window !== "undefined" && sessionStorage.getItem("pwa_banner_dismissed");
     if (isDismissed) return;
 
-    // Show banner after 2.5 seconds on first visit
-    const timer = setTimeout(() => {
-      // Don't show if already standalone (installed app)
-      const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
-      if (!isStandalone) {
-        setIsVisible(true);
-      }
-    }, 2500);
+    if (typeof window !== "undefined" && (window as any).deferredPWAInstallPrompt) {
+      setIsVisible(true);
+    }
 
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e as BeforeInstallPromptEvent);
+    const handlePromptReady = () => {
       setIsVisible(true);
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      (window as any).deferredPWAInstallPrompt = e;
+      setIsVisible(true);
+    };
+
+    window.addEventListener("pwa-prompt-ready", handlePromptReady);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+
+    // Show banner after short delay if not installed
+    const timer = setTimeout(() => {
+      if (!isStandalone && !sessionStorage.getItem("pwa_banner_dismissed")) {
+        setIsVisible(true);
+      }
+    }, 1500);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("pwa-prompt-ready", handlePromptReady);
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      if (outcome === "accepted") {
-        setIsVisible(false);
-        sessionStorage.setItem("pwa_banner_dismissed", "true");
+    const promptEvent = typeof window !== "undefined" ? (window as any).deferredPWAInstallPrompt : null;
+    if (promptEvent) {
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === "accepted") {
+          setIsVisible(false);
+          sessionStorage.setItem("pwa_banner_dismissed", "true");
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setInstallPrompt(null);
     } else {
-      // Fallback for browsers that don't support beforeinstallprompt (iOS Safari, Desktop Chrome already cached, etc.)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (isIOS) {
-        setInfoMessage("Para instalar no iOS: toque no botão Compartilhar ⎋ e selecione 'Adicionar à Tela de Início' ⊞.");
+        alert("Para instalar no iOS: toque no botão Compartilhar (⎋) do Safari e selecione 'Adicionar à Tela de Início' (+).");
       } else {
-        setInfoMessage("Para instalar: abra o menu do navegador (⋮) e clique em 'Instalar AutoTunel' ou 'Adicionar à tela inicial'.");
+        alert("Para instalar: abra o menu do seu navegador (⋮) no topo e selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
       }
-      setTimeout(() => setInfoMessage(null), 7000);
     }
   };
 
@@ -80,7 +87,7 @@ export default function InstallBanner() {
           <img src="/logo.png" alt="AutoTunel Logo" className="install-banner-logo" />
           <div className="install-banner-text">
             <strong>Instalar AutoTunel Studio</strong>
-            <span>{infoMessage || "Adicione o app à sua tela inicial para geração de beats super rápida e offline."}</span>
+            <span>Instale o aplicativo oficial para criar melodias e beats com resposta instantânea e offline.</span>
           </div>
         </div>
         <div className="install-banner-actions">
