@@ -617,6 +617,7 @@ export default function BeatStudio() {
     drumPattern,
     isLooping,
     playbackMode,
+    trackSettings,
   });
 
   useEffect(() => {
