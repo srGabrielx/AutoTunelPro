@@ -763,10 +763,11 @@ export default function BeatStudio() {
         setPlaybackMode(null);
       },
       onLoopComplete: () => {
-        if (s.isAutoArrangement && s.arrangementBlocks.length > 0) {
-          const nextIdx = (s.currentBlockIndex + 1) % s.arrangementBlocks.length;
+        const currentState = stateRef.current;
+        if (currentState.isAutoArrangement && currentState.arrangementBlocks.length > 0) {
+          const nextIdx = (currentState.currentBlockIndex + 1) % currentState.arrangementBlocks.length;
           setCurrentBlockIndex(nextIdx);
-          const nextBlock = s.arrangementBlocks[nextIdx];
+          const nextBlock = currentState.arrangementBlocks[nextIdx];
           if (nextBlock) {
             setBass(nextBlock.bass);
             setDrums(nextBlock.drums);
