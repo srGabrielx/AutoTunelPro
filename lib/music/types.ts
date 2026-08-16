@@ -40,6 +40,9 @@ export interface GenerateOptions {
   seed?: number;
   bassOctave?: BassOctave;
   drumPattern?: DrumPatternMode;
+  swing?: number;       // 0 to 100 %
+  rollDensity?: number; // 0 to 100 %
+  humanize?: number;    // 0 to 100 %
 }
 
 export interface MelodyNote {
@@ -83,10 +86,23 @@ export type DrumElementTrack =
   | { id: string; type: "hi-hat";   label: string; hits: DrumHit[] }
   | { id: string; type: "open-hat"; label: string; hits: DrumHit[] };
 
+/** Explicit roll structure for sub-step articulations */
+export interface DrumRoll {
+  count: 1 | 2 | 3 | 4 | 6; // Number of strokes within the 1/16 step (e.g. 2 = 1/32, 3 = triplet)
+  velocityCurve: "crescendo" | "decrescendo" | "flat";
+  pitchCurve?: {
+    startCents: number;
+    endCents: number;
+    durationMs: number;
+  };
+}
+
 export interface DrumHit {
   step: number;
   drum: "kick" | "snare" | "hat" | "open-hat";
   velocity: number;
+  roll?: DrumRoll;
+  microTimingMs?: number; // Bounded ±15ms
 }
 
 export interface DrumResult {

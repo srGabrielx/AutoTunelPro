@@ -4,6 +4,7 @@ import type {
   DrumHit,
   DrumKitMode,
   DrumResult,
+  DrumRoll,
   MelodyLayer,
   MelodySynthType,
 } from "./types";
@@ -31,6 +32,8 @@ export interface ScheduledStepEvent {
     drum: DrumHit["drum"];
     velocity: number;
     kit: DrumKitMode;
+    roll?: DrumRoll;
+    microTimingMs?: number;
   }>;
 }
 
@@ -42,6 +45,7 @@ export class SampleAccurateAudioEngine {
 
   // Per-track persistent GainNodes
   private trackGainNodes: Map<string, GainNode> = new Map();
+  private trackVolumes: Map<string, number> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
   private snareNoiseBuffer: AudioBuffer | null = null;
@@ -164,12 +168,28 @@ export class SampleAccurateAudioEngine {
    */
   public setTrackVolume(trackId: string, volume: number) {
     const gain = this.getOrCreateTrackGain(trackId);
+    this.trackVolumes.set(trackId, volume);
     if (!this.ctx) return;
     gain.gain.setTargetAtTime(
       Math.max(0, Math.min(1, volume)),
       this.ctx.currentTime,
       0.015
     );
+  }
+
+  /**
+   * Duck 808 sub-bass briefly when kick triggers (Sidechain Compression).
+   */
+  public duck808(when: number) {
+    const bassGain = this.trackGainNodes.get("bass");
+    if (!bassGain || !this.ctx) return;
+    const currentVol = this.trackVolumes.get("bass") ?? 0.8;
+    const duckedVol = currentVol * 0.32;
+    try {
+      bassGain.gain.setValueAtTime(currentVol, when);
+      bassGain.gain.linearRampToValueAtTime(duckedVol, when + 0.006); // 6ms attack
+      bassGain.gain.linearRampToValueAtTime(currentVol, when + 0.075); // 75ms release
+    } catch {}
   }
 
   /**
@@ -286,6 +306,8 @@ export class SampleAccurateAudioEngine {
             drum: hit.drum,
             velocity: hit.velocity,
             kit: drumKit,
+            roll: hit.roll,
+            microTimingMs: hit.microTimingMs,
           });
         }
       });
@@ -460,14 +482,55 @@ export class SampleAccurateAudioEngine {
       );
     }
 
-    // 3. Drums
+    // 3. Drums with Sub-Step Rolls, Parametric Pitch Curves, Micro-Timing & Sidechain
     if (this.playbackMode === "all" || this.playbackMode === "drums") {
       for (let i = 0; i < event.drumHits.length; i++) {
         const d = event.drumHits[i];
-        if (d.drum === "kick") this.playKick(when, d.velocity, d.kit);
-        else if (d.drum === "snare") this.playSnare(when, d.velocity, d.kit);
-        else if (d.drum === "open-hat") this.playOpenHat(when, d.velocity);
-        else this.playHat(when, d.velocity);
+        const offset = (d.microTimingMs || 0) / 1000;
+        const hitTime = Math.max(when, when + offset);
+
+        // Sidechain kick to 808 ducking
+        if (d.drum === "kick" && this.playbackMode === "all") {
+          this.duck808(hitTime);
+        }
+
+        if (d.roll && d.roll.count > 1) {
+          const subCount = d.roll.count;
+          const subInterval = stepDuration / subCount;
+          const pitchCurve = d.roll.pitchCurve;
+
+          for (let s = 0; s < subCount; s++) {
+            const subTime = hitTime + s * subInterval;
+            let velScale = 1.0;
+            if (d.roll.velocityCurve === "crescendo") {
+              velScale = 0.55 + 0.45 * (s / (subCount - 1 || 1));
+            } else if (d.roll.velocityCurve === "decrescendo") {
+              velScale = 1.0 - 0.45 * (s / (subCount - 1 || 1));
+            }
+            const subVel = Math.max(25, Math.min(127, Math.round(d.velocity * velScale)));
+
+            if (d.drum === "hat") {
+              let startF = 7500;
+              let endF = 7500;
+              if (pitchCurve) {
+                startF = 7500 * Math.pow(2, pitchCurve.startCents / 1200);
+                endF = 7500 * Math.pow(2, pitchCurve.endCents / 1200);
+              }
+              this.playHat(subTime, subVel, startF, subInterval * 0.82, endF);
+            } else if (d.drum === "snare") {
+              this.playSnare(subTime, subVel, d.kit);
+            } else if (d.drum === "kick") {
+              this.playKick(subTime, subVel, d.kit);
+            } else {
+              this.playOpenHat(subTime, subVel);
+            }
+          }
+        } else {
+          if (d.drum === "kick") this.playKick(hitTime, d.velocity, d.kit);
+          else if (d.drum === "snare") this.playSnare(hitTime, d.velocity, d.kit);
+          else if (d.drum === "open-hat") this.playOpenHat(hitTime, d.velocity);
+          else this.playHat(hitTime, d.velocity);
+        }
       }
     }
   }
@@ -539,15 +602,23 @@ export class SampleAccurateAudioEngine {
     this.trackNode(osc);
   }
 
-  private playHat(when: number, velocity = 75) {
+  private playHat(
+    when: number,
+    velocity = 75,
+    filterFreq = 7500,
+    dur = 0.038,
+    pitchEndFreq?: number
+  ) {
     if (!this.ctx || !this.hatNoiseBuffer) return;
-    const dur = 0.04;
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.hatNoiseBuffer;
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = "highpass";
-    filter.frequency.value = 7500;
+    filter.frequency.setValueAtTime(filterFreq, when);
+    if (pitchEndFreq && pitchEndFreq !== filterFreq) {
+      filter.frequency.exponentialRampToValueAtTime(Math.max(1000, pitchEndFreq), when + dur);
+    }
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();

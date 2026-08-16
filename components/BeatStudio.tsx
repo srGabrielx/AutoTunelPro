@@ -555,6 +555,9 @@ export default function BeatStudio() {
   const [drumStyle, setDrumStyle] = useState<StyleId>("trap-br");
   const [drumPattern, setDrumPattern] = useState<DrumPatternMode>("standard");
   const [drumKit, setDrumKit] = useState<DrumKitMode>("trap-808");
+  const [drumSwing, setDrumSwing] = useState(30);
+  const [drumRollDensity, setDrumRollDensity] = useState(65);
+  const [drumHumanize, setDrumHumanize] = useState(50);
   const [drums, setDrums] = useState<DrumResult | null>(null);
   const [muteDrums, setMuteDrums] = useState(false);
 
@@ -594,6 +597,9 @@ export default function BeatStudio() {
     bassOctave,
     drumStyle,
     drumPattern,
+    drumSwing,
+    drumRollDensity,
+    drumHumanize,
     isLooping,
     playbackMode,
     trackSettings,
@@ -616,6 +622,9 @@ export default function BeatStudio() {
       bassOctave,
       drumStyle,
       drumPattern,
+      drumSwing,
+      drumRollDensity,
+      drumHumanize,
       isLooping,
       playbackMode,
       trackSettings,
@@ -648,6 +657,9 @@ export default function BeatStudio() {
     bassOctave,
     drumStyle,
     drumPattern,
+    drumSwing,
+    drumRollDensity,
+    drumHumanize,
     isLooping,
     playbackMode,
     trackSettings,
@@ -854,6 +866,9 @@ export default function BeatStudio() {
             bpm,
             drumPattern,
             complexity,
+            swing: drumSwing,
+            rollDensity: drumRollDensity,
+            humanize: drumHumanize,
           });
           setDrums(drumsData);
         }
@@ -863,7 +878,7 @@ export default function BeatStudio() {
         setBusy(null);
       }
     },
-    [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity]
+    [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize]
   );
 
   // Worker-Powered Generator: Full Beat (Simultaneous Promise.all Orchestrated in Worker)
@@ -882,6 +897,9 @@ export default function BeatStudio() {
         bassOctave,
         drumStyle,
         drumPattern,
+        swing: drumSwing,
+        rollDensity: drumRollDensity,
+        humanize: drumHumanize,
         melodyLayers: stateRef.current.melodyLayers.map((l) => ({
           id: l.id,
           style: l.style,
@@ -904,7 +922,7 @@ export default function BeatStudio() {
     } finally {
       setBusy(null);
     }
-  }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity]);
+  }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize]);
 
   // Bass step edit
   const toggleBassStep = (stepIdx: number) => {
@@ -992,6 +1010,9 @@ export default function BeatStudio() {
         bassOctave: stateRef.current.bassOctave,
         drumStyle: stateRef.current.drumStyle,
         drumPattern: stateRef.current.drumPattern,
+        swing: stateRef.current.drumSwing,
+        rollDensity: stateRef.current.drumRollDensity,
+        humanize: stateRef.current.drumHumanize,
         melodyLayers: stateRef.current.melodyLayers.map((l) => ({
           id: l.id,
           style: l.style,
@@ -1372,6 +1393,51 @@ export default function BeatStudio() {
                 <option value="boom-bap">Boom Bap Vintage</option>
                 <option value="amapiano-log">Amapiano Shaker</option>
               </select>
+            </label>
+          </div>
+
+          <div className="groove-controls-row">
+            <label className="groove-control-item">
+              <span className="groove-label">
+                <span>Swing & Groove</span>
+                <span className="groove-val">{drumSwing}%</span>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={drumSwing}
+                onChange={(e) => setDrumSwing(Number(e.target.value))}
+                title="Atraso e balanço rítmico dos offbeats"
+              />
+            </label>
+            <label className="groove-control-item">
+              <span className="groove-label">
+                <span>Rolls & Triplets</span>
+                <span className="groove-val">{drumRollDensity}%</span>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={drumRollDensity}
+                onChange={(e) => setDrumRollDensity(Number(e.target.value))}
+                title="Frequência de rolls rápidos 1/32 e triplets 1/24"
+              />
+            </label>
+            <label className="groove-control-item">
+              <span className="groove-label">
+                <span>Humanize Velocity</span>
+                <span className="groove-val">{drumHumanize}%</span>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={drumHumanize}
+                onChange={(e) => setDrumHumanize(Number(e.target.value))}
+                title="Dinâmica de toques, ghost notes e variações de força"
+              />
             </label>
           </div>
 

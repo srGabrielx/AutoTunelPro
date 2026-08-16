@@ -38,6 +38,9 @@ export interface GenerateDrumsPayload {
   bpm: number;
   drumPattern: DrumPatternMode;
   complexity: number;
+  swing?: number;
+  rollDensity?: number;
+  humanize?: number;
 }
 
 export interface GenerateAllPayload {
@@ -49,6 +52,9 @@ export interface GenerateAllPayload {
   bassOctave: BassOctave;
   drumStyle: StyleId;
   drumPattern: DrumPatternMode;
+  swing?: number;
+  rollDensity?: number;
+  humanize?: number;
   melodyLayers: Array<{
     id: string;
     style: StyleId;

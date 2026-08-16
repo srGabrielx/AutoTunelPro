@@ -122,6 +122,9 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
             bpm: p.bpm,
             drumPattern: p.drumPattern,
             complexity: p.complexity,
+            swing: p.swing,
+            rollDensity: p.rollDensity,
+            humanize: p.humanize,
           }),
         });
 
@@ -192,6 +195,9 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
               bpm: p.bpm,
               drumPattern: p.drumPattern,
               complexity: p.complexity,
+              swing: p.swing,
+              rollDensity: p.rollDensity,
+              humanize: p.humanize,
             }),
           });
           if (!res.ok) throw { engine: "drums", message: `Erro ao gerar drums` };
