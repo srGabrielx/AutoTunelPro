@@ -798,7 +798,7 @@ export class SampleAccurateAudioEngine {
   ) {
     if (!this.ctx) return;
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * 0.48;
+    const vol = (velocity / 127) * 0.65; // Boosted base volume for harder hitting 808
     const cfg = BASS_808_CONFIGS[drive] || BASS_808_CONFIGS.warm;
 
     const trackGain = this.getOrCreateTrackGain("bass");

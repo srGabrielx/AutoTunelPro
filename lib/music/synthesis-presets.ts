@@ -171,20 +171,20 @@ export const BASS_808_CONFIGS: Record<BassDrive, Bass808SynthConfig> = {
   clean: {
     cleanSubGain: 0.90,
     parallelSatGain: 0.10,
-    pitchDiveStartMultiplier: 1.45,
-    pitchDiveDurationSec: 0.040,
+    pitchDiveStartMultiplier: 2.2,
+    pitchDiveDurationSec: 0.050,
   },
   warm: {
-    cleanSubGain: 0.68,
-    parallelSatGain: 0.38,
-    pitchDiveStartMultiplier: 1.50,
-    pitchDiveDurationSec: 0.045,
+    cleanSubGain: 0.70,
+    parallelSatGain: 0.45,
+    pitchDiveStartMultiplier: 2.8,
+    pitchDiveDurationSec: 0.065,
   },
   overdrive: {
     cleanSubGain: 0.55,
-    parallelSatGain: 0.55,
-    pitchDiveStartMultiplier: 1.58,
-    pitchDiveDurationSec: 0.050,
+    parallelSatGain: 0.65,
+    pitchDiveStartMultiplier: 3.5,
+    pitchDiveDurationSec: 0.080,
   },
 };
 
