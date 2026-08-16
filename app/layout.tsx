@@ -25,10 +25,6 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/logo.png" />
-      </head>
-      <body suppressHydrationWarning>
-        {children}
-        <InstallBanner />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -46,6 +42,10 @@ export default function RootLayout({
             `,
           }}
         />
+      </head>
+      <body suppressHydrationWarning>
+        {children}
+        <InstallBanner />
       </body>
     </html>
   );

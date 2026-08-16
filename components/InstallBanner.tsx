@@ -46,20 +46,20 @@ export default function InstallBanner() {
       setIsVisible(true);
     };
 
+    const handleAppInstalled = () => {
+      setIsVisible(false);
+      window.deferredPWAInstallPrompt = undefined;
+      sessionStorage.setItem("pwa_banner_dismissed", "true");
+    };
+
     window.addEventListener("pwa-prompt-ready", handlePromptReady);
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-
-    // Show banner after short delay if not installed
-    const timer = setTimeout(() => {
-      if (!isStandalone && !sessionStorage.getItem("pwa_banner_dismissed")) {
-        setIsVisible(true);
-      }
-    }, 1500);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      clearTimeout(timer);
       window.removeEventListener("pwa-prompt-ready", handlePromptReady);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
@@ -77,12 +77,9 @@ export default function InstallBanner() {
         console.error(err);
       }
     } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert("Para instalar no iOS: toque no botão Compartilhar (⎋) do Safari e selecione 'Adicionar à Tela de Início' (+).");
-      } else {
-        alert("Para instalar: abra o menu do seu navegador (⋮) no topo e selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
-      }
+      // Direct silent close without intrusive manual alerts
+      setIsVisible(false);
+      sessionStorage.setItem("pwa_banner_dismissed", "true");
     }
   };
 
