@@ -1,4 +1,10 @@
 import { buildGrooveEventPlan, type GrooveEvent } from "./groove-plan.ts";
+import {
+  BASS_808_CONFIGS,
+  DRUM_KIT_SYNTH_CONFIGS,
+  getMelodySynthConfig,
+  MASTER_BUS_CONFIG,
+} from "./synthesis-presets.ts";
 import type {
   BassDrive,
   BassResult,
@@ -708,36 +714,55 @@ export class SampleAccurateAudioEngine {
     if (!this.ctx) return;
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
     const vol = (velocity / 127) * 0.48;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    const dist = this.ctx.createWaveShaper();
-
-    if (drive === "overdrive" && this.distOverdriveCurve) {
-      dist.curve = this.distOverdriveCurve as Float32Array<ArrayBuffer>;
-    } else if (drive === "warm" && this.distWarmCurve) {
-      dist.curve = this.distWarmCurve as Float32Array<ArrayBuffer>;
-    } else {
-      dist.curve = null;
-    }
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq * 1.5, when);
-    osc.frequency.exponentialRampToValueAtTime(freq, when + 0.05);
-
-    if (isSlide) {
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
-    }
+    const cfg = BASS_808_CONFIGS[drive] || BASS_808_CONFIGS.warm;
 
     const trackGain = this.getOrCreateTrackGain("bass");
-    gain.gain.setValueAtTime(vol, when);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
 
-    osc.connect(dist).connect(gain).connect(trackGain);
-    osc.start(when);
-    osc.stop(when + durationSec + 0.05);
+    // 1. Clean Sub Oscillator (Preserves pure fundamental for physical subwoofers)
+    const cleanOsc = this.ctx.createOscillator();
+    const cleanGain = this.ctx.createGain();
+    cleanOsc.type = "sine";
+    cleanOsc.frequency.setValueAtTime(freq * cfg.pitchDiveStartMultiplier, when);
+    cleanOsc.frequency.exponentialRampToValueAtTime(freq, when + cfg.pitchDiveDurationSec);
 
-    this.trackNode(osc);
+    // 2. Parallel Saturated Oscillator (Upper harmonics for mobile speaker clarity)
+    const satOsc = this.ctx.createOscillator();
+    const satGain = this.ctx.createGain();
+    const satDist = this.ctx.createWaveShaper();
+    satOsc.type = "sine";
+    satOsc.frequency.setValueAtTime(freq * cfg.pitchDiveStartMultiplier, when);
+    satOsc.frequency.exponentialRampToValueAtTime(freq, when + cfg.pitchDiveDurationSec);
+
+    if (drive === "overdrive" && this.distOverdriveCurve) {
+      satDist.curve = this.distOverdriveCurve as Float32Array<ArrayBuffer>;
+    } else if (drive === "warm" && this.distWarmCurve) {
+      satDist.curve = this.distWarmCurve as Float32Array<ArrayBuffer>;
+    } else {
+      satDist.curve = null;
+    }
+
+    if (isSlide) {
+      cleanOsc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
+      satOsc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
+    }
+
+    // Parallel Gain Envelopes
+    cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when);
+    cleanGain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
+
+    satGain.gain.setValueAtTime(vol * cfg.parallelSatGain, when);
+    satGain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
+
+    cleanOsc.connect(cleanGain).connect(trackGain);
+    satOsc.connect(satDist).connect(satGain).connect(trackGain);
+
+    cleanOsc.start(when);
+    satOsc.start(when);
+    cleanOsc.stop(when + durationSec + 0.05);
+    satOsc.stop(when + durationSec + 0.05);
+
+    this.trackNode(cleanOsc);
+    this.trackNode(satOsc);
   }
 
   private playMelodyNote(
@@ -752,25 +777,24 @@ export class SampleAccurateAudioEngine {
     if (!this.ctx) return;
     const trackGain = this.getOrCreateTrackGain(layerId);
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * (synthType === "pad" ? 0.28 : 0.22) * volScale;
+    const cfg = getMelodySynthConfig(synthType);
+    const vol = (velocity / 127) * cfg.baseVol * cfg.gainCompensation * volScale;
 
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const filter = this.ctx.createBiquadFilter();
     const gain = this.ctx.createGain();
 
-    const detuneCents = synthType === "pad" ? 8 : synthType === "lead" ? 10 : 6;
-    osc1.type = synthType === "pad" ? "sawtooth" : synthType === "arp" ? "sawtooth" : "sawtooth";
-    osc1.frequency.setValueAtTime(freq * Math.pow(2, -detuneCents / 1200), when);
+    osc1.type = cfg.osc1Type;
+    osc1.frequency.setValueAtTime(freq * Math.pow(2, -cfg.detuneCents / 1200), when);
 
-    osc2.type = synthType === "pluck" ? "sine" : synthType === "pad" ? "triangle" : "sawtooth";
-    osc2.frequency.setValueAtTime(freq * Math.pow(2, detuneCents / 1200), when);
+    osc2.type = cfg.osc2Type;
+    osc2.frequency.setValueAtTime(freq * Math.pow(2, cfg.detuneCents / 1200), when);
 
     filter.type = "lowpass";
-    const cutoff = synthType === "pad" ? 2200 : synthType === "pluck" ? 4600 : synthType === "arp" ? 3800 : 3400;
-    filter.frequency.setValueAtTime(cutoff, when);
-    filter.frequency.exponentialRampToValueAtTime(380, when + durationSec * 0.92);
-    filter.Q.value = synthType === "pluck" ? 4.5 : 2.5;
+    filter.frequency.setValueAtTime(cfg.filterStartCutoff, when);
+    filter.frequency.exponentialRampToValueAtTime(cfg.filterEndCutoff, when + durationSec * 0.92);
+    filter.Q.value = cfg.filterQ;
 
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);

@@ -1,4 +1,10 @@
 import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan.ts";
+import {
+  BASS_808_CONFIGS,
+  DRUM_KIT_SYNTH_CONFIGS,
+  getMelodySynthConfig,
+  MASTER_BUS_CONFIG,
+} from "../music/synthesis-presets.ts";
 import type {
   BassDrive,
   BassResult,
@@ -252,18 +258,18 @@ export function renderDspAudio({
         const durSamples = Math.floor(noteDurSec * sampleRate);
         const freq = 440 * Math.pow(2, (note.note - 69) / 12);
         const layerVol = trackSettings[layer.id]?.volume ?? 1.0;
-        const vel = (note.velocity / 127) * (synthType === "pad" ? 0.28 : 0.23) * layerVolScale * layerVol;
+        const cfg = getMelodySynthConfig(synthType);
+        const vel = (note.velocity / 127) * cfg.baseVol * cfg.gainCompensation * layerVolScale * layerVol;
 
         const filter = new BiquadFilter();
-        const startCutoff = synthType === "pad" ? 1800 : synthType === "pluck" ? 4200 : 3200;
-        const endCutoff = 450;
-        const qVal = synthType === "pluck" ? 5.0 : 3.0;
+        const startCutoff = cfg.filterStartCutoff;
+        const endCutoff = cfg.filterEndCutoff;
+        const qVal = cfg.filterQ;
 
         let phase1 = 0;
         let phase2 = 0;
-        const detuneCents = synthType === "pad" ? 8 : synthType === "lead" ? 10 : 6;
-        const phaseInc1 = (freq * Math.pow(2, -detuneCents / 1200)) / sampleRate;
-        const phaseInc2 = (freq * Math.pow(2, detuneCents / 1200)) / sampleRate;
+        const phaseInc1 = (freq * Math.pow(2, -cfg.detuneCents / 1200)) / sampleRate;
+        const phaseInc2 = (freq * Math.pow(2, cfg.detuneCents / 1200)) / sampleRate;
 
         for (let n = 0; n < durSamples; n++) {
           const sampleIdx = startSample + n;
@@ -339,8 +345,10 @@ export function renderDspAudio({
     const effectiveBassVol = trackSettings["bass"]?.volume ?? bassVolume;
     const effectiveDrumsVol = trackSettings["drums"]?.volume ?? drumsVolume;
 
-    // --- 2. SINTETIZAR 808 SUB-BASS (With Kick Sidechain Ducking) ---
+    // --- 2. SINTETIZAR 808 SUB-BASS (Parallel Clean Sub + Saturated Harmonics) ---
     if (bass && bass.notes.length > 0 && !trackSettings["bass"]?.muted) {
+      const cfg = BASS_808_CONFIGS[bassDrive] || BASS_808_CONFIGS.warm;
+
       bass.notes.forEach((bNote) => {
         const startSec = loopOffsetSec + bNote.step * stepDuration;
         const durSec = stepDuration * (bNote.duration || 2) * 0.98;
@@ -359,10 +367,12 @@ export function renderDspAudio({
           const timeSec = n / sampleRate;
           const absTimeSec = startSec + timeSec;
 
-          // Pitch dive envelope: starts at 1.5x rootFreq and drops to rootFreq in 50ms
+          // Pitch dive envelope: configurable start factor & duration
           let currentFreq = rootFreq;
-          if (timeSec < 0.05) {
-            const diveFactor = 1.5 - 0.5 * (timeSec / 0.05);
+          if (timeSec < cfg.pitchDiveDurationSec) {
+            const diveFactor =
+              cfg.pitchDiveStartMultiplier -
+              (cfg.pitchDiveStartMultiplier - 1.0) * (timeSec / cfg.pitchDiveDurationSec);
             currentFreq = rootFreq * diveFactor;
           } else if (bNote.slide && progress > 0.3) {
             const slideProg = (progress - 0.3) / 0.7;
@@ -375,7 +385,7 @@ export function renderDspAudio({
           const env = baseVel * Math.exp(-progress * 2.8);
           const rawSine = Math.sin(2 * Math.PI * phase) * env;
 
-          // Sidechain Kick -> 808 ducking factor (active whenever any kick hit occurred within 80ms)
+          // Sidechain Kick -> 808 ducking factor
           let duckFactor = 1.0;
           for (let k = 0; k < kickTimes.length; k++) {
             const dt = absTimeSec - kickTimes[k];
@@ -385,8 +395,10 @@ export function renderDspAudio({
             }
           }
 
-          // 2x Oversampled WaveShaper
-          const satSample = applyWaveshaper(rawSine * duckFactor, bassDrive);
+          // Parallel Saturation: Clean Sub + Saturated Upper Harmonics
+          const cleanSub = rawSine * cfg.cleanSubGain * duckFactor;
+          const saturatedMid = applyWaveshaper(rawSine * duckFactor, bassDrive) * cfg.parallelSatGain;
+          const satSample = cleanSub + saturatedMid;
 
           left[sampleIdx] += satSample;
           right[sampleIdx] += satSample;
@@ -542,35 +554,47 @@ export function renderDspAudio({
     }
   }
 
-  // --- 4. MASTER BUS (DC Blocker + Peak Limiter) ---
+  // --- 4. MASTER BUS (DC Blocker + Soft-Clipper + Peak Limiter) ---
   let dcPrevX_L = 0;
   let dcPrevY_L = 0;
   let dcPrevX_R = 0;
   let dcPrevY_R = 0;
 
   for (let i = 0; i < totalSamples; i++) {
-    // DC Blocker (R = 0.995)
+    // DC Blocker (R = MASTER_BUS_CONFIG.dcBlockerR)
     const xL = left[i];
-    const yL = xL - dcPrevX_L + 0.995 * dcPrevY_L;
+    const yL = xL - dcPrevX_L + MASTER_BUS_CONFIG.dcBlockerR * dcPrevY_L;
     dcPrevX_L = xL;
     dcPrevY_L = yL;
 
     const xR = right[i];
-    const yR = xR - dcPrevX_R + 0.995 * dcPrevY_R;
+    const yR = xR - dcPrevX_R + MASTER_BUS_CONFIG.dcBlockerR * dcPrevY_R;
     dcPrevX_R = xR;
     dcPrevY_R = yR;
 
-    // Fast soft-knee compressor / limiter
+    // 1. Soft-Clipper Stage (Smooth analog saturation threshold)
     const peak = Math.max(Math.abs(yL), Math.abs(yR));
-    let gain = 1.0;
-    const threshold = 0.88;
+    let softGain = 1.0;
+    const threshold = MASTER_BUS_CONFIG.softClipThreshold;
     if (peak > threshold) {
-      gain = threshold + (peak - threshold) / (1 + (peak - threshold) * 2.0);
-      gain /= peak;
+      softGain = threshold + (peak - threshold) / (1 + (peak - threshold) * 2.0);
+      softGain /= peak;
     }
 
-    left[i] = yL * gain;
-    right[i] = yR * gain;
+    let outL = yL * softGain;
+    let outR = yR * softGain;
+
+    // 2. True Peak Limiter (Hard ceiling at -1.0 dBFS / peakCeiling)
+    const ceiling = MASTER_BUS_CONFIG.peakCeiling;
+    const postPeak = Math.max(Math.abs(outL), Math.abs(outR));
+    if (postPeak > ceiling) {
+      const limitScale = ceiling / postPeak;
+      outL *= limitScale;
+      outR *= limitScale;
+    }
+
+    left[i] = outL;
+    right[i] = outR;
   }
 
   return { left, right, sampleRate };
