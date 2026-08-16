@@ -146,7 +146,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case "generate-all": {
         const p: GenerateAllPayload = req.payload;
         const baseSeed = p.seed ?? Date.now();
-        const arrangementTypes: ("intro" | "verse" | "drop" | "outro")[] = ["intro", "verse", "drop", "outro"];
+        const arrangementTypes: ("intro" | "verse" | "drop")[] = ["intro", "verse", "drop"];
         const blocks = [];
 
         for (let i = 0; i < arrangementTypes.length; i++) {

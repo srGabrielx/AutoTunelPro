@@ -604,6 +604,7 @@ export default function BeatStudio() {
   const [arrangementBlocks, setArrangementBlocks] = useState<ArrangementBlockData[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [isArrangementMenuOpen, setIsArrangementMenuOpen] = useState(false);
+  const [isAutoArrangement, setIsAutoArrangement] = useState(false);
 
   // UI / Export state
   const [busy, setBusy] = useState<string | null>(null);
@@ -650,6 +651,7 @@ export default function BeatStudio() {
     trackSettings,
     arrangementBlocks,
     currentBlockIndex,
+    isAutoArrangement,
   });
 
   useEffect(() => {
@@ -677,6 +679,7 @@ export default function BeatStudio() {
       trackSettings,
       arrangementBlocks,
       currentBlockIndex,
+      isAutoArrangement,
     };
 
     // Update real-time step events map without restarting playback
@@ -715,6 +718,7 @@ export default function BeatStudio() {
     trackSettings,
     arrangementBlocks,
     currentBlockIndex,
+    isAutoArrangement,
   ]);
 
   // Stop playback helper
@@ -757,6 +761,23 @@ export default function BeatStudio() {
       drumKit: s.drumKit,
       onStop: () => {
         setPlaybackMode(null);
+      },
+      onLoopComplete: () => {
+        if (s.isAutoArrangement && s.arrangementBlocks.length > 0) {
+          const nextIdx = (s.currentBlockIndex + 1) % s.arrangementBlocks.length;
+          setCurrentBlockIndex(nextIdx);
+          const nextBlock = s.arrangementBlocks[nextIdx];
+          if (nextBlock) {
+            setBass(nextBlock.bass);
+            setDrums(nextBlock.drums);
+            setMelodyLayers((prev) =>
+              prev.map((l) => {
+                const found = nextBlock.melodyResults.find((m) => m.layerId === l.id);
+                return found ? { ...l, result: found.result } : l;
+              })
+            );
+          }
+        }
       },
     });
   }, [stopPlayback]);
@@ -1266,24 +1287,74 @@ export default function BeatStudio() {
               <IconRefresh className="w-3.5 h-3.5" /> Loop: {isLooping ? "ON" : "OFF"}
             </button>
 
-            {/* EXPORT BUTTONS */}
-            <div className="export-hub relative" style={{ position: "relative" }}>
+            {/* EXPORT BUTTONS & ARRANGEMENT */}
+            <div className="export-hub relative flex flex-col gap-2" style={{ position: "relative" }}>
+              {arrangementBlocks.length > 0 && (
+                <div className="relative">
+                  <button
+                    className="btn-export-midi w-full flex justify-between"
+                    style={{ padding: "8px 12px", background: "#1a1a24" }}
+                    onClick={() => setIsArrangementMenuOpen(!isArrangementMenuOpen)}
+                    title="Selecionar bloco de arranjo"
+                  >
+                    <span>Arranjo: {isAutoArrangement ? "Auto" : arrangementBlocks[currentBlockIndex]?.type}</span> <IconChevronDown />
+                  </button>
+                  
+                  {isArrangementMenuOpen && (
+                    <div 
+                      className="absolute bottom-full mb-2 right-0 flex flex-col gap-1 z-50 shadow-lg"
+                      style={{ 
+                        backgroundColor: "#181822", border: "1px solid #3e3e4d", 
+                        borderRadius: "10px", padding: "8px",
+                        minWidth: "180px"
+                      }}
+                    >
+                      {arrangementBlocks.map((block, idx) => (
+                        <button 
+                          key={idx} 
+                          className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx && !isAutoArrangement ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
+                          style={{ textAlign: "left", width: "100%" }}
+                          onClick={() => {
+                            setIsAutoArrangement(false);
+                            selectArrangementBlock(idx);
+                            setIsArrangementMenuOpen(false);
+                          }}
+                        >
+                          {block.type}
+                        </button>
+                      ))}
+                      <div style={{ height: "1px", background: "#3e3e4d", margin: "4px 0" }}></div>
+                      <button 
+                        className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${isAutoArrangement ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
+                        style={{ textAlign: "left", width: "100%" }}
+                        onClick={() => {
+                          setIsAutoArrangement(true);
+                          setIsArrangementMenuOpen(false);
+                        }}
+                        title="Tocar arranjo completo girando entre os blocos"
+                      >
+                        Auto (Rotacionar)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
-                className="btn-export-midi"
+                className="btn-export-midi flex justify-between"
                 style={{ padding: "8px 12px" }}
                 onClick={() => setIsExportOpen(!isExportOpen)}
                 title="Opções de Exportação"
               >
-                Exportar <IconChevronDown />
+                <span>Exportar</span> <IconChevronDown />
               </button>
               
               {isExportOpen && (
                 <div 
                   className="absolute top-full mt-2 right-0 flex flex-col gap-2 z-50 shadow-lg"
                   style={{ 
-                    position: "absolute", top: "100%", right: 0, marginTop: "8px", 
                     backgroundColor: "#181822", border: "1px solid #3e3e4d", 
-                    borderRadius: "10px", padding: "10px", zIndex: 50,
+                    borderRadius: "10px", padding: "10px",
                     minWidth: "180px"
                   }}
                 >
@@ -1340,41 +1411,7 @@ export default function BeatStudio() {
           </div>
         </div>
 
-        {arrangementBlocks.length > 0 && (
-          <div className="arrangement-tabs relative mt-4" style={{ position: "relative" }}>
-            <button
-              className="px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all bg-[#181822] text-white border-[#3e3e4d] hover:border-white/50 flex items-center gap-2"
-              onClick={() => setIsArrangementMenuOpen(!isArrangementMenuOpen)}
-            >
-              Arranjo: {arrangementBlocks[currentBlockIndex]?.type} <IconChevronDown />
-            </button>
-            
-            {isArrangementMenuOpen && (
-              <div 
-                className="absolute top-full mt-2 left-0 flex flex-col gap-1 z-50 shadow-lg"
-                style={{ 
-                  backgroundColor: "#181822", border: "1px solid #3e3e4d", 
-                  borderRadius: "10px", padding: "8px",
-                  minWidth: "160px"
-                }}
-              >
-                {arrangementBlocks.map((block, idx) => (
-                  <button 
-                    key={idx} 
-                    className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
-                    style={{ textAlign: "left", width: "100%" }}
-                    onClick={() => {
-                      selectArrangementBlock(idx);
-                      setIsArrangementMenuOpen(false);
-                    }}
-                  >
-                    {block.type}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Arrangement tabs were moved to the top export-hub */}
       </section>
 
       {/* ==========================================

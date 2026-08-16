@@ -74,6 +74,7 @@ export class SampleAccurateAudioEngine {
 
   // Callbacks
   private onStopCallback?: () => void;
+  private onLoopCompleteCallback?: () => void;
 
   public init(): AudioContext {
     if (!this.ctx || this.ctx.state === "closed") {
@@ -480,6 +481,7 @@ export class SampleAccurateAudioEngine {
     bassDrive,
     drumKit,
     onStop,
+    onLoopComplete,
   }: {
     bpm: number;
     isLooping: boolean;
@@ -492,6 +494,7 @@ export class SampleAccurateAudioEngine {
     bassDrive: BassDrive;
     drumKit: DrumKitMode;
     onStop?: () => void;
+    onLoopComplete?: () => void;
   }) {
     this.stop();
 
@@ -500,6 +503,7 @@ export class SampleAccurateAudioEngine {
     this.isLooping = isLooping;
     this.playbackMode = playbackMode;
     this.onStopCallback = onStop;
+    this.onLoopCompleteCallback = onLoopComplete;
 
     this.prepareStepEvents({
       melodyLayers,
@@ -559,6 +563,13 @@ export class SampleAccurateAudioEngine {
           this.onStopCallback();
         }
         return;
+      }
+
+      // Trigger loop complete callback BEFORE scheduling the first step of the new loop
+      if (patternStep === 0 && this.nextAbsoluteStep > 0 && this.isLooping) {
+        if (this.onLoopCompleteCallback) {
+          this.onLoopCompleteCallback();
+        }
       }
 
       this.scheduleStepEvents(patternStep, scheduledTime, stepDuration);
