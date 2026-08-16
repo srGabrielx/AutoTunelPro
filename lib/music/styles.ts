@@ -9,7 +9,7 @@ export interface StylePreset {
   hat: number[];
 }
 
-// 1. Escalas Musicais (semelhante ao FL Studio Scale Helper)
+// 1. Escalas Musicais Profissionais (Scale Helper)
 export const SCALES: Record<ScaleId, { label: string; intervals: number[]; description: string }> = {
   "natural-minor": {
     label: "Menor Natural (Aeolian)",

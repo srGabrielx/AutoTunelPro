@@ -1180,7 +1180,7 @@ export default function BeatStudio() {
           ========================================== */}
       <section className="hero">
         <div className="hero-head">
-          <div className="kicker">AutoTunel Studio // FL Studio Scales & Artist Presets</div>
+          <div className="kicker">AutoTunel Studio // Escalas Harmônicas & Artist Presets</div>
           <h1>
             Produção musical fluida.<br />
             Do acorde ao 808 perfeito.
@@ -1781,7 +1781,7 @@ export default function BeatStudio() {
           <span className="error-text">⚠️ {error}</span>
         ) : (
           <span>
-            ⚡ AutoTunel Studio // Multi-Layer · FL Studio Scales · Afinador 808 · Exportação MIDI & WAV nativa no navegador.
+            ⚡ AutoTunel Studio // Multi-Layer · Escalas Harmônicas · Afinador 808 · Exportação MIDI & WAV nativa no navegador.
           </span>
         )}
       </footer>
