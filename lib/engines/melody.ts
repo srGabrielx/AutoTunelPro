@@ -62,16 +62,17 @@ export function generateMelody(options: GenerateOptions): MelodyResult {
         let degree: number;
 
         if (isStrongBeat) {
-          // Chord-tone
-          degree = chordTones[Math.floor(random() * chordTones.length)] % scaleSize;
+          // Favor Root and Fifth (darker) instead of random thirds (which sound happy/childish)
+          degree = chordTones[random() > 0.4 ? 0 : (chordTones.length - 1)] % scaleSize;
         } else {
-          // Passing / Neighbor tone (from scale, preferably close to a chord tone)
-          const baseTone = chordTones[Math.floor(random() * chordTones.length)];
-          degree = (baseTone + (random() > 0.5 ? 1 : -1) + scaleSize) % scaleSize;
+          // Passing / Neighbor tone (preferably minor 2nd or minor 3rd from root)
+          const baseTone = chordTones[0];
+          degree = (baseTone + (random() > 0.6 ? 1 : 2) + scaleSize) % scaleSize;
         }
 
         const interval = scaleIntervals[degree];
-        const octaveOffset = random() > 0.8 ? 12 : 0;
+        // Trap melodies should stay in a tight register, avoid random 1-octave clown jumps
+        const octaveOffset = 0;
         const midiNote = root + interval + octaveOffset;
 
         // Rhythmic Anchor velocity modifier
@@ -96,7 +97,9 @@ export function generateMelody(options: GenerateOptions): MelodyResult {
       if (comp >= 4 && random() > 0.6) {
         const weakStep = beatStart + (random() > 0.5 ? 1 : 3);
         if (weakStep < plan.timeline.totalSteps && !notes.some(n => n.step === weakStep)) {
-          const passingDegree = Math.floor(random() * scaleSize);
+          // Tight passing note (neighbor) instead of random wild jump
+          const baseChord = plan.harmonicGrid.find(r => r.startStep <= weakStep && r.endStep > weakStep)?.chordDegrees ?? [0];
+          const passingDegree = (baseChord[0] + (random() > 0.5 ? 1 : 2)) % scaleSize;
           notes.push({
             step: weakStep,
             note: root + scaleIntervals[passingDegree],
