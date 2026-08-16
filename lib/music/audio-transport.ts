@@ -798,7 +798,7 @@ export class SampleAccurateAudioEngine {
   ) {
     if (!this.ctx) return;
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * 0.65; // Boosted base volume for harder hitting 808
+    const vol = (velocity / 127) * 0.75; // Increased volume for massive sub presence
     const cfg = BASS_808_CONFIGS[drive] || BASS_808_CONFIGS.warm;
 
     const trackGain = this.getOrCreateTrackGain("bass");
@@ -814,7 +814,7 @@ export class SampleAccurateAudioEngine {
     const satOsc = this.ctx.createOscillator();
     const satGain = this.ctx.createGain();
     const satDist = this.ctx.createWaveShaper();
-    satOsc.type = "sine";
+    satOsc.type = "triangle";
     satOsc.frequency.setValueAtTime(freq * cfg.pitchDiveStartMultiplier, when);
     satOsc.frequency.exponentialRampToValueAtTime(freq, when + cfg.pitchDiveDurationSec);
 
@@ -831,12 +831,16 @@ export class SampleAccurateAudioEngine {
       satOsc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
     }
 
-    // Parallel Gain Envelopes
+    // Parallel Gain Envelopes (Added sustain to prevent 'choco'/weak bass)
+    const sustainHold = Math.min(0.25, durationSec * 0.4); // Hold peak for up to 250ms
+    
     cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when);
-    cleanGain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
+    cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when + sustainHold);
+    cleanGain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
     satGain.gain.setValueAtTime(vol * cfg.parallelSatGain, when);
-    satGain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
+    satGain.gain.setValueAtTime(vol * cfg.parallelSatGain, when + sustainHold);
+    satGain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
     cleanOsc.connect(cleanGain).connect(trackGain);
     satOsc.connect(satDist).connect(satGain).connect(trackGain);
