@@ -51,3 +51,10 @@
 - Abrir/fechar um menu **nunca** pode disparar `startPlayback`, `stopPlayback`, `generateMelody` ou qualquer função de áudio.
 - Menus devem fechar com: Escape, clique fora (`mousedown` em `document`), e após seleção de item.
 - Cada menu controla seu próprio estado local ou usa `openMenuId` único (apenas 1 menu aberto por vez).
+
+## Verificação Rigorosa Pré-Commit
+- **NUNCA** fazer um `git commit` ou `git push` sem antes rodar explicitamente `npx tsc --noEmit` (ou `npm run build`) para validar a tipagem TypeScript.
+- Se o usuário pedir "faz o push aí" no meio de uma refatoração, **obrigatoriamente** rode `tsc --noEmit` localmente antes de empurrar o código para o repositório, garantindo que o build remoto (ex: Vercel) não quebre.
+
+## Tipagem de useRef para Mapeamento de Estado
+- Ao adicionar novas propriedades de estado (`useState`) que precisam ser sincronizadas em um `useRef` para acesso síncrono (como o `stateRef`), garanta sempre que a nova propriedade seja adicionada **tanto na inicialização do `useRef` quanto na atribuição dentro do `useEffect`**, senão o TypeScript emitirá erros de inferência "Object literal may only specify known properties".
