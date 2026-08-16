@@ -757,8 +757,8 @@ export class SampleAccurateAudioEngine {
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
-    const dur = 0.038;
-    gain.gain.setValueAtTime((velocity / 127) * 0.18, when);
+    const dur = 0.028;
+    gain.gain.setValueAtTime((velocity / 127) * 0.11, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
     noise.connect(filter).connect(gain).connect(trackGain);
@@ -779,7 +779,7 @@ export class SampleAccurateAudioEngine {
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime((velocity / 127) * 0.22, when);
+    gain.gain.setValueAtTime((velocity / 127) * 0.14, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
     noise.connect(filter).connect(gain).connect(trackGain);

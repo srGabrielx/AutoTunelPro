@@ -135,7 +135,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
     const mainSnareDrum: DrumHit["drum"] = preferClap && deterministicRng(seed, "prefer-clap", 0) > 0.3 ? "clap" : "snare";
 
     plan.rhythmicAnchors
-      .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && a.type === "backbeat")
+      .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && a.type === "backbeat" && a.weight >= 0.9)
       .forEach(anchor => {
         add(anchor.step, mainSnareDrum, 104);
         
@@ -200,7 +200,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
             pitchCurve,
             velocityCurve: "flat"
           };
-          stepVel += 15; // Accent the start of a roll
+          stepVel = Math.min(127, stepVel + 10); // Accent the start of a roll without clipping
         }
       }
       
