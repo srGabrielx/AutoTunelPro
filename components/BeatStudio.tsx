@@ -160,6 +160,14 @@ function IconPlus({ size = 16, className = "" }: { size?: number; className?: st
   );
 }
 
+function IconChevronDown({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 function IconTrash({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
@@ -599,6 +607,7 @@ export default function BeatStudio() {
   // UI / Export state
   const [busy, setBusy] = useState<string | null>(null);
   const [exportingWav, setExportingWav] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [error, setError] = useState("");
 
   // Playback state
@@ -1257,24 +1266,53 @@ export default function BeatStudio() {
             </button>
 
             {/* EXPORT BUTTONS */}
-            <div className="export-hub">
+            <div className="export-hub relative" style={{ position: "relative" }}>
               <button
                 className="btn-export-midi"
-                onClick={handleExportMidi}
-                disabled={!hasAnyData}
-                title="Exportar trilhas MIDI separadas para sua DAW"
+                style={{ padding: "8px 12px" }}
+                onClick={() => setIsExportOpen(!isExportOpen)}
+                title="Opções de Exportação"
               >
-                <IconMusic className="w-3.5 h-3.5 text-cyan" /> Exportar MIDI (.mid)
+                Exportar <IconChevronDown />
               </button>
-              <button
-                className="btn-export-wav"
-                onClick={handleExportWav}
-                disabled={exportingWav || !hasAnyData}
-                title="Renderizar e baixar áudio WAV Master em alta qualidade"
-              >
-                <IconDownload className="w-3.5 h-3.5 text-acid" />
-                {exportingWav ? "Renderizando..." : "Exportar WAV (.wav)"}
-              </button>
+              
+              {isExportOpen && (
+                <div 
+                  className="absolute top-full mt-2 right-0 flex flex-col gap-2 z-50 shadow-lg"
+                  style={{ 
+                    position: "absolute", top: "100%", right: 0, marginTop: "8px", 
+                    backgroundColor: "#181822", border: "1px solid #3e3e4d", 
+                    borderRadius: "10px", padding: "10px", zIndex: 50,
+                    minWidth: "180px"
+                  }}
+                >
+                  <button
+                    className="btn-export-midi"
+                    style={{ width: "100%", justifyContent: "flex-start" }}
+                    onClick={() => {
+                      handleExportMidi();
+                      setIsExportOpen(false);
+                    }}
+                    disabled={!hasAnyData}
+                    title="Exportar trilhas MIDI separadas para sua DAW"
+                  >
+                    <IconMusic className="w-3.5 h-3.5 text-cyan" /> Exportar MIDI (.mid)
+                  </button>
+                  <button
+                    className="btn-export-wav"
+                    style={{ width: "100%", justifyContent: "flex-start" }}
+                    onClick={() => {
+                      handleExportWav();
+                      setIsExportOpen(false);
+                    }}
+                    disabled={exportingWav || !hasAnyData}
+                    title="Renderizar e baixar áudio WAV Master em alta qualidade"
+                  >
+                    <IconDownload className="w-3.5 h-3.5 text-acid" />
+                    {exportingWav ? "Renderizando..." : "Exportar WAV (.wav)"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
