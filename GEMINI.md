@@ -76,3 +76,9 @@
 - Processamentos não lineares devem possuir oversampling quando necessário, DC blocker e controle de aliasing.
 - O 808 deve preservar uma camada sub limpa e utilizar saturação paralela para gerar harmônicos audíveis em dispositivos pequenos.
 - O master deve manter headroom, impedir clipping e separar claramente soft clipping de limitação de pico (teto próximo a -1 dBFS).
+
+## Manipulação de Arquivos e CSS Estáticos
+- **Evitar Edições Difusas (Fuzzy Matches) Críticas:** Ao injetar estilos no `globals.css` ou configurações sensíveis, nunca confie no comportamento de fallback do `replace_file_content` se a correspondência falhar.
+- **Verificação do Fim do Arquivo:** Para adições ao final de arquivos de estilo, use blocos de destino bem definidos ou garanta a exatidão das últimas linhas. Nunca force substituições em áreas vazias genéricas.
+- **Validação Local Pré-Commit:** Caso ocorram erros silenciosos de sintaxe, sempre verifique o topo e a estrutura de chaves do arquivo editado para garantir que nada foi injetado de forma corrompida.
+
