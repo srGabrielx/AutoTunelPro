@@ -77,9 +77,51 @@ function IconMusic({ size = 22, className = "" }: { size?: number; className?: s
 function IconMelody({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" fill="currentColor" fillOpacity="0.25" />
-      <circle cx="18" cy="16" r="3" fill="currentColor" fillOpacity="0.25" />
+      <rect x="2" y="4" width="20" height="16" rx="2" fill="currentColor" fillOpacity="0.15" />
+      <line x1="6" y1="4" x2="6" y2="13" strokeWidth="2.2" />
+      <line x1="10" y1="4" x2="10" y2="13" strokeWidth="2.2" />
+      <line x1="14" y1="4" x2="14" y2="13" strokeWidth="2.2" />
+      <line x1="18" y1="4" x2="18" y2="13" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function IconLead({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <path d="M2 12c2.5-6 4.5-6 7 0s4.5 6 7 0 4.5-6 6 0" />
+    </svg>
+  );
+}
+
+function IconPluck({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  );
+}
+
+function IconPad({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <rect x="3" y="4" width="18" height="4" rx="1.5" fill="currentColor" fillOpacity="0.25" />
+      <rect x="3" y="10" width="18" height="4" rx="1.5" fill="currentColor" fillOpacity="0.25" />
+      <rect x="3" y="16" width="18" height="4" rx="1.5" fill="currentColor" fillOpacity="0.25" />
+    </svg>
+  );
+}
+
+function IconArp({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <path d="M3 18l4.5-6 4.5 4 4.5-7 4.5 3" />
+      <circle cx="3" cy="18" r="1.5" fill="currentColor" />
+      <circle cx="7.5" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="16" r="1.5" fill="currentColor" />
+      <circle cx="16.5" cy="9" r="1.5" fill="currentColor" />
+      <circle cx="21" cy="12" r="1.5" fill="currentColor" />
     </svg>
   );
 }
@@ -1703,7 +1745,7 @@ export default function BeatStudio() {
               onClick={() => addExtraLayer("lead")}
               disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
             >
-              <span className="menu-icon"><IconMelody /></span>
+              <span className="menu-icon"><IconLead /></span>
               + Melodia Lead (Principal)
             </button>
             <button
@@ -1711,7 +1753,7 @@ export default function BeatStudio() {
               onClick={() => addExtraLayer("pluck")}
               disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
             >
-              <span className="menu-icon"><IconMelody /></span>
+              <span className="menu-icon"><IconPluck /></span>
               + Camada Pluck / Sinos (Bells)
             </button>
             <button
@@ -1719,7 +1761,7 @@ export default function BeatStudio() {
               onClick={() => addExtraLayer("pad")}
               disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
             >
-              <span className="menu-icon"><IconMelody /></span>
+              <span className="menu-icon"><IconPad /></span>
               + Camada Pad (Acordes & Harmonia)
             </button>
             <button
@@ -1727,7 +1769,7 @@ export default function BeatStudio() {
               onClick={() => addExtraLayer("arp")}
               disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
             >
-              <span className="menu-icon"><IconMelody /></span>
+              <span className="menu-icon"><IconArp /></span>
               + Camada Arp / Contra-Melodia
             </button>
           </div>
