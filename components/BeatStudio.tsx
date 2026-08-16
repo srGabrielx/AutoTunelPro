@@ -603,7 +603,6 @@ export default function BeatStudio() {
   // Arrangement State
   const [arrangementBlocks, setArrangementBlocks] = useState<ArrangementBlockData[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
-  const [isArrangementMenuOpen, setIsArrangementMenuOpen] = useState(false);
   const [isAutoArrangement, setIsAutoArrangement] = useState(false);
 
   // UI / Export state
@@ -1288,59 +1287,8 @@ export default function BeatStudio() {
               <IconRefresh className="w-3.5 h-3.5" /> Loop: {isLooping ? "ON" : "OFF"}
             </button>
 
-            {/* EXPORT BUTTONS & ARRANGEMENT */}
+            {/* EXPORT BUTTONS */}
             <div className="export-hub relative flex flex-col gap-2" style={{ position: "relative" }}>
-              {arrangementBlocks.length > 0 && (
-                <div className="relative">
-                  <button
-                    className="btn-export-midi w-full flex justify-between"
-                    style={{ padding: "8px 12px", background: "#1a1a24" }}
-                    onClick={() => setIsArrangementMenuOpen(!isArrangementMenuOpen)}
-                    title="Selecionar bloco de arranjo"
-                  >
-                    <span>Arranjo: {isAutoArrangement ? "Auto" : arrangementBlocks[currentBlockIndex]?.type}</span> <IconChevronDown />
-                  </button>
-                  
-                  {isArrangementMenuOpen && (
-                    <div 
-                      className="absolute bottom-full mb-2 right-0 flex flex-col gap-1 z-50 shadow-lg"
-                      style={{ 
-                        backgroundColor: "#181822", border: "1px solid #3e3e4d", 
-                        borderRadius: "10px", padding: "8px",
-                        minWidth: "180px"
-                      }}
-                    >
-                      {arrangementBlocks.map((block, idx) => (
-                        <button 
-                          key={idx} 
-                          className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx && !isAutoArrangement ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
-                          style={{ textAlign: "left", width: "100%" }}
-                          onClick={() => {
-                            setIsAutoArrangement(false);
-                            selectArrangementBlock(idx);
-                            setIsArrangementMenuOpen(false);
-                          }}
-                        >
-                          {block.type}
-                        </button>
-                      ))}
-                      <div style={{ height: "1px", background: "#3e3e4d", margin: "4px 0" }}></div>
-                      <button 
-                        className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${isAutoArrangement ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
-                        style={{ textAlign: "left", width: "100%" }}
-                        onClick={() => {
-                          setIsAutoArrangement(true);
-                          setIsArrangementMenuOpen(false);
-                        }}
-                        title="Tocar arranjo completo girando entre os blocos"
-                      >
-                        Auto (Rotacionar)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
               <button
                 className="btn-export-midi flex justify-between"
                 style={{ padding: "8px 12px" }}
@@ -1813,6 +1761,35 @@ export default function BeatStudio() {
                   <img src="/logo.png" alt="AutoTunel Logo" className="btn-logo-inline" />
                   <span>Fechar</span>
                 </button>
+                <div className="transport-divider" />
+                
+                {arrangementBlocks.length > 0 && (
+                  <div className="flex flex-col gap-2 mb-2 w-full px-2">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">Arranjo</span>
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {arrangementBlocks.map((block, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setIsAutoArrangement(false);
+                            selectArrangementBlock(idx);
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${!isAutoArrangement && currentBlockIndex === idx ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.4)]' : 'bg-transparent text-gray-300 border-gray-600 hover:bg-[#2a2a35] hover:border-gray-400'}`}
+                        >
+                          {block.type}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setIsAutoArrangement(true)}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1 border ${isAutoArrangement ? 'bg-cyan text-black border-cyan shadow-[0_0_10px_rgba(0,255,255,0.4)]' : 'bg-transparent text-gray-300 border-gray-600 hover:bg-[#2a2a35] hover:border-gray-400'}`}
+                        title="Tocar arranjo completo girando entre os blocos"
+                      >
+                        <IconRefresh size={10} className={isAutoArrangement ? "animate-spin" : ""} /> Auto
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="transport-divider" />
             <button
               className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
