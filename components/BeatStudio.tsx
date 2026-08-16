@@ -1779,13 +1779,24 @@ export default function BeatStudio() {
                           {block.type}
                         </button>
                       ))}
-                      <button
-                        onClick={() => setIsAutoArrangement(true)}
-                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1 border ${isAutoArrangement ? 'bg-cyan text-black border-cyan shadow-[0_0_10px_rgba(0,255,255,0.4)]' : 'bg-transparent text-gray-300 border-gray-600 hover:bg-[#2a2a35] hover:border-gray-400'}`}
-                        title="Tocar arranjo completo girando entre os blocos"
-                      >
-                        <IconRefresh size={10} className={isAutoArrangement ? "animate-spin" : ""} /> Auto
-                      </button>
+                      <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-[#3e3e4d]">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${isAutoArrangement ? 'text-cyan drop-shadow-[0_0_5px_rgba(0,255,255,0.8)]' : 'text-gray-500'}`}>Auto</span>
+                        <button
+                          onClick={() => setIsAutoArrangement(!isAutoArrangement)}
+                          className={`relative inline-flex h-[18px] w-8 items-center rounded-full transition-all border ${
+                            isAutoArrangement 
+                              ? "bg-transparent border-[#00ffff] shadow-[0_0_8px_rgba(0,255,255,0.8)]" 
+                              : "bg-[#181822] border-gray-600"
+                          }`}
+                          title="Tocar arranjo completo girando entre os blocos"
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full transition-all ${
+                              isAutoArrangement ? "translate-x-4 bg-white shadow-[0_0_5px_rgba(255,255,255,0.8)]" : "translate-x-1 bg-gray-500"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
