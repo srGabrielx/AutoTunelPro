@@ -438,16 +438,38 @@ export default function BeatStudio() {
   const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("custom");
   const [complexity, setComplexity] = useState(3);
   const [isTransportOpen, setIsTransportOpen] = useState(false);
+  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  const layerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target as Node)) {
+        setIsLayerMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsLayerMenuOpen(false);
+    };
+    if (isLayerMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEsc);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [isLayerMenuOpen]);
 
   // Draggable FAB state
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    initialPosX: number;
-    initialPosY: number;
-    hasMoved: boolean;
-  } | null>(null);
+  const dragState = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    initialPosX: 0,
+    initialPosY: 0,
+    hasMoved: false,
+  });
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -456,7 +478,8 @@ export default function BeatStudio() {
     const currentX = fabPos?.x ?? rect.left;
     const currentY = fabPos?.y ?? rect.top;
 
-    dragRef.current = {
+    dragState.current = {
+      active: true,
       startX: e.clientX,
       startY: e.clientY,
       initialPosX: currentX,
@@ -470,34 +493,40 @@ export default function BeatStudio() {
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
+    if (!dragState.current.active) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
 
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-      dragRef.current.hasMoved = true;
+      dragState.current.hasMoved = true;
     }
 
-    if (dragRef.current.hasMoved) {
+    if (dragState.current.hasMoved) {
       const maxX = typeof window !== "undefined" ? window.innerWidth - 80 : 800;
       const maxY = typeof window !== "undefined" ? window.innerHeight - 80 : 800;
-      const newX = Math.max(20, Math.min(maxX, dragRef.current.initialPosX + dx));
-      const newY = Math.max(20, Math.min(maxY, dragRef.current.initialPosY + dy));
+      const newX = Math.max(20, Math.min(maxX, dragState.current.initialPosX + dx));
+      const newY = Math.max(20, Math.min(maxY, dragState.current.initialPosY + dy));
       setFabPos({ x: newX, y: newY });
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const hadMoved = dragRef.current.hasMoved;
-    dragRef.current = null;
+    if (!dragState.current.active) return;
+    dragState.current.active = false;
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
+    // We explicitly DO NOT trigger the toggle here. 
+    // The native onClick event will handle it to avoid event bubbling / ghost clicks.
+  };
 
-    if (!hadMoved) {
+  const handleFabClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragState.current.hasMoved) {
       setIsTransportOpen((prev) => !prev);
     }
+    dragState.current.hasMoved = false;
   };
 
   // Multi-Layer Melody State
@@ -722,6 +751,15 @@ export default function BeatStudio() {
       const nextType = synthTypes.find((t) => !usedTypes.has(t)) ?? "pad";
       return [...prev, createDefaultLayer(prev[0]?.style ?? "trap-br", key, globalScale, nextType)];
     });
+  }, [key, globalScale]);
+
+  const addSpecificMelodyLayer = useCallback((type: MelodySynthType) => {
+    setMelodyLayers((prev) => {
+      if (prev.length >= MAX_MELODY_LAYERS) return prev;
+      if (prev.some((l) => l.synthType === type)) return prev;
+      return [...prev, createDefaultLayer(prev[0]?.style ?? "trap-br", key, globalScale, type)];
+    });
+    setIsLayerMenuOpen(false);
   }, [key, globalScale]);
 
   const removeMelodyLayer = useCallback((id: string) => {
@@ -1121,11 +1159,43 @@ export default function BeatStudio() {
               </span>
             </div>
           </div>
-          <div className="section-actions">
-            {melodyLayers.length < MAX_MELODY_LAYERS && (
-              <button className="btn-add-layer" onClick={addMelodyLayer} title="Adicionar nova camada (Lead, Pad, Pluck ou Arp)">
-                <IconPlus size={14} /> Adicionar Camada de Melodia
-              </button>
+          <div className="section-actions" style={{ position: "relative" }} ref={layerMenuRef}>
+            {melodyLayers.length < MAX_MELODY_LAYERS ? (
+              <>
+                <button
+                  className="btn-add-layer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLayerMenuOpen((p) => !p);
+                  }}
+                  aria-expanded={isLayerMenuOpen}
+                  aria-haspopup="true"
+                  title="Menu de camadas"
+                >
+                  <IconMenu size={16} /> <span className="hidden sm:inline">Adicionar Camada</span>
+                </button>
+                {isLayerMenuOpen && (
+                  <div className="layer-dropdown-menu" role="menu" aria-label="Adicionar elementos">
+                    {(["lead", "pad", "pluck", "arp"] as MelodySynthType[]).map((t) => {
+                      const isUsed = melodyLayers.some((l) => l.synthType === t);
+                      return (
+                        <button
+                          key={t}
+                          role="menuitem"
+                          className="layer-dropdown-item"
+                          onClick={() => addSpecificMelodyLayer(t)}
+                          disabled={isUsed}
+                          title={isUsed ? "Camada já existente" : `Adicionar ${t}`}
+                        >
+                          Adicionar {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="text-xs text-slate-500">Limite atingido</span>
             )}
           </div>
         </div>
@@ -1349,6 +1419,7 @@ export default function BeatStudio() {
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
+              onClick={handleFabClick}
               style={fabPos ? { left: `${fabPos.x}px`, top: `${fabPos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
               title="Arraste para mover ou clique para abrir controles"
             >
