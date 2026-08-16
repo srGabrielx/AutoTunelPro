@@ -13,6 +13,7 @@ export type PlaybackMode = "all" | "melody" | "bass" | "drums";
 export interface ScheduledStepEvent {
   step: number;
   melodyNotes: Array<{
+    layerId: string;
     note: number;
     duration: number;
     velocity: number;
@@ -162,8 +163,8 @@ export class SampleAccurateAudioEngine {
    * Smoothly set volume for a track without pops/clicks.
    */
   public setTrackVolume(trackId: string, volume: number) {
-    const gain = this.trackGainNodes.get(trackId);
-    if (!gain || !this.ctx) return;
+    const gain = this.getOrCreateTrackGain(trackId);
+    if (!this.ctx) return;
     gain.gain.setTargetAtTime(
       Math.max(0, Math.min(1, volume)),
       this.ctx.currentTime,
@@ -175,8 +176,8 @@ export class SampleAccurateAudioEngine {
    * Mute/unmute a track by setting gain to 0 or restoring volume.
    */
   public setTrackMuted(trackId: string, muted: boolean, savedVolume: number) {
-    const gain = this.trackGainNodes.get(trackId);
-    if (!gain || !this.ctx) return;
+    const gain = this.getOrCreateTrackGain(trackId);
+    if (!this.ctx) return;
     gain.gain.setTargetAtTime(
       muted ? 0 : Math.max(0, Math.min(1, savedVolume)),
       this.ctx.currentTime,
@@ -251,6 +252,7 @@ export class SampleAccurateAudioEngine {
       layer.result!.notes.forEach((n) => {
         if (n.step >= 0 && n.step < 16) {
           events[n.step].melodyNotes.push({
+            layerId: layer.id,
             note: n.note,
             duration: n.duration || 1,
             velocity: n.velocity,
@@ -434,6 +436,7 @@ export class SampleAccurateAudioEngine {
       for (let i = 0; i < event.melodyNotes.length; i++) {
         const m = event.melodyNotes[i];
         this.playMelodyNote(
+          m.layerId,
           when,
           m.note,
           stepDuration * m.duration * 0.95,
@@ -483,10 +486,11 @@ export class SampleAccurateAudioEngine {
     osc.frequency.setValueAtTime(startFreq, when);
     osc.frequency.exponentialRampToValueAtTime(endFreq, when + 0.08);
 
+    const trackGain = this.getOrCreateTrackGain("drums");
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + 0.32);
 
-    osc.connect(gain).connect(this.masterGain || this.ctx.destination);
+    osc.connect(gain).connect(trackGain);
     osc.start(when);
     osc.stop(when + 0.33);
 
@@ -507,11 +511,12 @@ export class SampleAccurateAudioEngine {
       filter.frequency.value = kit === "drill-punch" ? 2200 : 1600;
       filter.Q.value = 1.2;
 
+      const trackGain = this.getOrCreateTrackGain("drums");
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(vol, when);
       gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-      noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
+      noise.connect(filter).connect(gain).connect(trackGain);
       noise.start(when);
       noise.stop(when + dur);
       this.trackNode(noise);
@@ -524,10 +529,11 @@ export class SampleAccurateAudioEngine {
     osc.frequency.setValueAtTime(190, when);
     osc.frequency.exponentialRampToValueAtTime(85, when + 0.07);
 
+    const trackGain = this.getOrCreateTrackGain("drums");
     tGain.gain.setValueAtTime(vol * 0.75, when);
     tGain.gain.exponentialRampToValueAtTime(0.001, when + 0.08);
 
-    osc.connect(tGain).connect(this.masterGain || this.ctx.destination);
+    osc.connect(tGain).connect(trackGain);
     osc.start(when);
     osc.stop(when + 0.09);
     this.trackNode(osc);
@@ -543,11 +549,12 @@ export class SampleAccurateAudioEngine {
     filter.type = "highpass";
     filter.frequency.value = 7500;
 
+    const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime((velocity / 127) * 0.18, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
+    noise.connect(filter).connect(gain).connect(trackGain);
     noise.start(when);
     noise.stop(when + dur);
     this.trackNode(noise);
@@ -563,11 +570,12 @@ export class SampleAccurateAudioEngine {
     filter.type = "highpass";
     filter.frequency.value = 6200;
 
+    const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime((velocity / 127) * 0.22, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
+    noise.connect(filter).connect(gain).connect(trackGain);
     noise.start(when);
     noise.stop(when + dur);
     this.trackNode(noise);
@@ -605,10 +613,11 @@ export class SampleAccurateAudioEngine {
       osc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
     }
 
+    const trackGain = this.getOrCreateTrackGain("bass");
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
 
-    osc.connect(dist).connect(gain).connect(this.masterGain || this.ctx.destination);
+    osc.connect(dist).connect(gain).connect(trackGain);
     osc.start(when);
     osc.stop(when + durationSec + 0.05);
 
@@ -616,6 +625,7 @@ export class SampleAccurateAudioEngine {
   }
 
   private playMelodyNote(
+    layerId: string,
     when: number,
     midiNote: number,
     durationSec: number,
@@ -624,6 +634,7 @@ export class SampleAccurateAudioEngine {
     volScale = 1.0
   ) {
     if (!this.ctx) return;
+    const trackGain = this.getOrCreateTrackGain(layerId);
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
     const vol = (velocity / 127) * (synthType === "pad" ? 0.28 : 0.22) * volScale;
 
@@ -650,7 +661,7 @@ export class SampleAccurateAudioEngine {
     osc1.connect(filter);
     osc2.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain || this.ctx.destination);
+    gain.connect(trackGain);
 
     if (this.delayNode) gain.connect(this.delayNode);
 

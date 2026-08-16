@@ -465,27 +465,6 @@ export default function BeatStudio() {
   const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("custom");
   const [complexity, setComplexity] = useState(3);
   const [isTransportOpen, setIsTransportOpen] = useState(false);
-  const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
-  const layerMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target as Node)) {
-        setIsLayerMenuOpen(false);
-      }
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsLayerMenuOpen(false);
-    };
-    if (isLayerMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleEsc);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-    };
-  }, [isLayerMenuOpen]);
 
   // Draggable FAB state
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
@@ -694,6 +673,13 @@ export default function BeatStudio() {
     setPlaybackMode(mode);
 
     const s = stateRef.current;
+    // Apply current track volumes before playback start
+    if (s.trackSettings) {
+      Object.entries(s.trackSettings).forEach(([id, cfg]) => {
+        audioEngineRef.current.setTrackVolume(id, cfg.volume);
+      });
+    }
+
     audioEngineRef.current.start({
       bpm: s.bpm,
       isLooping: s.isLooping,
@@ -792,15 +778,6 @@ export default function BeatStudio() {
       const nextType = synthTypes.find((t) => !usedTypes.has(t)) ?? "pad";
       return [...prev, createDefaultLayer(prev[0]?.style ?? "trap-br", key, globalScale, nextType)];
     });
-  }, [key, globalScale]);
-
-  const addSpecificMelodyLayer = useCallback((type: MelodySynthType) => {
-    setMelodyLayers((prev) => {
-      if (prev.length >= MAX_MELODY_LAYERS) return prev;
-      if (prev.some((l) => l.synthType === type)) return prev;
-      return [...prev, createDefaultLayer(prev[0]?.style ?? "trap-br", key, globalScale, type)];
-    });
-    setIsLayerMenuOpen(false);
   }, [key, globalScale]);
 
   const removeMelodyLayer = useCallback((id: string) => {
@@ -1200,45 +1177,6 @@ export default function BeatStudio() {
               </span>
             </div>
           </div>
-          <div className="section-actions" style={{ position: "relative" }} ref={layerMenuRef}>
-            {melodyLayers.length < MAX_MELODY_LAYERS ? (
-              <>
-                <button
-                  className="btn-add-layer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsLayerMenuOpen((p) => !p);
-                  }}
-                  aria-expanded={isLayerMenuOpen}
-                  aria-haspopup="true"
-                  title="Menu de camadas"
-                >
-                  <IconMenu size={16} /> <span className="hidden sm:inline">Adicionar Camada</span>
-                </button>
-                {isLayerMenuOpen && (
-                  <div className="layer-dropdown-menu" role="menu" aria-label="Adicionar elementos">
-                    {(["lead", "pad", "pluck", "arp"] as MelodySynthType[]).map((t) => {
-                      const isUsed = melodyLayers.some((l) => l.synthType === t);
-                      return (
-                        <button
-                          key={t}
-                          role="menuitem"
-                          className="layer-dropdown-item"
-                          onClick={() => addSpecificMelodyLayer(t)}
-                          disabled={isUsed}
-                          title={isUsed ? "Camada já existente" : `Adicionar ${t}`}
-                        >
-                          Adicionar {t.charAt(0).toUpperCase() + t.slice(1)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            ) : (
-              <span className="text-xs text-slate-500">Limite atingido</span>
-            )}
-          </div>
         </div>
 
         <div className="melody-layers-grid">
@@ -1636,12 +1574,16 @@ export default function BeatStudio() {
             onTouchStart={() => setIsAddTrackMenuOpen(false)}
           />
           <div className="add-track-menu">
-            <button className="add-track-menu-item" onClick={() => {
-              setMelodyLayers([...melodyLayers, createDefaultLayer(drumStyle, key, globalScale, "lead")]);
-              setIsAddTrackMenuOpen(false);
-            }}>
+            <button
+              className="add-track-menu-item"
+              onClick={() => {
+                addMelodyLayer();
+                setIsAddTrackMenuOpen(false);
+              }}
+              disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
+            >
               <span className="menu-icon"><IconMelody /></span>
-              Nova Melodia
+              {melodyLayers.length >= MAX_MELODY_LAYERS ? "Limite de Melodias Atingido" : "Nova Camada Melódica"}
             </button>
             <button className="add-track-menu-item" disabled>
               <span className="menu-icon"><IconBass /></span>
