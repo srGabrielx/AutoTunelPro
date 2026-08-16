@@ -57,8 +57,8 @@ export class SampleAccurateAudioEngine {
   private distWarmCurve: Float32Array | null = null;
   private distOverdriveCurve: Float32Array | null = null;
 
-  // Active scheduled nodes for instant cleanup
-  private activeNodes: Array<{ stop: (time: number) => void }> = [];
+  // Active scheduled nodes for instant cleanup (using Set to avoid unbounded array growth or orphan nodes)
+  private activeNodes: Set<{ stop: (time: number) => void; onended: ((this: AudioScheduledSourceNode, ev: Event) => any) | null }> = new Set();
 
   // Transport state
   private isPlaying = false;
@@ -118,11 +118,19 @@ export class SampleAccurateAudioEngine {
   private initNoiseBuffers(ctx: AudioContext) {
     const sampleRate = ctx.sampleRate;
 
+    // Deterministic PRNG matching dsp-renderer.ts SeededRandom(777)
+    // Ensures noise buffers are identical across AudioContext re-initializations
+    let noiseSeed = 777;
+    const nextNoise = (): number => {
+      noiseSeed = (1664525 * noiseSeed + 1013904223) % 4294967296;
+      return (noiseSeed / 4294967296) * 2.0 - 1.0;
+    };
+
     // Snare noise buffer (0.15s)
     const snareSamples = Math.ceil(sampleRate * 0.15);
     this.snareNoiseBuffer = ctx.createBuffer(1, snareSamples, sampleRate);
     const sData = this.snareNoiseBuffer.getChannelData(0);
-    for (let i = 0; i < snareSamples; i++) sData[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < snareSamples; i++) sData[i] = nextNoise();
 
     // Inharmonic Metallic Hat Buffer (Analogue Roland TR-808/909 Modeling)
     const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
@@ -137,7 +145,7 @@ export class SampleAccurateAudioEngine {
       for (let f = 0; f < inharmonicFreqs.length; f++) {
         metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
       }
-      const noise = Math.random() * 2 - 1;
+      const noise = nextNoise();
       hData[i] = metal * 0.65 + noise * 0.35;
     }
 
@@ -151,7 +159,7 @@ export class SampleAccurateAudioEngine {
       for (let f = 0; f < inharmonicFreqs.length; f++) {
         metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
       }
-      const noise = Math.random() * 2 - 1;
+      const noise = nextNoise();
       ohData[i] = metal * 0.55 + noise * 0.45;
     }
   }
@@ -881,11 +889,11 @@ export class SampleAccurateAudioEngine {
     this.trackNode(osc2);
   }
 
-  private trackNode(node: { stop: (time: number) => void }) {
-    this.activeNodes.push(node);
-    if (this.activeNodes.length > 200) {
-      this.activeNodes = this.activeNodes.slice(-100);
-    }
+  private trackNode(node: AudioScheduledSourceNode) {
+    this.activeNodes.add(node);
+    node.onended = () => {
+      this.activeNodes.delete(node);
+    };
   }
 
   /**
@@ -900,15 +908,19 @@ export class SampleAccurateAudioEngine {
 
     if (this.ctx && this.ctx.state !== "closed") {
       const now = this.ctx.currentTime;
-      for (let i = 0; i < this.activeNodes.length; i++) {
+      for (const node of this.activeNodes) {
         try {
-          this.activeNodes[i].stop(now);
+          node.stop(now);
+          // Disconnect as a safety measure for faster garbage collection
+          if ('disconnect' in node && typeof node.disconnect === 'function') {
+             (node as any).disconnect();
+          }
         } catch {
           // Ignore already stopped nodes
         }
       }
     }
-    this.activeNodes = [];
+    this.activeNodes.clear();
     this.nextAbsoluteStep = 0;
   }
 }

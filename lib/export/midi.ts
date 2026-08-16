@@ -1,4 +1,6 @@
+import type { ArrangementBlockData } from "../workers/protocol";
 import type { BassResult, DrumResult, MelodyLayer } from "../music/types";
+import { buildGrooveEventPlan } from "../music/groove-plan";
 
 // Helper to write Variable-Length Quantities in MIDI
 function writeVarLength(value: number): number[] {
@@ -47,16 +49,19 @@ interface MidiEvent {
 export function createMidiFile({
   bpm,
   melodyLayers,
-  bass,
-  drums,
+  blocks = [],
+  muteBass,
+  muteDrums,
 }: {
   bpm: number;
   melodyLayers?: MelodyLayer[];
-  bass?: BassResult | null;
-  drums?: DrumResult | null;
+  blocks?: ArrangementBlockData[];
+  muteBass?: boolean;
+  muteDrums?: boolean;
 }): Uint8Array {
   const TICKS_PER_BEAT = 480;
   const TICKS_PER_STEP = 120; // 16th note
+  const STEPS_PER_BLOCK = 16;
 
   // Microseconds per quarter note: 60,000,000 / BPM
   const tempoMicroseconds = Math.round(60_000_000 / (bpm || 140));
@@ -113,7 +118,6 @@ export function createMidiFile({
   const tracks: number[][] = [];
   tracks.push(buildTrackChunk(tempoTrackEvents, "Tempo Track"));
 
-  // --- Melody Layers (each gets its own track, channels 0-3) ---
   const activeLayers = (melodyLayers ?? []).filter(
     (layer) => !layer.muted && layer.result && layer.result.notes.length > 0
   );
@@ -124,18 +128,24 @@ export function createMidiFile({
     const noteOff = 0x80 | channel;
     const events: MidiEvent[] = [];
 
-    layer.result!.notes.forEach((note) => {
-      const startTick = note.step * TICKS_PER_STEP;
-      const durationTicks = Math.max(1, note.duration || 1) * TICKS_PER_STEP - 10;
-      const endTick = startTick + durationTicks;
+    blocks.forEach((block, blockIdx) => {
+      const blockStepOffset = blockIdx * STEPS_PER_BLOCK;
+      const melodyResult = block.melodyResults.find((m) => m.layerId === layer.id)?.result;
+      if (!melodyResult) return;
 
-      events.push({
-        tick: startTick,
-        data: [noteOn, note.note, Math.min(127, Math.max(1, note.velocity))],
-      });
-      events.push({
-        tick: endTick,
-        data: [noteOff, note.note, 0],
+      melodyResult.notes.forEach((note) => {
+        const startTick = (blockStepOffset + note.step) * TICKS_PER_STEP;
+        const durationTicks = Math.max(1, note.duration || 1) * TICKS_PER_STEP - 10;
+        const endTick = startTick + durationTicks;
+
+        events.push({
+          tick: startTick,
+          data: [noteOn, note.note, Math.min(127, Math.max(1, note.velocity))],
+        });
+        events.push({
+          tick: endTick,
+          data: [noteOff, note.note, 0],
+        });
       });
     });
 
@@ -144,54 +154,79 @@ export function createMidiFile({
   });
 
   // --- Track 2: 808 Bass (Channel 1) ---
-  if (bass && bass.notes.length > 0) {
+  if (!muteBass) {
     const bassEvents: MidiEvent[] = [];
-    bass.notes.forEach((note) => {
-      const startTick = note.step * TICKS_PER_STEP;
-      const durationTicks = Math.max(1, note.duration || 2) * TICKS_PER_STEP - 10;
-      const endTick = startTick + durationTicks;
+    blocks.forEach((block, blockIdx) => {
+      const blockStepOffset = blockIdx * STEPS_PER_BLOCK;
+      if (!block.bass || !block.bass.notes) return;
+      
+      block.bass.notes.forEach((note) => {
+        const startTick = (blockStepOffset + note.step) * TICKS_PER_STEP;
+        const durationTicks = Math.max(1, note.duration || 2) * TICKS_PER_STEP - 10;
+        const endTick = startTick + durationTicks;
 
-      // Note On: 91 [note] [velocity]
-      bassEvents.push({
-        tick: startTick,
-        data: [0x91, note.note, Math.min(127, Math.max(1, note.velocity))],
-      });
-      // Note Off: 81 [note] 00
-      bassEvents.push({
-        tick: endTick,
-        data: [0x81, note.note, 0],
+        // Note On: 91 [note] [velocity]
+        bassEvents.push({
+          tick: startTick,
+          data: [0x91, note.note, Math.min(127, Math.max(1, note.velocity))],
+        });
+        // Note Off: 81 [note] 00
+        bassEvents.push({
+          tick: endTick,
+          data: [0x81, note.note, 0],
+        });
       });
     });
-    tracks.push(buildTrackChunk(bassEvents, "808 Bass"));
+    if (bassEvents.length > 0) {
+      tracks.push(buildTrackChunk(bassEvents, "808 Bass"));
+    }
   }
 
   // --- Track 3: Drums (Channel 9 / 10 in standard 1-index) ---
-  if (drums && drums.hits.length > 0) {
+  if (!muteDrums) {
     const drumEvents: MidiEvent[] = [];
     const GM_MAP: Record<string, number> = {
-      kick: 36, // Bass Drum 1
-      snare: 38, // Acoustic Snare
-      hat: 42, // Closed Hi-Hat
+      kick: 36,      // Bass Drum 1
+      snare: 38,     // Acoustic Snare
+      clap: 39,      // Hand Clap
+      hat: 42,       // Closed Hi-Hat
       "open-hat": 46, // Open Hi-Hat
     };
 
-    drums.hits.forEach((hit) => {
-      const midiPitch = GM_MAP[hit.drum] || 36;
-      const startTick = hit.step * TICKS_PER_STEP;
-      const durationTicks = 60; // 32nd note trigger
+    const stepDuration = 60 / (bpm || 140) / 4;
 
-      // Note On: 99 [pitch] [velocity]
-      drumEvents.push({
-        tick: startTick,
-        data: [0x99, midiPitch, Math.min(127, Math.max(1, hit.velocity))],
+    blocks.forEach((block, blockIdx) => {
+      const blockTimeOffset = blockIdx * (STEPS_PER_BLOCK * stepDuration);
+      if (!block.drums || !block.drums.hits) return;
+
+      const grooveEvents = buildGrooveEventPlan({
+        hits: block.drums.hits,
+        bpm: bpm || 140,
+        patternDurationSteps: STEPS_PER_BLOCK,
       });
-      // Note Off: 89 [pitch] 00
-      drumEvents.push({
-        tick: startTick + durationTicks,
-        data: [0x89, midiPitch, 0],
+
+      grooveEvents.forEach((ev) => {
+        const midiPitch = GM_MAP[ev.instrument] || 36;
+        const globalTimeSeconds = blockTimeOffset + ev.timeSeconds;
+        const startTick = Math.round((globalTimeSeconds / stepDuration) * TICKS_PER_STEP);
+        const durationTicks = 60; // 32nd note trigger
+
+        // Note On: 99 [pitch] [velocity]
+        drumEvents.push({
+          tick: startTick,
+          data: [0x99, midiPitch, Math.min(127, Math.max(1, ev.velocity))],
+        });
+        // Note Off: 89 [pitch] 00
+        drumEvents.push({
+          tick: startTick + durationTicks,
+          data: [0x89, midiPitch, 0],
+        });
       });
     });
-    tracks.push(buildTrackChunk(drumEvents, "Trap Drums"));
+    
+    if (drumEvents.length > 0) {
+      tracks.push(buildTrackChunk(drumEvents, "Trap Drums"));
+    }
   }
 
   // --- Header Chunk: MThd + format 1 + track count + division ---

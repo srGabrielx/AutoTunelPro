@@ -11,6 +11,15 @@ import type {
   StyleId,
 } from "../music/types";
 
+export type ArrangementBlockType = "intro" | "verse" | "drop" | "outro";
+
+export interface ArrangementBlockData {
+  type: ArrangementBlockType;
+  bass: BassResult;
+  drums: DrumResult;
+  melodyResults: Array<{ layerId: string; result: MelodyResult }>;
+}
+
 // ==========================================================
 // REQUEST PAYLOADS
 // ==========================================================
@@ -22,6 +31,7 @@ export interface GenerateMelodyPayload {
   key: string;
   scale: ScaleId;
   complexity: number;
+  seed?: number;
 }
 
 export interface GenerateBassPayload {
@@ -31,6 +41,7 @@ export interface GenerateBassPayload {
   scale: ScaleId;
   bassOctave: BassOctave;
   complexity: number;
+  seed?: number;
 }
 
 export interface GenerateDrumsPayload {
@@ -41,6 +52,7 @@ export interface GenerateDrumsPayload {
   swing?: number;
   rollDensity?: number;
   humanize?: number;
+  seed?: number;
 }
 
 export interface GenerateAllPayload {
@@ -62,21 +74,24 @@ export interface GenerateAllPayload {
     scale: ScaleId;
     muted: boolean;
   }>;
+  seed?: number;
 }
 
 export interface ExportMidiPayload {
   bpm: number;
   melodyLayers?: MelodyLayer[];
-  bass?: BassResult | null;
-  drums?: DrumResult | null;
+  blocks?: ArrangementBlockData[];
+  muteBass?: boolean;
+  muteDrums?: boolean;
   filename?: string;
 }
 
 export interface ExportWavPayload {
   bpm: number;
   melodyLayers?: MelodyLayer[];
-  bass?: BassResult | null;
-  drums?: DrumResult | null;
+  blocks?: ArrangementBlockData[];
+  muteBass?: boolean;
+  muteDrums?: boolean;
   loops?: number;
   bassDrive?: BassDrive;
   drumKit?: DrumKitMode;
@@ -105,9 +120,7 @@ export type WorkerRequest =
 // ==========================================================
 
 export interface GenerateAllResponseData {
-  bass: BassResult;
-  drums: DrumResult;
-  melodyResults: Array<{ layerId: string; result: MelodyResult }>;
+  blocks: ArrangementBlockData[];
 }
 
 export interface ExportFileResponseData {

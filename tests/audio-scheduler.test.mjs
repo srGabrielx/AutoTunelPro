@@ -71,22 +71,41 @@ test("Audio Scheduler - Loop and Stop Boundaries", () => {
   assert.equal(loopSteps, 32, "Must continue looping across patterns");
 });
 
-test("Audio Scheduler - Active Node Tracking and Cleanup", () => {
-  const activeNodes = [];
+test("Audio Scheduler - Active Node Tracking and Cleanup (Set > 150 nodes)", () => {
+  const activeNodes = new Set();
   let stoppedCount = 0;
 
-  for (let i = 0; i < 10; i++) {
-    activeNodes.push({
+  // Simulate scheduling 250 rapid events (e.g. hi-hat rolls)
+  for (let i = 0; i < 250; i++) {
+    const node = {
+      id: i,
       stop: () => {
         stoppedCount++;
       },
-    });
+      onended: null,
+    };
+    
+    // Simulate trackNode
+    activeNodes.add(node);
+    node.onended = () => {
+      activeNodes.delete(node);
+    };
+
+    // Simulate 50 natural completions
+    if (i < 50) {
+      if (node.onended) node.onended({});
+    }
   }
 
-  // Cleanup simulation
+  // 250 scheduled - 50 completed = 200 should be active
+  assert.equal(activeNodes.size, 200, "Set must hold all 200 active nodes without arbitrary truncation");
+
+  // Cleanup simulation (Transport Stop)
   for (const node of activeNodes) {
     node.stop();
   }
+  activeNodes.clear();
 
-  assert.equal(stoppedCount, 10, "All active audio nodes must receive stop() during cleanup");
+  assert.equal(stoppedCount, 200, "All 200 remaining audio nodes must receive stop() during cleanup");
+  assert.equal(activeNodes.size, 0, "Set must be empty after cleanup");
 });

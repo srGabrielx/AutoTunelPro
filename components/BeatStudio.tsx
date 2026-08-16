@@ -18,6 +18,12 @@ import type {
 import { downloadMidiBlob } from "../lib/export/midi";
 import { downloadWavBlob } from "../lib/export/wav";
 import { ARTIST_PRESETS, KEYS, SCALES } from "../lib/music/styles";
+import {
+  WorkerErrorResponse,
+  WorkerSuccessResponse,
+  ArrangementBlockData,
+  ArrangementBlockType,
+} from "../lib/workers/protocol";
 import { StudioWorkerClient } from "../lib/workers/studio-worker-client";
 import { SampleAccurateAudioEngine, type PlaybackMode } from "../lib/music/audio-transport";
 import { usePlayheadController } from "../lib/music/usePlayheadController";
@@ -586,6 +592,10 @@ export default function BeatStudio() {
   const [drums, setDrums] = useState<DrumResult | null>(null);
   const [muteDrums, setMuteDrums] = useState(false);
 
+  // Arrangement State
+  const [arrangementBlocks, setArrangementBlocks] = useState<ArrangementBlockData[]>([]);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+
   // UI / Export state
   const [busy, setBusy] = useState<string | null>(null);
   const [exportingWav, setExportingWav] = useState(false);
@@ -628,6 +638,8 @@ export default function BeatStudio() {
     isLooping,
     playbackMode,
     trackSettings,
+    arrangementBlocks,
+    currentBlockIndex,
   });
 
   useEffect(() => {
@@ -653,6 +665,8 @@ export default function BeatStudio() {
       isLooping,
       playbackMode,
       trackSettings,
+      arrangementBlocks,
+      currentBlockIndex,
     };
 
     // Update real-time step events map without restarting playback
@@ -689,6 +703,8 @@ export default function BeatStudio() {
     isLooping,
     playbackMode,
     trackSettings,
+    arrangementBlocks,
+    currentBlockIndex,
   ]);
 
   // Stop playback helper
@@ -823,14 +839,20 @@ export default function BeatStudio() {
             })),
           });
 
-          setBass(allData.bass);
-          setDrums(allData.drums);
-          setMelodyLayers((prev) =>
-            prev.map((l) => {
-              const found = allData.melodyResults.find((m) => m.layerId === l.id);
-              return found ? { ...l, result: found.result } : l;
-            })
-          );
+          if (allData.blocks && allData.blocks.length > 0) {
+            setArrangementBlocks(allData.blocks);
+            
+            const firstBlock = allData.blocks[0];
+            setCurrentBlockIndex(0);
+            setBass(firstBlock.bass);
+            setDrums(firstBlock.drums);
+            setMelodyLayers((prev) =>
+              prev.map((l) => {
+                const found = firstBlock.melodyResults.find((m) => m.layerId === l.id);
+                return found ? { ...l, result: found.result } : l;
+              })
+            );
+          }
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "Erro ao carregar preset.");
         } finally {
@@ -840,6 +862,20 @@ export default function BeatStudio() {
     },
     [stopPlayback]
   );
+
+  const selectArrangementBlock = useCallback((index: number, blocks: ArrangementBlockData[] = arrangementBlocks) => {
+    if (!blocks[index]) return;
+    const block = blocks[index];
+    setCurrentBlockIndex(index);
+    setBass(block.bass);
+    setDrums(block.drums);
+    setMelodyLayers((prev) =>
+      prev.map((l) => {
+        const found = block.melodyResults.find((m) => m.layerId === l.id);
+        return found ? { ...l, result: found.result } : l;
+      })
+    );
+  }, [arrangementBlocks]);
 
   // Layer CRUD
   const updateLayer = useCallback((id: string, patch: Partial<MelodyLayer>) => {
@@ -997,14 +1033,10 @@ export default function BeatStudio() {
         })),
       });
 
-      setBass(allData.bass);
-      setDrums(allData.drums);
-      setMelodyLayers((prev) =>
-        prev.map((l) => {
-          const found = allData.melodyResults.find((m) => m.layerId === l.id);
-          return found ? { ...l, result: found.result } : l;
-        })
-      );
+      if (allData.blocks && allData.blocks.length > 0) {
+        setArrangementBlocks(allData.blocks);
+        selectArrangementBlock(0, allData.blocks);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao gerar beat completo.");
     } finally {
@@ -1047,8 +1079,9 @@ export default function BeatStudio() {
       const result = await workerClientRef.current.exportMidi({
         bpm,
         melodyLayers: stateRef.current.melodyLayers,
-        bass: stateRef.current.bass,
-        drums: stateRef.current.drums,
+        blocks: stateRef.current.arrangementBlocks,
+        muteBass,
+        muteDrums,
         filename: `AutoTunel-${key}-${bpm}BPM.mid`,
       });
       downloadMidiBlob(result.buffer, result.filename);
@@ -1066,8 +1099,9 @@ export default function BeatStudio() {
       const result = await workerClientRef.current.exportWav({
         bpm,
         melodyLayers: stateRef.current.melodyLayers.filter((l) => !l.muted),
-        bass: muteBass ? null : bass,
-        drums: muteDrums ? null : drums,
+        blocks: stateRef.current.arrangementBlocks,
+        muteBass,
+        muteDrums,
         loops: 2,
         bassDrive,
         drumKit,
@@ -1110,14 +1144,10 @@ export default function BeatStudio() {
         })),
       })
       .then((allData) => {
-        setBass(allData.bass);
-        setDrums(allData.drums);
-        setMelodyLayers((prev) =>
-          prev.map((l) => {
-            const found = allData.melodyResults.find((m) => m.layerId === l.id);
-            return found ? { ...l, result: found.result } : l;
-          })
-        );
+        if (allData.blocks && allData.blocks.length > 0) {
+          setArrangementBlocks(allData.blocks);
+          selectArrangementBlock(0, allData.blocks);
+        }
       })
       .catch(() => {});
 
@@ -1270,6 +1300,20 @@ export default function BeatStudio() {
 
           </div>
         </div>
+
+        {arrangementBlocks.length > 0 && (
+          <div className="arrangement-tabs flex gap-2 mt-4">
+            {arrangementBlocks.map((block, idx) => (
+              <button 
+                key={idx} 
+                className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx ? "bg-white text-black border-white" : "bg-black text-white border-white/20 hover:border-white/50"}`}
+                onClick={() => selectArrangementBlock(idx)}
+              >
+                {block.type}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ==========================================
@@ -1726,8 +1770,11 @@ export default function BeatStudio() {
         <>
           <div
             className="add-track-menu-overlay"
-            onMouseDown={() => setIsAddTrackMenuOpen(false)}
-            onTouchStart={() => setIsAddTrackMenuOpen(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              setIsAddTrackMenuOpen(false);
+            }}
           />
           <div className="add-track-menu">
             <div className="add-track-menu-header">

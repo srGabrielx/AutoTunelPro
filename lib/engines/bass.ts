@@ -1,69 +1,79 @@
-import { makeSeed, pick, rng } from "../music/random";
-import { KEYS, SCALES, STYLES } from "../music/styles";
-import type { BassNote, BassResult, GenerateOptions } from "../music/types";
+import { makeSeed, rng } from "../music/random.ts";
+import { KEYS } from "../music/styles.ts";
+import type { BassNote, BassResult, GenerateOptions } from "../music/types.ts";
+import { buildCompositionPlan, type CompositionPlan } from "../music/composition-plan.ts";
 
 export function generateBass(options: GenerateOptions): BassResult {
   const seed = makeSeed(options.seed);
   const random = rng(seed);
-  const preset = STYLES[options.style];
   
-  // Scale intervals from options or preset
-  const scaleIntervals = options.scale && SCALES[options.scale]
-    ? SCALES[options.scale].intervals
-    : preset.scale;
+  const plan: CompositionPlan = options.compositionPlan ?? buildCompositionPlan(options, random);
 
-  // Base MIDI root note for 808 with configurable octave offset (-36 = C0, -24 = C1, -12 = C2)
-  const rootMidi = KEYS[options.key || "C"] ?? 60;
+  const rootMidi = KEYS[plan.key] ?? 60;
   const octaveOffset = options.bassOctave ?? -24;
   const bassRoot = rootMidi + octaveOffset;
 
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
   const notes: BassNote[] = [];
 
-  // Determine kick steps to lock 808 with the rhythm
-  const mainSteps = options.style === "trap-uk" 
-    ? [0, 5, 8, 11, 14] 
-    : [0, 6, 10, 14];
-
-  // Primary 808 hits (Root notes on downbeats)
-  mainSteps.forEach((step, idx) => {
-    if (idx === 0 || random() < 0.75 + comp * 0.05) {
-      const degree = random() > 0.3 ? 0 : pick(random, [scaleIntervals[2] || 3, scaleIntervals[4] || 7, -12]);
-      const isSlide = options.style === "trap-uk" && comp >= 3 && random() > 0.45;
-      const duration = isSlide ? 1 : (comp >= 3 && random() > 0.5 ? 3 : 2);
+  for (let bar = 0; bar < plan.timeline.bars; bar++) {
+    const barStart = bar * plan.timeline.stepsPerBar;
+    
+    for (let beat = 0; beat < 4; beat++) {
+      const beatStart = barStart + (beat * 4);
       
-      notes.push({
-        step,
-        note: bassRoot + degree,
-        velocity: Math.round(95 + random() * 25),
-        duration,
-        slide: isSlide,
-      });
-    }
-  });
+      const region = plan.harmonicGrid.find(r => r.startStep <= beatStart && r.endStep > beatStart) 
+                     ?? plan.harmonicGrid[0];
+                     
+      // The exact root of the current chord
+      const chordRootTone = region.chordDegrees[0];
 
-  // Syncopated ghost 808s and octave slide accents
-  if (comp >= 3) {
-    const extraSteps = options.style === "trap-uk" ? [3, 7, 13, 15] : [3, 7, 12, 13];
-    extraSteps.forEach((step) => {
-      if (!notes.some((n) => n.step === step) && random() < 0.35 + (comp - 3) * 0.18) {
-        const octaveJump = random() > 0.6 ? 12 : (options.style === "trap-uk" ? 14 : 0);
+      // Bass anchors itself to strong beats
+      const anchor = plan.rhythmicAnchors.find(a => a.step === beatStart);
+      const isStrongAnchor = anchor && anchor.type === "downbeat";
+
+      if (isStrongAnchor || (anchor && random() < anchor.weight * (comp / 3))) {
+        const isSlide = options.style === "trap-uk" && comp >= 3 && random() > 0.6;
+        const duration = isSlide ? 1 : (comp >= 3 && random() > 0.5 ? 3 : 2);
+
         notes.push({
-          step,
-          note: bassRoot + octaveJump,
-          velocity: Math.round(80 + random() * 30),
-          duration: 1,
-          slide: options.style === "trap-uk" && random() > 0.5,
+          step: beatStart,
+          note: bassRoot + chordRootTone,
+          velocity: Math.round(90 + (anchor ? anchor.weight * 30 : 10) + (random() * 10 - 5)),
+          duration,
+          slide: isSlide,
         });
       }
-    });
+
+      // Syncopations / Ghost notes
+      if (comp >= 3) {
+        // Find syncopation anchors in this beat
+        const syncAnchors = plan.rhythmicAnchors.filter(a => a.step > beatStart && a.step < beatStart + 4 && a.type === "syncopation");
+        
+        for (const sa of syncAnchors) {
+          if (!notes.some(n => n.step === sa.step) && random() < sa.weight * (comp / 5)) {
+            // Only octave jumps for syncopated accents to keep bass clean
+            const octaveJump = random() > 0.6 ? 12 : (options.style === "trap-uk" ? 12 : 0); // Forced 12 instead of 14 for UK to prevent dissonance
+            
+            notes.push({
+              step: sa.step,
+              note: bassRoot + chordRootTone + octaveJump,
+              velocity: Math.round(75 + (sa.weight * 20)),
+              duration: 1,
+              slide: options.style === "trap-uk" && random() > 0.4,
+            });
+          }
+        }
+      }
+    }
   }
 
-  // Ensure at least step 0 has a strong 808 root
+  // Ensure at least step 0 has a strong root if empty
   if (!notes.some((n) => n.step === 0)) {
+    const firstRegion = plan.harmonicGrid[0];
     notes.unshift({
       step: 0,
-      note: bassRoot,
+      note: bassRoot + firstRegion.chordDegrees[0],
       velocity: 110,
       duration: 3,
     });

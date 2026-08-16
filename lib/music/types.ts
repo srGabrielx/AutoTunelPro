@@ -1,3 +1,5 @@
+import type { CompositionPlan } from "./composition-plan";
+
 export type StyleId = "trap-br" | "trap-uk" | "trap-usa" | "hip-hop" | "funk" | "amapiano";
 
 export type ScaleId =
@@ -56,6 +58,7 @@ export interface GenerateOptions {
   swing?: number;       // 0 to 100 %
   rollDensity?: number; // 0 to 100 %
   humanize?: number;    // 0 to 100 %
+  compositionPlan?: CompositionPlan; // Injected shared plan for Lote 3+
 }
 
 export interface MelodyNote {

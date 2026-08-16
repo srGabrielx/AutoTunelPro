@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createMidiFile } from "../lib/export/midi.ts";
 import { encodeWav16Bit, renderDspAudio } from "../lib/export/dsp-renderer.ts";
+import { generateDrums } from "../lib/engines/drums.ts";
+import { buildGrooveEventPlan } from "../lib/music/groove-plan.ts";
 
 test("MIDI Export - Valid Header and Chunk Format", () => {
   const midi = createMidiFile({
@@ -190,4 +192,99 @@ test("DSP Synthesis - Deterministic Sound Generation", () => {
   for (let i = 0; i < 500; i++) {
     assert.equal(render1.left[i], render2.left[i], `Sample mismatch at ${i}`);
   }
+});
+
+// ============================================================
+// MIDI PARITY REGRESSION TESTS (Lote 1)
+// ============================================================
+
+test("MIDI Export - Rolls Expanded Into Individual MIDI Notes", () => {
+  const bpm = 140;
+  const drums = {
+    engine: "drums",
+    seed: 12345,
+    style: "trap-br",
+    bpm,
+    hits: [
+      { step: 6, drum: "hat", velocity: 80, roll: { count: 3, velocityCurve: "crescendo" } },
+      { step: 0, drum: "kick", velocity: 100 },
+    ],
+  };
+
+  const midi = createMidiFile({ bpm, drums });
+  assert.ok(midi instanceof Uint8Array);
+
+  // The groove plan should expand the roll count:3 into 3 sub-events
+  const plan = buildGrooveEventPlan({ hits: drums.hits, bpm, patternDurationSteps: 16 });
+  const hatEvents = plan.filter((ev) => ev.instrument === "hat");
+  assert.equal(hatEvents.length, 3, "Roll with count:3 must produce 3 groove events");
+
+  // Count Note On events (0x99) in the MIDI data for hat pitch (42)
+  let hatNoteOns = 0;
+  for (let i = 0; i < midi.length - 2; i++) {
+    if (midi[i] === 0x99 && midi[i + 1] === 42) {
+      hatNoteOns++;
+    }
+  }
+  assert.equal(hatNoteOns, 3, "MIDI must contain 3 hat Note On events for a roll with count:3");
+});
+
+test("MIDI Export - Clap Events Use GM Hand Clap Pitch 39", () => {
+  const bpm = 140;
+  const drums = {
+    engine: "drums",
+    seed: 99999,
+    style: "trap-br",
+    bpm,
+    hits: [
+      { step: 4, drum: "clap", velocity: 92 },
+      { step: 12, drum: "clap", velocity: 88 },
+    ],
+  };
+
+  const midi = createMidiFile({ bpm, drums });
+
+  // Count Note On events (0x99) for clap pitch (39)
+  let clapNoteOns = 0;
+  for (let i = 0; i < midi.length - 2; i++) {
+    if (midi[i] === 0x99 && midi[i + 1] === 39) {
+      clapNoteOns++;
+    }
+  }
+  assert.equal(clapNoteOns, 2, "MIDI must contain 2 clap Note On events with GM pitch 39");
+});
+
+test("MIDI Export - Event Count Matches Groove Plan", () => {
+  const bpm = 140;
+  const drums = generateDrums({ style: "trap-uk", bpm, seed: 554433, complexity: 4 });
+  const plan = buildGrooveEventPlan({ hits: drums.hits, bpm, patternDurationSteps: 16 });
+
+  const midi = createMidiFile({ bpm, drums });
+
+  // Count total Note On events (0x99) in MIDI
+  let midiNoteOns = 0;
+  for (let i = 0; i < midi.length - 1; i++) {
+    if (midi[i] === 0x99) {
+      midiNoteOns++;
+    }
+  }
+
+  assert.equal(
+    midiNoteOns,
+    plan.length,
+    `MIDI Note On count (${midiNoteOns}) must equal groove plan event count (${plan.length})`
+  );
+});
+
+test("MIDI Export - Generated Drums Still Produce Valid MIDI", () => {
+  const bpm = 140;
+  const drums = generateDrums({ style: "trap-br", bpm, seed: 778899, complexity: 5 });
+
+  const midi = createMidiFile({ bpm, drums });
+  assert.ok(midi instanceof Uint8Array);
+  assert.ok(midi.length > 44, "MIDI file must have sufficient length");
+
+  // Verify MThd header
+  const header = String.fromCharCode(midi[0], midi[1], midi[2], midi[3]);
+  assert.equal(header, "MThd");
 });

@@ -1,6 +1,7 @@
 import { makeSeed } from "../music/random.ts";
 import { STYLES } from "../music/styles.ts";
 import type { DrumHit, DrumResult, DrumRoll, GenerateOptions, StyleId } from "../music/types.ts";
+import { buildCompositionPlan, type CompositionPlan } from "../music/composition-plan.ts";
 
 // Default Groove DNA per Genre
 const GENRE_GROOVE_DNA: Record<
@@ -84,7 +85,9 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   const dna = GENRE_GROOVE_DNA[options.style] ?? GENRE_GROOVE_DNA["trap-br"];
   const hits: DrumHit[] = [];
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
-  const patternMode = options.drumPattern || "standard";
+  
+  // Create or reuse the composition plan
+  const plan: CompositionPlan = options.compositionPlan ?? buildCompositionPlan(options, () => deterministicRng(seed, "plan", 0));
 
   // Effective groove parameters
   const effectiveSwing = options.swing !== undefined ? options.swing : dna.defaultSwing;
@@ -93,14 +96,12 @@ export function generateDrums(options: GenerateOptions): DrumResult {
 
   const getMicroTiming = (drum: string, step: number) => {
     const isOffbeat = step % 2 === 1;
-    // Main downbeats (0, 4, 8, 12) for kick/snare stay locked to grid to protect beat anchor
     if ((drum === "kick" || drum === "snare") && step % 4 === 0) {
       return 0;
     }
     const swingMs = isOffbeat ? dna.swingOffsetMs * (effectiveSwing / 50) : 0;
     const jitterFactor = deterministicRng(seed, `${drum}-jitter`, step) * 2 - 1;
     const humanizeJitter = jitterFactor * (effectiveHumanize / 100) * 3.5;
-    // Strictly bound within [-15, +15] ms
     return Math.max(-15, Math.min(15, Math.round(swingMs + humanizeJitter)));
   };
 
@@ -108,7 +109,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
     const velNoise = deterministicRng(seed, `${drum}-vel`, step) * 2 - 1;
     const range = (effectiveHumanize / 100) * 20;
     const offset = velNoise * range;
-    // Bounded safely: never zero, max 127
     return Math.max(35, Math.min(127, Math.round(base + offset)));
   };
 
@@ -127,125 +127,96 @@ export function generateDrums(options: GenerateOptions): DrumResult {
     });
   };
 
-  // 1. Kick Pattern
-  if (patternMode === "half-time") {
-    add(0, "kick", 108);
-    if (comp >= 2 && deterministicRng(seed, "kick-half-10", 10) > 0.35) add(10, "kick", 90);
-    if (comp >= 4 && deterministicRng(seed, "kick-half-14", 14) > 0.5) add(14, "kick", 82);
-  } else if (patternMode === "double-time") {
-    [0, 3, 6, 8, 10, 14].forEach((step) => add(step, "kick", 96));
-  } else if (options.style === "trap-uk") {
-    add(0, "kick", 105);
-    add(3, "kick", 92);
-    if (deterministicRng(seed, "kick-drill-8", 8) > 0.3) add(8, "kick", 96);
-    if (comp >= 3 && deterministicRng(seed, "kick-drill-11", 11) > 0.4) add(11, "kick", 88);
-    if (comp >= 4 && deterministicRng(seed, "kick-drill-14", 14) > 0.5) add(14, "kick", 84);
-  } else if (options.style === "funk") {
-    [0, 4, 7, 10, 13].forEach((step) => {
-      add(step, "kick", step === 0 ? 110 : 98);
-    });
-  } else {
-    preset.kick.forEach((step) => {
-      if (deterministicRng(seed, "kick-preset", step) < 0.82 + comp * 0.035) {
-        add(step, "kick", step === 0 ? 108 : 95);
-      }
-    });
-    if (comp >= 3) {
-      const ghostSteps = [3, 11, 13];
-      ghostSteps.forEach((step) => {
-        if (deterministicRng(seed, "kick-ghost", step) < 0.25 + (comp - 3) * 0.25) add(step, "kick", 74);
+  for (let bar = 0; bar < plan.timeline.bars; bar++) {
+    const barStart = bar * plan.timeline.stepsPerBar;
+    
+    // 1. Snare / Clap Placement (Backbeats)
+    const preferClap = options.style === "trap-br" || options.style === "trap-usa";
+    const mainSnareDrum: DrumHit["drum"] = preferClap && deterministicRng(seed, "prefer-clap", 0) > 0.3 ? "clap" : "snare";
+
+    plan.rhythmicAnchors
+      .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && a.type === "backbeat")
+      .forEach(anchor => {
+        add(anchor.step, mainSnareDrum, 104);
+        
+        // Layer snare + clap on strongest backbeats
+        if (anchor.weight >= 0.9 && comp >= 3 && deterministicRng(seed, "layer-clap", anchor.step) > 0.4) {
+          add(anchor.step, "clap", 92);
+        }
       });
-    }
-  }
+      
+    // 2. Kick Placement (Downbeats and Syncopations)
+    plan.rhythmicAnchors
+      .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && (a.type === "downbeat" || a.type === "syncopation"))
+      .forEach(anchor => {
+        if (anchor.type === "downbeat") {
+          add(anchor.step, "kick", 108);
+        } else if (anchor.type === "syncopation" && deterministicRng(seed, "kick-sync", anchor.step) < anchor.weight * (comp / 2)) {
+          add(anchor.step, "kick", 85 + (anchor.weight * 10));
+        }
+      });
 
-  // 2. Snare / Clap / Rim
-  const preferClap = options.style === "trap-br" || options.style === "trap-usa";
-  const mainSnareDrum: DrumHit["drum"] = preferClap && deterministicRng(seed, "prefer-clap", 0) > 0.3 ? "clap" : "snare";
+    // 3. Hi-Hats with Rolls obeying Energy Curve
+    const rollChanceThreshold = 1.0 - (effectiveRolls / 100) * 0.55;
 
-  if (patternMode === "half-time") {
-    add(8, mainSnareDrum, 110);
-    if (comp >= 3 && deterministicRng(seed, "snare-half-14", 14) > 0.45) add(14, "snare", 72);
-  } else if (options.style === "trap-uk") {
-    add(3, "snare", 96);
-    add(8, mainSnareDrum, 108);
-    if (comp >= 3) add(11, "snare", 68);
-    if (comp >= 4 && deterministicRng(seed, "snare-drill-15", 15) > 0.4) add(15, "snare", 76);
-  } else if (options.style === "funk") {
-    preset.snare.forEach((step) => {
-      const isClapAccent = (step === 6 || step === 14) && deterministicRng(seed, "funk-clap", step) > 0.4;
-      add(step, isClapAccent ? "clap" : "snare", 104);
-    });
-  } else {
-    preset.snare.forEach((step) => {
-      add(step, mainSnareDrum, 104);
-      // Layer snare + clap on major downbeat for rich acoustic impact
-      if (step === 12 && comp >= 3 && deterministicRng(seed, "layer-clap-12", 12) > 0.4) {
-        add(step, "clap", 92);
+    for (let s = barStart; s < barStart + plan.timeline.stepsPerBar; s++) {
+      const isStrongBeat = s % 4 === 0;
+      const isOffbeat = s % 2 === 1;
+      
+      const energy = plan.energyCurve[s] ?? 0.5;
+      
+      // Determine base hat type
+      const isTrap = options.style.startsWith("trap");
+      const isOpenHatAcc = !isTrap && isOffbeat && deterministicRng(seed, "openhat-acc", s) > 0.6;
+      let hatType: DrumHit["drum"] = isOpenHatAcc ? "open-hat" : "hat";
+      
+      // Trap often places open hats on specific beats
+      if (isTrap && s % 8 === 6 && deterministicRng(seed, "trap-openhat", s) > 0.3) {
+        hatType = "open-hat";
       }
-    });
-    if (comp >= 3 && deterministicRng(seed, "snare-ghost-10", 10) > 0.4) {
-      add(10, "snare", 62); // Ghost note
-    }
-    if (comp >= 4 && deterministicRng(seed, "snare-fill-14", 14) > 0.4) {
-      add(14, "snare", 74);
-      add(15, "snare", 90);
-    }
-  }
+      
+      // Should we roll? Only if energy is high enough and not on a downbeat (usually)
+      // The lower the energy, the lower the chance of rolling
+      const dynamicRollChance = rollChanceThreshold + ( (0.8 - energy) * 0.5 ); 
+      let roll: DrumRoll | undefined = undefined;
+      let stepVel = isStrongBeat ? 95 : (isOffbeat ? 75 : 85);
+      
+      if (hatType === "hat" && !isStrongBeat && comp >= 3) {
+        if (deterministicRng(seed, "hat-roll", s) > dynamicRollChance) {
+          const rollCount = deterministicRng(seed, "roll-count", s) > 0.4 ? dna.favoredRollCount : 2;
+          const appliesPitchDrop = deterministicRng(seed, "pitch-drop", s) < dna.pitchDropProbability;
+          
+          let pitchCurve = undefined;
+          if (appliesPitchDrop && rollCount >= 3) {
+            pitchCurve = {
+              startCents: 0,
+              endCents: -500, // Drop 5 semitones over the roll
+              durationMs: 150
+            };
+          }
 
-  // 3. Hi-Hats with Sub-Step Rolls & Parametric Pitch Curves
-  const rollChanceThreshold = 1.0 - (effectiveRolls / 100) * 0.55;
-
-  for (let s = 0; s < 16; s++) {
-    const isStrongBeat = s % 4 === 0;
-    const isOffbeat = s % 2 === 1;
-
-    const isRollCandidate =
-      options.style === "trap-uk"
-        ? s === 3 || s === 7 || s === 11 || s === 15
-        : s === 6 || s === 7 || s === 14 || s === 15 || s === 2 || s === 10;
-
-    const rndRoll = deterministicRng(seed, "hat-roll-chance", s);
-    const shouldRoll = isRollCandidate && comp >= 2 && rndRoll > rollChanceThreshold;
-
-    if (shouldRoll) {
-      const rollCount: 1 | 2 | 3 | 4 | 6 =
-        options.style === "trap-uk" && deterministicRng(seed, "drill-triplet", s) > 0.35
-          ? 3 // Triplet distributed across the step
-          : dna.favoredRollCount;
-
-      const hasPitchDrop = deterministicRng(seed, "pitch-drop", s) < dna.pitchDropProbability;
-      const curve: "crescendo" | "decrescendo" | "flat" =
-        deterministicRng(seed, "curve", s) > 0.5 ? "crescendo" : "decrescendo";
-
-      const rollObj: DrumRoll = {
-        count: rollCount,
-        velocityCurve: curve,
-        pitchCurve: hasPitchDrop
-          ? {
-              startCents: 600, // starts +6 semitones
-              endCents: -600,  // drops -6 semitones
-              durationMs: 80,
-            }
-          : undefined,
-      };
-
-      add(s, "hat", 80, { roll: rollObj });
-    } else {
-      const baseVel = isStrongBeat ? 86 : isOffbeat ? 72 : 64;
-      if (options.style === "funk" || options.style === "amapiano") {
-        if (s % 2 === 1) add(s, "hat", 80);
-      } else {
-        add(s, "hat", baseVel);
+          roll = {
+            count: rollCount,
+            pitchCurve,
+            velocityCurve: "flat"
+          };
+          stepVel += 15; // Accent the start of a roll
+        }
+      }
+      
+      // Determine if we play a hat here at all
+      let playHat = true;
+      if (options.style === "amapiano" && s % 4 !== 0 && deterministicRng(seed, "ama-hat-skip", s) > 0.3) {
+        playHat = false; // Sparsity
+      }
+      if (options.style === "funk" && deterministicRng(seed, "funk-hat-skip", s) > 0.6) {
+        playHat = false;
+      }
+      
+      if (playHat) {
+        add(s, hatType, stepVel, roll ? { roll } : undefined);
       }
     }
-  }
-
-  // 4. Open-Hat (Crashes / Accents)
-  if (comp >= 2 && deterministicRng(seed, "open-hat-chance", 0) > 0.25) {
-    const openSteps = options.style === "trap-uk" ? [2, 8, 14] : [2, 6, 10, 14];
-    const pickIdx = Math.floor(deterministicRng(seed, "open-hat-step", 0) * openSteps.length);
-    const chosen = openSteps[pickIdx];
-    add(chosen, "open-hat", 88);
   }
 
   return {
@@ -253,9 +224,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
     seed,
     style: options.style,
     bpm: options.bpm,
-    patternMode,
     hits: hits.sort((a, b) => a.step - b.step),
   };
 }
-
-

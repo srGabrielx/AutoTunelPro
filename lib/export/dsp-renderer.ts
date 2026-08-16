@@ -1,10 +1,11 @@
-import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan.ts";
+import type { ArrangementBlockData } from "../workers/protocol";
+import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan";
 import {
   BASS_808_CONFIGS,
   DRUM_KIT_SYNTH_CONFIGS,
   getMelodySynthConfig,
   MASTER_BUS_CONFIG,
-} from "../music/synthesis-presets.ts";
+} from "../music/synthesis-presets";
 import type {
   BassDrive,
   BassResult,
@@ -198,8 +199,9 @@ export function encodeWav16Bit(
 export interface RenderDSPDspOptions {
   bpm: number;
   melodyLayers?: MelodyLayer[];
-  bass?: BassResult | null;
-  drums?: DrumResult | null;
+  blocks?: ArrangementBlockData[];
+  muteBass?: boolean;
+  muteDrums?: boolean;
   loops?: number;
   bassDrive?: BassDrive;
   drumKit?: DrumKitMode;
@@ -212,8 +214,9 @@ export interface RenderDSPDspOptions {
 export function renderDspAudio({
   bpm,
   melodyLayers = [],
-  bass = null,
-  drums = null,
+  blocks = [],
+  muteBass = false,
+  muteDrums = false,
   loops = 2,
   bassDrive = "warm",
   drumKit = "trap-808",
@@ -225,7 +228,8 @@ export function renderDspAudio({
   const safeBpm = Math.max(40, Math.min(300, bpm || 140));
   const stepDuration = 60 / safeBpm / 4;
   const barDuration = stepDuration * 16;
-  const totalDuration = barDuration * Math.max(1, loops) + 0.85; // tail
+  const numBlocks = Math.max(1, blocks.length);
+  const totalDuration = barDuration * numBlocks * Math.max(1, loops) + 0.85; // tail
   const totalSamples = Math.ceil(totalDuration * sampleRate);
 
   const left = new Float32Array(totalSamples);
@@ -246,12 +250,19 @@ export function renderDspAudio({
   const layerVolScale = activeLayers.length > 1 ? 0.72 / activeLayers.length : 1.0;
 
   for (let loop = 0; loop < loops; loop++) {
-    const loopOffsetSec = loop * barDuration;
+    for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
+      const block = blocks.length > 0 ? blocks[blockIdx] : null;
+      const loopOffsetSec = loop * (barDuration * numBlocks) + blockIdx * barDuration;
 
-    activeLayers.forEach((layer) => {
-      const synthType: MelodySynthType = layer.synthType || "lead";
+      activeLayers.forEach((layer) => {
+        const synthType: MelodySynthType = layer.synthType || "lead";
+        let notes = layer.result?.notes ?? [];
+        if (block) {
+          const found = block.melodyResults.find(m => m.layerId === layer.id);
+          notes = found?.result?.notes ?? [];
+        }
 
-      layer.result!.notes.forEach((note) => {
+        notes.forEach((note) => {
         const startSec = loopOffsetSec + note.step * stepDuration;
         const noteDurSec = stepDuration * (note.duration || 1) * 0.95;
         const startSample = Math.floor(startSec * sampleRate);
@@ -327,29 +338,27 @@ export function renderDspAudio({
       });
     });
 
-    // Pre-calculate groove event plan for this loop
-    const groovePlan: GrooveEvent[] =
-      drums && drums.hits.length > 0
-        ? buildGrooveEventPlan({
-            hits: drums.hits,
-            bpm,
-            patternDurationSteps: 16,
-            loopOffsetSec,
-          })
-        : [];
-
-    const kickTimes: number[] = groovePlan
-      .filter((ev) => ev.instrument === "kick")
-      .map((ev) => ev.timeSeconds);
+    const currentDrumsForDuck = block ? block.drums : null;
+    let kickTimes: number[] = [];
+    if (currentDrumsForDuck && currentDrumsForDuck.hits.length > 0) {
+      const gp = buildGrooveEventPlan({
+        hits: currentDrumsForDuck.hits,
+        bpm,
+        patternDurationSteps: 16,
+        loopOffsetSec,
+      });
+      kickTimes = gp.filter((ev) => ev.instrument === "kick").map((ev) => ev.timeSeconds);
+    }
 
     const effectiveBassVol = trackSettings["bass"]?.volume ?? bassVolume;
     const effectiveDrumsVol = trackSettings["drums"]?.volume ?? drumsVolume;
 
     // --- 2. SINTETIZAR 808 SUB-BASS (Parallel Clean Sub + Saturated Harmonics) ---
-    if (bass && bass.notes.length > 0 && !trackSettings["bass"]?.muted) {
+    const currentBass = block ? block.bass : null;
+    if (!muteBass && currentBass && currentBass.notes.length > 0 && !trackSettings["bass"]?.muted) {
       const cfg = BASS_808_CONFIGS[bassDrive] || BASS_808_CONFIGS.warm;
 
-      bass.notes.forEach((bNote) => {
+      currentBass.notes.forEach((bNote) => {
         const startSec = loopOffsetSec + bNote.step * stepDuration;
         const durSec = stepDuration * (bNote.duration || 2) * 0.98;
         const startSample = Math.floor(startSec * sampleRate);
@@ -407,7 +416,15 @@ export function renderDspAudio({
     }
 
     // --- 3. SINTETIZAR DRUMS (Kick, Snare, Hi-Hats from Single Groove Plan) ---
-    if (groovePlan.length > 0 && !trackSettings["drums"]?.muted) {
+    const currentDrums = block ? block.drums : null;
+    if (!muteDrums && currentDrums && currentDrums.hits.length > 0 && !trackSettings["drums"]?.muted) {
+      const groovePlan: GrooveEvent[] = buildGrooveEventPlan({
+        hits: currentDrums.hits,
+        bpm,
+        patternDurationSteps: 16,
+        loopOffsetSec,
+      });
+
       groovePlan.forEach((ev) => {
         const startSample = Math.floor(ev.timeSeconds * sampleRate);
         const currentVel = ev.velocity;
@@ -552,7 +569,8 @@ export function renderDspAudio({
         }
       });
     }
-  }
+  } // End of Block Loop
+} // End of Loops
 
   // --- 4. MASTER BUS (DC Blocker + Soft-Clipper + Peak Limiter) ---
   let dcPrevX_L = 0;

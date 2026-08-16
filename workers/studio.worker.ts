@@ -145,77 +145,97 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "generate-all": {
         const p: GenerateAllPayload = req.payload;
+        const baseSeed = p.seed ?? Date.now();
+        const arrangementTypes: ("intro" | "verse" | "drop" | "outro")[] = ["intro", "verse", "drop", "outro"];
+        const blocks = [];
 
-        const melodyPromises = p.melodyLayers.map(async (layer) => {
-          const res = await fetch("/api/melody", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              style: layer.style,
-              bpm: p.bpm,
-              key: layer.key,
-              scale: layer.scale,
-              complexity: p.complexity,
-            }),
+        for (let i = 0; i < arrangementTypes.length; i++) {
+          const blockType = arrangementTypes[i];
+          const blockSeed = baseSeed + i;
+          
+          let blockComp = p.complexity;
+          if (blockType === "intro") blockComp = Math.max(1, p.complexity - 2);
+          if (blockType === "verse") blockComp = Math.max(1, p.complexity - 1);
+          if (blockType === "drop") blockComp = Math.min(5, p.complexity + 1);
+
+          const melodyPromises = p.melodyLayers.map(async (layer) => {
+            const res = await fetch("/api/melody", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: layer.style,
+                bpm: p.bpm,
+                key: layer.key,
+                scale: layer.scale,
+                complexity: blockComp,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) {
+              throw { engine: "melody", message: `Erro ao gerar melodia camada ${layer.id}` };
+            }
+            const melodyData: MelodyResult = await res.json();
+            return { layerId: layer.id, result: melodyData };
           });
-          if (!res.ok) {
-            throw { engine: "melody", message: `Erro ao gerar melodia camada ${layer.id}` };
-          }
-          const melodyData: MelodyResult = await res.json();
-          return { layerId: layer.id, result: melodyData };
-        });
 
-        const bassPromise = (async () => {
-          const res = await fetch("/api/bass", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              style: p.bassStyle,
-              bpm: p.bpm,
-              key: p.key,
-              scale: p.globalScale,
-              bassOctave: p.bassOctave,
-              complexity: p.complexity,
-            }),
+          const bassPromise = (async () => {
+            const res = await fetch("/api/bass", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: p.bassStyle,
+                bpm: p.bpm,
+                key: p.key,
+                scale: p.globalScale,
+                bassOctave: p.bassOctave,
+                complexity: blockComp,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) throw { engine: "bass", message: `Erro ao gerar bass` };
+            const bassData: BassResult = await res.json();
+            return bassData;
+          })();
+
+          const drumsPromise = (async () => {
+            const res = await fetch("/api/drums", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: p.drumStyle,
+                bpm: p.bpm,
+                drumPattern: p.drumPattern,
+                complexity: blockComp,
+                swing: p.swing,
+                rollDensity: p.rollDensity,
+                humanize: p.humanize,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) throw { engine: "drums", message: `Erro ao gerar drums` };
+            const drumsData: DrumResult = await res.json();
+            return drumsData;
+          })();
+
+          const [bassResult, drumResult, ...melodyResults] = await Promise.all([
+            bassPromise,
+            drumsPromise,
+            ...melodyPromises,
+          ]);
+
+          blocks.push({
+            type: blockType,
+            bass: bassResult,
+            drums: drumResult,
+            melodyResults,
           });
-          if (!res.ok) throw { engine: "bass", message: `Erro ao gerar bass` };
-          const bassData: BassResult = await res.json();
-          return bassData;
-        })();
-
-        const drumsPromise = (async () => {
-          const res = await fetch("/api/drums", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              style: p.drumStyle,
-              bpm: p.bpm,
-              drumPattern: p.drumPattern,
-              complexity: p.complexity,
-              swing: p.swing,
-              rollDensity: p.rollDensity,
-              humanize: p.humanize,
-            }),
-          });
-          if (!res.ok) throw { engine: "drums", message: `Erro ao gerar drums` };
-          const drumsData: DrumResult = await res.json();
-          return drumsData;
-        })();
-
-        // Orchestrate ALL parallel requests simultaneously in a single Promise.all
-        const [bassResult, drumResult, ...melodyResults] = await Promise.all([
-          bassPromise,
-          drumsPromise,
-          ...melodyPromises,
-        ]);
+        }
 
         const allData: GenerateAllResponseData = {
-          bass: bassResult,
-          drums: drumResult,
-          melodyResults,
+          blocks,
         };
 
         const successRes: WorkerSuccessResponse = {

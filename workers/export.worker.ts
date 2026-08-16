@@ -25,8 +25,9 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
       const uint8 = createMidiFile({
         bpm: p.bpm,
         melodyLayers: p.melodyLayers,
-        bass: p.bass,
-        drums: p.drums,
+        blocks: p.blocks,
+        muteBass: p.muteBass,
+        muteDrums: p.muteDrums,
       });
 
       // Create a fresh independent ArrayBuffer copy for safe zero-copy transfer
@@ -53,8 +54,9 @@ workerScope.onmessage = (event: MessageEvent<WorkerRequest>) => {
       const { left, right, sampleRate } = renderDspAudio({
         bpm: p.bpm,
         melodyLayers: p.melodyLayers,
-        bass: p.bass,
-        drums: p.drums,
+        blocks: p.blocks,
+        muteBass: p.muteBass,
+        muteDrums: p.muteDrums,
         loops: p.loops ?? 2,
         bassDrive: p.bassDrive ?? "warm",
         drumKit: p.drumKit ?? "trap-808",
