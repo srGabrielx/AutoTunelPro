@@ -1,9 +1,9 @@
 # AutoTunelPro — Regras de Arquitetura e Comportamento
 
-## Playback Contínuo
-- Alterar BPM, Tom (Key), Escala ou Complexidade durante a reprodução **NÃO PODE** parar ou reiniciar o áudio.
-- Use `updateLiveParams()` no `SampleAccurateAudioEngine` para sincronizar parâmetros ao vivo.
-- Nunca coloque `generateFullBeat` ou funções de geração em arrays de dependência de `useEffect` sem guard.
+## Playback e Alteração de Parâmetros
+- Mudança de BPM durante reprodução deve preservar a fase atual, cancelar somente eventos futuros ainda não agendados e reagendar usando `AudioContext.currentTime`.
+- Mudança de tom ou escala **não deve** regenerar silenciosamente as notas já criadas pelo usuário.
+- `generateFullBeat` e funções de geração não devem ser colocadas em arrays de dependência de `useEffect` sem guard explícito.
 
 ## Web Audio API
 - Nunca recrie o `AudioContext` a cada alteração de parâmetro.
@@ -11,10 +11,10 @@
 - Use `setTargetAtTime(value, ctx.currentTime, 0.015)` para transições suaves de volume.
 - Mute deve zerar o gain sem destruir o valor de volume salvo pelo usuário.
 
-## Estado React vs. Áudio
+## Estado React e Áudio
 - Nunca use estado React (`useState`, `useEffect`) como relógio de áudio.
 - O scheduler sample-accurate (`setInterval` de 25ms + lookahead de 120ms) é a única fonte de tempo.
-- `useEffect` com `[]` vazio para geração no mount. Parâmetros musicais em deps causam re-geração indesejada.
+- Cada `useEffect` deve declarar suas dependências corretas e possuir cleanup. Não determinar `[]` como padrão obrigatório.
 
 ## Exportação
 - Volume individual de cada faixa deve ser respeitado na exportação WAV.
@@ -32,7 +32,7 @@
 - Armazene em `window.deferredPWAInstallPrompt` e dispare um `CustomEvent('pwa-prompt-ready')`.
 - O componente `InstallBanner` escuta esse evento e chama `promptEvent.prompt()` diretamente ao clicar em "Instalar App".
 - Em modo standalone (`display-mode: standalone`), o banner não deve aparecer.
-- O Service Worker deve usar `skipWaiting()` + `clients.claim()` para ativação imediata.
+- **Não** aplicar `skipWaiting()` automaticamente — pode atualizar o app durante uma sessão ativa.
 
 ## Posicionamento de Elementos Flutuantes
 - Botões flutuantes usam `position: fixed` com margens explícitas (mínimo 20px das bordas).

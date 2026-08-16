@@ -70,6 +70,19 @@ export interface MelodyLayer {
   result: MelodyResult | null;
 }
 
+/** Per-track volume/mute configuration, keyed by track ID */
+export interface TrackSettings {
+  volume: number;  // 0 to 1, default 0.8
+  muted: boolean;
+}
+
+/** Discriminated union for individually-added drum element tracks */
+export type DrumElementTrack =
+  | { id: string; type: "kick";     label: string; hits: DrumHit[] }
+  | { id: string; type: "snare";    label: string; hits: DrumHit[] }
+  | { id: string; type: "hi-hat";   label: string; hits: DrumHit[] }
+  | { id: string; type: "open-hat"; label: string; hits: DrumHit[] };
+
 export interface DrumHit {
   step: number;
   drum: "kick" | "snare" | "hat" | "open-hat";

@@ -1,8 +1,6 @@
-import type { BassDrive, BassResult, DrumKitMode, DrumResult, MelodyLayer } from "../music/types";
-import { encodeWav16Bit, renderDspAudio } from "./dsp-renderer";
-
 /**
  * Downloads a WAV ArrayBuffer or Blob in the browser DOM.
+ * This is a pure helper — all rendering happens in export.worker.ts via StudioWorkerClient.
  */
 export function downloadWavBlob(
   data: ArrayBuffer | Uint8Array | Blob,
@@ -20,39 +18,3 @@ export function downloadWavBlob(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/**
- * Direct Main-Thread WAV synthesis (used when Web Worker is bypassed or in tests).
- */
-export async function renderAndDownloadWav({
-  bpm,
-  melodyLayers,
-  bass,
-  drums,
-  loops = 2,
-  bassDrive = "warm",
-  drumKit = "trap-808",
-  filename = "AutoTunel-Master.wav",
-}: {
-  bpm: number;
-  melodyLayers?: MelodyLayer[];
-  bass?: BassResult | null;
-  drums?: DrumResult | null;
-  loops?: number;
-  bassDrive?: BassDrive;
-  drumKit?: DrumKitMode;
-  filename?: string;
-}) {
-  const { left, right, sampleRate } = renderDspAudio({
-    bpm,
-    melodyLayers,
-    bass,
-    drums,
-    loops,
-    bassDrive,
-    drumKit,
-    sampleRate: 44100,
-  });
-
-  const wavBuffer = encodeWav16Bit(left, right, sampleRate);
-  downloadWavBlob(wavBuffer, filename);
-}

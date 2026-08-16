@@ -1445,3 +1445,192 @@ h1 {
     justify-content: center;
   }
 }
+
+/* =====================================================
+   ADD-TRACK FAB (Bottom Right, Green Neon)
+   ===================================================== */
+.add-track-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--acid);
+  background: rgba(200, 255, 61, 0.12);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(200, 255, 61, 0.25), 0 0 0 1px rgba(200, 255, 61, 0.15) inset;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-track-fab:hover {
+  transform: scale(1.1);
+  background: rgba(200, 255, 61, 0.22);
+  box-shadow: 0 6px 32px rgba(200, 255, 61, 0.4), 0 0 0 1px rgba(200, 255, 61, 0.3) inset;
+}
+
+.add-track-fab:active {
+  transform: scale(0.95);
+}
+
+.add-track-fab.is-open {
+  background: rgba(200, 255, 61, 0.3);
+  border-color: #fff;
+}
+
+.add-track-fab svg {
+  pointer-events: none;
+  transition: transform 0.25s ease;
+}
+
+.add-track-fab.is-open svg {
+  transform: rotate(45deg);
+}
+
+@media (max-width: 768px) {
+  .add-track-fab {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: 52px;
+    height: 52px;
+  }
+}
+
+/* Add-Track Portal Menu */
+.add-track-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+}
+
+.add-track-menu {
+  position: fixed;
+  right: 24px;
+  bottom: 90px;
+  z-index: 9999;
+  background: rgba(12, 12, 16, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 8px;
+  min-width: 210px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(200, 255, 61, 0.08) inset;
+  animation: fadeMenuUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeMenuUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.add-track-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: #e8e6e1;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: left;
+}
+
+.add-track-menu-item:hover:not(:disabled) {
+  background: rgba(200, 255, 61, 0.1);
+  color: var(--acid);
+}
+
+.add-track-menu-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.add-track-menu-item .menu-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--acid);
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .add-track-menu {
+    right: 16px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    min-width: 190px;
+  }
+}
+
+/* =====================================================
+   PER-TRACK VOLUME SLIDER
+   ===================================================== */
+.track-volume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.track-volume-row .vol-icon {
+  font-size: 14px;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.track-volume-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.track-volume-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--acid);
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.track-volume-row input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.track-volume-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--acid);
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.track-volume-row .vol-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

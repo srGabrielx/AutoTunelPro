@@ -37,6 +37,10 @@ export class SampleAccurateAudioEngine {
   private ctx: AudioContext | null = null;
   private delayNode: DelayNode | null = null;
   private delayGain: GainNode | null = null;
+  private masterGain: GainNode | null = null;
+
+  // Per-track persistent GainNodes
+  private trackGainNodes: Map<string, GainNode> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
   private snareNoiseBuffer: AudioBuffer | null = null;
@@ -72,6 +76,11 @@ export class SampleAccurateAudioEngine {
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
 
+      // Master Gain
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 1.0;
+      this.masterGain.connect(this.ctx.destination);
+
       // Delay Bus
       this.delayNode = this.ctx.createDelay();
       this.delayNode.delayTime.value = 0.24;
@@ -79,7 +88,7 @@ export class SampleAccurateAudioEngine {
       this.delayGain.gain.value = 0.22;
       this.delayNode.connect(this.delayGain);
       this.delayGain.connect(this.delayNode);
-      this.delayGain.connect(this.ctx.destination);
+      this.delayGain.connect(this.masterGain);
 
       // Pre-allocate Noise Buffers
       this.initNoiseBuffers(this.ctx);
@@ -132,6 +141,65 @@ export class SampleAccurateAudioEngine {
 
   public getContext(): AudioContext {
     return this.init();
+  }
+
+  /**
+   * Get or create a persistent GainNode for a specific track ID.
+   */
+  public getOrCreateTrackGain(trackId: string): GainNode {
+    const existing = this.trackGainNodes.get(trackId);
+    if (existing) return existing;
+
+    const ctx = this.init();
+    const gain = ctx.createGain();
+    gain.gain.value = 0.8; // default 80%
+    gain.connect(this.masterGain || ctx.destination);
+    this.trackGainNodes.set(trackId, gain);
+    return gain;
+  }
+
+  /**
+   * Smoothly set volume for a track without pops/clicks.
+   */
+  public setTrackVolume(trackId: string, volume: number) {
+    const gain = this.trackGainNodes.get(trackId);
+    if (!gain || !this.ctx) return;
+    gain.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, volume)),
+      this.ctx.currentTime,
+      0.015
+    );
+  }
+
+  /**
+   * Mute/unmute a track by setting gain to 0 or restoring volume.
+   */
+  public setTrackMuted(trackId: string, muted: boolean, savedVolume: number) {
+    const gain = this.trackGainNodes.get(trackId);
+    if (!gain || !this.ctx) return;
+    gain.gain.setTargetAtTime(
+      muted ? 0 : Math.max(0, Math.min(1, savedVolume)),
+      this.ctx.currentTime,
+      0.015
+    );
+  }
+
+  /**
+   * Remove and disconnect a track's GainNode.
+   */
+  public removeTrackGain(trackId: string) {
+    const gain = this.trackGainNodes.get(trackId);
+    if (gain) {
+      try { gain.disconnect(); } catch {}
+      this.trackGainNodes.delete(trackId);
+    }
+  }
+
+  /**
+   * Get the output node for a track (its GainNode).
+   */
+  public getTrackOutput(trackId: string): AudioNode {
+    return this.getOrCreateTrackGain(trackId);
   }
 
   public getTransportStartTime(): number {
@@ -418,7 +486,7 @@ export class SampleAccurateAudioEngine {
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + 0.32);
 
-    osc.connect(gain).connect(this.ctx.destination);
+    osc.connect(gain).connect(this.masterGain || this.ctx.destination);
     osc.start(when);
     osc.stop(when + 0.33);
 
@@ -443,7 +511,7 @@ export class SampleAccurateAudioEngine {
       gain.gain.setValueAtTime(vol, when);
       gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-      noise.connect(filter).connect(gain).connect(this.ctx.destination);
+      noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
       noise.start(when);
       noise.stop(when + dur);
       this.trackNode(noise);
@@ -459,7 +527,7 @@ export class SampleAccurateAudioEngine {
     tGain.gain.setValueAtTime(vol * 0.75, when);
     tGain.gain.exponentialRampToValueAtTime(0.001, when + 0.08);
 
-    osc.connect(tGain).connect(this.ctx.destination);
+    osc.connect(tGain).connect(this.masterGain || this.ctx.destination);
     osc.start(when);
     osc.stop(when + 0.09);
     this.trackNode(osc);
@@ -479,7 +547,7 @@ export class SampleAccurateAudioEngine {
     gain.gain.setValueAtTime((velocity / 127) * 0.18, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(this.ctx.destination);
+    noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
     noise.start(when);
     noise.stop(when + dur);
     this.trackNode(noise);
@@ -499,7 +567,7 @@ export class SampleAccurateAudioEngine {
     gain.gain.setValueAtTime((velocity / 127) * 0.22, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(this.ctx.destination);
+    noise.connect(filter).connect(gain).connect(this.masterGain || this.ctx.destination);
     noise.start(when);
     noise.stop(when + dur);
     this.trackNode(noise);
@@ -540,7 +608,7 @@ export class SampleAccurateAudioEngine {
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.0001, when + durationSec);
 
-    osc.connect(dist).connect(gain).connect(this.ctx.destination);
+    osc.connect(dist).connect(gain).connect(this.masterGain || this.ctx.destination);
     osc.start(when);
     osc.stop(when + durationSec + 0.05);
 
@@ -582,7 +650,7 @@ export class SampleAccurateAudioEngine {
     osc1.connect(filter);
     osc2.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.masterGain || this.ctx.destination);
 
     if (this.delayNode) gain.connect(this.delayNode);
 

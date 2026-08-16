@@ -5,6 +5,7 @@ import type {
   DrumResult,
   MelodyLayer,
   MelodySynthType,
+  TrackSettings,
 } from "../music/types";
 
 // ==========================================================
@@ -196,6 +197,9 @@ export interface RenderDSPDspOptions {
   bassDrive?: BassDrive;
   drumKit?: DrumKitMode;
   sampleRate?: number;
+  bassVolume?: number;  // 0 to 1
+  drumsVolume?: number; // 0 to 1
+  trackSettings?: Record<string, TrackSettings>; // per-layer volume lookup
 }
 
 export function renderDspAudio({
@@ -207,6 +211,9 @@ export function renderDspAudio({
   bassDrive = "warm",
   drumKit = "trap-808",
   sampleRate = 44100,
+  bassVolume = 1.0,
+  drumsVolume = 1.0,
+  trackSettings = {},
 }: RenderDSPDspOptions): { left: Float32Array; right: Float32Array; sampleRate: number } {
   const safeBpm = Math.max(40, Math.min(300, bpm || 140));
   const stepDuration = 60 / safeBpm / 4;
@@ -243,7 +250,8 @@ export function renderDspAudio({
         const startSample = Math.floor(startSec * sampleRate);
         const durSamples = Math.floor(noteDurSec * sampleRate);
         const freq = 440 * Math.pow(2, (note.note - 69) / 12);
-        const vel = (note.velocity / 127) * (synthType === "pad" ? 0.28 : 0.23) * layerVolScale;
+        const layerVol = trackSettings[layer.id]?.volume ?? 1.0;
+        const vel = (note.velocity / 127) * (synthType === "pad" ? 0.28 : 0.23) * layerVolScale * layerVol;
 
         const filter = new BiquadFilter();
         const startCutoff = synthType === "pad" ? 1800 : synthType === "pluck" ? 4200 : 3200;
@@ -319,7 +327,7 @@ export function renderDspAudio({
         const startSample = Math.floor(startSec * sampleRate);
         const durSamples = Math.floor(durSec * sampleRate);
         const rootFreq = 440 * Math.pow(2, (bNote.note - 69) / 12);
-        const baseVel = (bNote.velocity / 127) * 0.52;
+        const baseVel = (bNote.velocity / 127) * 0.52 * bassVolume;
 
         let phase = 0;
 
@@ -366,7 +374,7 @@ export function renderDspAudio({
           const durSamples = Math.floor(durSec * sampleRate);
           const startF = drumKit === "drill-punch" ? 180 : drumKit === "funk-tamborzao" ? 140 : 155;
           const endF = drumKit === "funk-tamborzao" ? 52 : 44;
-          const vel = (hit.velocity / 127) * (drumKit === "funk-tamborzao" ? 0.56 : 0.48);
+          const vel = (hit.velocity / 127) * (drumKit === "funk-tamborzao" ? 0.56 : 0.48) * drumsVolume;
 
           let phase = 0;
           for (let n = 0; n < durSamples; n++) {
@@ -390,7 +398,7 @@ export function renderDspAudio({
         } else if (hit.drum === "snare") {
           const durSec = drumKit === "funk-tamborzao" ? 0.1 : 0.14;
           const durSamples = Math.floor(durSec * sampleRate);
-          const vel = (hit.velocity / 127) * 0.38;
+          const vel = (hit.velocity / 127) * 0.38 * drumsVolume;
 
           const bpFilter = new BiquadFilter();
           bpFilter.setBandpass(drumKit === "drill-punch" ? 2200 : 1600, 1.4, sampleRate);
@@ -419,7 +427,7 @@ export function renderDspAudio({
         } else if (hit.drum === "open-hat") {
           const durSec = 0.22;
           const durSamples = Math.floor(durSec * sampleRate);
-          const vel = (hit.velocity / 127) * 0.24;
+          const vel = (hit.velocity / 127) * 0.24 * drumsVolume;
 
           const hpFilter = new BiquadFilter();
           hpFilter.setHighpass(6200, 1.2, sampleRate);
@@ -438,7 +446,7 @@ export function renderDspAudio({
           // Closed Hat
           const durSec = 0.045;
           const durSamples = Math.floor(durSec * sampleRate);
-          const vel = (hit.velocity / 127) * 0.2;
+          const vel = (hit.velocity / 127) * 0.2 * drumsVolume;
 
           const hpFilter = new BiquadFilter();
           hpFilter.setHighpass(7500, 1.2, sampleRate);

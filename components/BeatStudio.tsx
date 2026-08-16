@@ -13,6 +13,7 @@ import type {
   MelodySynthType,
   ScaleId,
   StyleId,
+  TrackSettings,
 } from "../lib/music/types";
 import { downloadMidiBlob } from "../lib/export/midi";
 import { downloadWavBlob } from "../lib/export/wav";
@@ -116,6 +117,15 @@ function IconTrash({ size = 16, className = "" }: { size?: number; className?: s
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function IconVolume({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
     </svg>
   );
 }
@@ -272,6 +282,8 @@ interface MelodyLayerCardProps {
   onGenerate: (layerId: string) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
+  trackSettings: TrackSettings | undefined;
+  onVolumeChange: (id: string, vol: number) => void;
   registerContainer?: (id: string, el: HTMLElement | null) => void;
   registerPlayhead?: (id: string, el: HTMLElement | null) => void;
 }
@@ -285,6 +297,8 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   onGenerate,
   onRemove,
   onToggleStep,
+  trackSettings,
+  onVolumeChange,
   registerContainer,
   registerPlayhead,
 }: MelodyLayerCardProps) {
@@ -331,6 +345,19 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="track-volume-row">
+        <IconVolume className="vol-icon" />
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={trackSettings?.volume ?? 0.8}
+          onChange={(e) => onVolumeChange(layer.id, Number(e.target.value))}
+        />
+        <span className="vol-pct">{Math.round((trackSettings?.volume ?? 0.8) * 100)}%</span>
       </div>
 
       <div className="controls controls-4col">
@@ -534,6 +561,10 @@ export default function BeatStudio() {
     createDefaultLayer("trap-br", "C", "natural-minor", "lead"),
   ]);
 
+  // Per-track settings (Volume/Mute)
+  const [trackSettings, setTrackSettings] = useState<Record<string, TrackSettings>>({});
+  const [isAddTrackMenuOpen, setIsAddTrackMenuOpen] = useState(false);
+
   // 808 Bass Engine State
   const [bassStyle, setBassStyle] = useState<StyleId>("trap-br");
   const [bassOctave, setBassOctave] = useState<BassOctave>(-24); // C1 default
@@ -607,6 +638,7 @@ export default function BeatStudio() {
       drumPattern,
       isLooping,
       playbackMode,
+      trackSettings,
     };
 
     // Update real-time step events map without restarting playback
@@ -633,18 +665,26 @@ export default function BeatStudio() {
     muteDrums,
     bassDrive,
     drumKit,
-    bassStyle,
     bassOctave,
     drumStyle,
     drumPattern,
     isLooping,
     playbackMode,
+    trackSettings,
   ]);
 
   // Stop playback helper
   const stopPlayback = useCallback(() => {
     audioEngineRef.current.stop();
     setPlaybackMode(null);
+  }, []);
+
+  const handleVolumeChange = useCallback((id: string, vol: number) => {
+    setTrackSettings((prev) => ({
+      ...prev,
+      [id]: { volume: vol, muted: prev[id]?.muted ?? false },
+    }));
+    audioEngineRef.current.setTrackVolume(id, vol);
   }, []);
 
   // Start playback helper with sample-accurate lookahead
@@ -1214,6 +1254,8 @@ export default function BeatStudio() {
               onToggleStep={toggleMelodyStep}
               registerContainer={registerContainer}
               registerPlayhead={registerPlayhead}
+              trackSettings={trackSettings[layer.id]}
+              onVolumeChange={handleVolumeChange}
             />
           ))}
         </div>
@@ -1247,6 +1289,19 @@ export default function BeatStudio() {
 
             </div>
           </header>
+
+          <div className="track-volume-row" style={{ padding: "0 16px 12px 16px" }}>
+            <IconVolume className="vol-icon" />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={trackSettings["bass"]?.volume ?? 0.8}
+              onChange={(e) => handleVolumeChange("bass", Number(e.target.value))}
+            />
+            <span className="vol-pct">{Math.round((trackSettings["bass"]?.volume ?? 0.8) * 100)}%</span>
+          </div>
 
           <div className="controls controls-3col">
             <label>
@@ -1333,9 +1388,21 @@ export default function BeatStudio() {
               >
                 {muteDrums ? "MUTADO" : "MUTE"}
               </button>
-
             </div>
           </header>
+
+          <div className="track-volume-row" style={{ padding: "0 16px 12px 16px" }}>
+            <IconVolume className="vol-icon" />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={trackSettings["drums"]?.volume ?? 0.8}
+              onChange={(e) => handleVolumeChange("drums", Number(e.target.value))}
+            />
+            <span className="vol-pct">{Math.round((trackSettings["drums"]?.volume ?? 0.8) * 100)}%</span>
+          </div>
 
           <div className="controls controls-3col">
             <label>
@@ -1544,6 +1611,56 @@ export default function BeatStudio() {
       )}
     </>
   )}
+
+      {/* ==========================================
+          ADD-TRACK FAB (BOTTOM RIGHT)
+          ========================================== */}
+      <button
+        className={`add-track-fab ${isAddTrackMenuOpen ? "is-open" : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setIsAddTrackMenuOpen(!isAddTrackMenuOpen);
+        }}
+        title="Adicionar Faixa"
+      >
+        <IconPlus size={24} />
+      </button>
+
+      {isAddTrackMenuOpen && (
+        <>
+          <div
+            className="add-track-menu-overlay"
+            onMouseDown={() => setIsAddTrackMenuOpen(false)}
+            onTouchStart={() => setIsAddTrackMenuOpen(false)}
+          />
+          <div className="add-track-menu">
+            <button className="add-track-menu-item" onClick={() => {
+              setMelodyLayers([...melodyLayers, createDefaultLayer(drumStyle, key, globalScale, "lead")]);
+              setIsAddTrackMenuOpen(false);
+            }}>
+              <span className="menu-icon"><IconMelody /></span>
+              Nova Melodia
+            </button>
+            <button className="add-track-menu-item" disabled>
+              <span className="menu-icon"><IconBass /></span>
+              808 Bass (Ativo)
+            </button>
+            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
+              <span className="menu-icon"><IconDrums /></span>
+              Kick (Bateria Individual)
+            </button>
+            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
+              <span className="menu-icon"><IconDrums /></span>
+              Snare / Clap
+            </button>
+            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
+              <span className="menu-icon"><IconDrums /></span>
+              Hi-Hat
+            </button>
+          </div>
+        </>
+      )}
 
       <footer className="footer-note">
         {error ? (
