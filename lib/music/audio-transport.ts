@@ -276,6 +276,25 @@ export class SampleAccurateAudioEngine {
     return this.isPlaying;
   }
 
+  // Last passed parameters for instant dynamic live updates
+  private lastParams: {
+    melodyLayers: MelodyLayer[];
+    bass: BassResult | null;
+    drums: DrumResult | null;
+    muteBass: boolean;
+    muteDrums: boolean;
+    bassDrive: BassDrive;
+    drumKit: DrumKitMode;
+  } = {
+    melodyLayers: [],
+    bass: null,
+    drums: null,
+    muteBass: false,
+    muteDrums: false,
+    bassDrive: "warm",
+    drumKit: "trap-808",
+  };
+
   /**
    * Pre-indexes all musical events for 16 steps into dense array structures.
    * This ensures ZERO .find() or .filter() allocations during audio scheduler ticks.
@@ -297,6 +316,16 @@ export class SampleAccurateAudioEngine {
     bassDrive: BassDrive;
     drumKit: DrumKitMode;
   }) {
+    this.lastParams = {
+      melodyLayers,
+      bass,
+      drums,
+      muteBass,
+      muteDrums,
+      bassDrive,
+      drumKit,
+    };
+
     const events: ScheduledStepEvent[] = Array.from({ length: 16 }, (_, step) => ({
       step,
       melodyNotes: [],
@@ -360,7 +389,8 @@ export class SampleAccurateAudioEngine {
   }
 
   /**
-   * Update BPM or musical events live on the fly without cutting playback.
+   * Update BPM or musical events live on the fly without cutting playback or stalling.
+   * Smoothly transitions the audio clock and preserves current playback phase.
    */
   public updateLiveParams({
     bpm,
@@ -381,18 +411,48 @@ export class SampleAccurateAudioEngine {
     bassDrive?: BassDrive;
     drumKit?: DrumKitMode;
   }) {
+    let bpmChanged = false;
     if (bpm !== undefined) {
-      this.bpm = Math.max(40, Math.min(300, bpm || 140));
+      const sanitizedBpm = Math.max(40, Math.min(300, bpm || 140));
+      if (sanitizedBpm !== this.bpm) {
+        if (this.isPlaying && this.ctx) {
+          const oldStepDuration = 60 / this.bpm / 4;
+          const newStepDuration = 60 / sanitizedBpm / 4;
+          const now = this.ctx.currentTime;
+
+          // Seamless phase calculation: preserve continuous position in current compass
+          const elapsedSec = Math.max(0, now - this.transportStartTime);
+          const continuousStep = elapsedSec / oldStepDuration;
+
+          // Re-anchor transportStartTime so that step progression continues smoothly from 'now'
+          this.transportStartTime = now - continuousStep * newStepDuration;
+
+          // Next step to schedule is the immediate upcoming step after current time
+          this.nextAbsoluteStep = Math.floor(continuousStep) + 1;
+        }
+        this.bpm = sanitizedBpm;
+        bpmChanged = true;
+      }
     }
-    if (melodyLayers !== undefined || bass !== undefined || drums !== undefined) {
+
+    if (
+      bpmChanged ||
+      melodyLayers !== undefined ||
+      bass !== undefined ||
+      drums !== undefined ||
+      muteBass !== undefined ||
+      muteDrums !== undefined ||
+      bassDrive !== undefined ||
+      drumKit !== undefined
+    ) {
       this.prepareStepEvents({
-        melodyLayers: melodyLayers ?? [],
-        bass: bass ?? null,
-        drums: drums ?? null,
-        muteBass: muteBass ?? false,
-        muteDrums: muteDrums ?? false,
-        bassDrive: bassDrive ?? "warm",
-        drumKit: drumKit ?? "trap-808",
+        melodyLayers: melodyLayers ?? this.lastParams.melodyLayers,
+        bass: bass !== undefined ? bass : this.lastParams.bass,
+        drums: drums !== undefined ? drums : this.lastParams.drums,
+        muteBass: muteBass ?? this.lastParams.muteBass,
+        muteDrums: muteDrums ?? this.lastParams.muteDrums,
+        bassDrive: bassDrive ?? this.lastParams.bassDrive,
+        drumKit: drumKit ?? this.lastParams.drumKit,
       });
     }
   }
@@ -471,6 +531,12 @@ export class SampleAccurateAudioEngine {
     while (this.isPlaying) {
       // ABSOLUTE CALCULATION: zero drift
       const scheduledTime = this.transportStartTime + this.nextAbsoluteStep * stepDuration;
+
+      // Protection: if scheduledTime is far behind current time (e.g. lag spike), skip to avoid audio burst
+      if (scheduledTime < currentTime - 0.05) {
+        this.nextAbsoluteStep++;
+        continue;
+      }
 
       if (scheduledTime >= currentTime + scheduleAheadTime) {
         break; // Beyond lookahead window

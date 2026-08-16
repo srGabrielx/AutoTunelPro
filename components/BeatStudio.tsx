@@ -743,9 +743,6 @@ export default function BeatStudio() {
       const num = Number(val);
       if (!isNaN(num) && num >= 40 && num <= 300) {
         setBpm(num);
-        if (playbackMode) {
-          audioEngineRef.current.updateLiveParams({ bpm: num });
-        }
       }
     }
   };
@@ -757,14 +754,11 @@ export default function BeatStudio() {
     }
     setBpm(num);
     setBpmInput(String(num));
-    if (playbackMode) {
-      audioEngineRef.current.updateLiveParams({ bpm: num });
-    }
   };
 
   // Sync any live changes to playing audio smoothly without stopping playback
   useEffect(() => {
-    if (playbackMode) {
+    if (playbackMode && audioEngineRef.current.getIsPlaying()) {
       audioEngineRef.current.updateLiveParams({
         bpm,
         melodyLayers,
