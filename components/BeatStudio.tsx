@@ -440,12 +440,12 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
 // ==========================================
 export default function BeatStudio() {
 
-  // Global settings
-  const [bpm, setBpm] = useState(140);
-  const [bpmInput, setBpmInput] = useState("140");
-  const [key, setKey] = useState("C");
-  const [globalScale, setGlobalScale] = useState<ScaleId>("natural-minor");
-  const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("custom");
+  // Global settings (Default to Preset 1: Matuê Kenny G Trap BR)
+  const [bpm, setBpm] = useState(130);
+  const [bpmInput, setBpmInput] = useState("130");
+  const [key, setKey] = useState("A");
+  const [globalScale, setGlobalScale] = useState<ScaleId>("pentatonic-minor");
+  const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("1-matue-kennyg");
   const [complexity, setComplexity] = useState(3);
   const [isTransportOpen, setIsTransportOpen] = useState(false);
 
@@ -520,7 +520,7 @@ export default function BeatStudio() {
 
   // Multi-Layer Melody State
   const [melodyLayers, setMelodyLayers] = useState<MelodyLayer[]>(() => [
-    createDefaultLayer("trap-br", "C", "natural-minor", "lead"),
+    createDefaultLayer("trap-br", "A", "pentatonic-minor", "lead"),
   ]);
 
   // Per-track settings (Volume/Mute)
@@ -737,44 +737,112 @@ export default function BeatStudio() {
   }, [bpm, melodyLayers, bass, drums, muteBass, muteDrums, bassDrive, drumKit, playbackMode]);
 
   // Artist Preset Handler
-  const applyArtistPreset = (presetId: ArtistPresetId) => {
-    setArtistPreset(presetId);
-    if (presetId === "custom") return;
-    const config = ARTIST_PRESETS[presetId];
-    if (!config) return;
+  // Artist Preset Handler (Loads Hit Vibe & Automatically Generates Full Beat)
+  const applyArtistPreset = useCallback(
+    async (presetId: ArtistPresetId) => {
+      setArtistPreset(presetId);
+      if (presetId === "custom") return;
+      const config = ARTIST_PRESETS[presetId];
+      if (!config) return;
 
-    setKey(config.key);
-    setGlobalScale(config.scale);
-    setBpm(config.bpm);
-    setBpmInput(String(config.bpm));
-    setComplexity(config.complexity);
-    setBassStyle(config.style);
-    setDrumStyle(config.style);
+      setKey(config.key);
+      setGlobalScale(config.scale);
+      setBpm(config.bpm);
+      setBpmInput(String(config.bpm));
+      setComplexity(config.complexity);
+      setBassStyle(config.style);
+      setDrumStyle(config.style);
 
-    setMelodyLayers((prev) =>
-      prev.map((l) => ({
+      const updatedLayers = stateRef.current.melodyLayers.map((l) => ({
         ...l,
         key: config.key,
         scale: config.scale,
         style: config.style,
-      }))
-    );
-  };
+      }));
+      setMelodyLayers(updatedLayers);
+
+      if (workerClientRef.current) {
+        stopPlayback();
+        setBusy("all");
+        setError("");
+        try {
+          const allData = await workerClientRef.current.generateAll({
+            bpm: config.bpm,
+            key: config.key,
+            globalScale: config.scale,
+            complexity: config.complexity,
+            bassStyle: config.style,
+            bassOctave: stateRef.current.bassOctave,
+            drumStyle: config.style,
+            drumPattern: stateRef.current.drumPattern,
+            swing: stateRef.current.drumSwing,
+            rollDensity: stateRef.current.drumRollDensity,
+            humanize: stateRef.current.drumHumanize,
+            melodyLayers: updatedLayers.map((l) => ({
+              id: l.id,
+              style: l.style,
+              key: l.key,
+              scale: l.scale,
+              muted: l.muted,
+            })),
+          });
+
+          setBass(allData.bass);
+          setDrums(allData.drums);
+          setMelodyLayers((prev) =>
+            prev.map((l) => {
+              const found = allData.melodyResults.find((m) => m.layerId === l.id);
+              return found ? { ...l, result: found.result } : l;
+            })
+          );
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : "Erro ao carregar preset.");
+        } finally {
+          setBusy(null);
+        }
+      }
+    },
+    [stopPlayback]
+  );
 
   // Layer CRUD
   const updateLayer = useCallback((id: string, patch: Partial<MelodyLayer>) => {
     setMelodyLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   }, []);
 
-  const addMelodyLayer = useCallback(() => {
-    setMelodyLayers((prev) => {
-      if (prev.length >= MAX_MELODY_LAYERS) return prev;
-      const synthTypes: MelodySynthType[] = ["lead", "pad", "pluck", "arp"];
-      const usedTypes = new Set(prev.map((l) => l.synthType));
-      const nextType = synthTypes.find((t) => !usedTypes.has(t)) ?? "pad";
-      return [...prev, createDefaultLayer(prev[0]?.style ?? "trap-br", key, globalScale, nextType)];
-    });
-  }, [key, globalScale]);
+  const addExtraLayer = useCallback(
+    async (synthType: MelodySynthType) => {
+      if (melodyLayers.length >= MAX_MELODY_LAYERS) return;
+      const currentStyle = stateRef.current.melodyLayers[0]?.style ?? "trap-br";
+      const newLayer = createDefaultLayer(currentStyle, key, globalScale, synthType);
+      const newLayerId = newLayer.id;
+
+      setMelodyLayers((prev) => [...prev, newLayer]);
+      setIsAddTrackMenuOpen(false);
+
+      if (workerClientRef.current) {
+        setBusy(newLayerId);
+        try {
+          const result = await workerClientRef.current.generateMelody({
+            layerId: newLayerId,
+            style: newLayer.style,
+            bpm,
+            key: newLayer.key,
+            scale: newLayer.scale,
+            complexity,
+          });
+          setMelodyLayers((prev) =>
+            prev.map((l) => (l.id === newLayerId ? { ...l, result } : l))
+          );
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setBusy(null);
+        }
+      }
+    },
+    [key, globalScale, bpm, complexity, melodyLayers.length]
+  );
 
   const removeMelodyLayer = useCallback((id: string) => {
     setMelodyLayers((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.id !== id)));
@@ -1039,7 +1107,7 @@ export default function BeatStudio() {
   const drumHeights: Record<number, number> = {};
   const drumLabels: Record<number, string> = {};
   drums?.hits.forEach((h) => {
-    drumHeights[h.step] = h.drum === "kick" ? 78 : h.drum === "snare" ? 64 : 40;
+    drumHeights[h.step] = h.drum === "kick" ? 78 : h.drum === "snare" ? 64 : h.drum === "clap" ? 68 : h.drum === "open-hat" ? 52 : 40;
     drumLabels[h.step] = h.drum.toUpperCase();
   });
 
@@ -1153,11 +1221,13 @@ export default function BeatStudio() {
                 value={artistPreset}
                 onChange={(e) => applyArtistPreset(e.target.value as ArtistPresetId)}
               >
-                {Object.entries(ARTIST_PRESETS).map(([id, info]) => (
-                  <option key={id} value={id}>
-                    {info.label}
-                  </option>
-                ))}
+                {Object.entries(ARTIST_PRESETS)
+                  .filter(([id]) => id.startsWith("1-") || id.startsWith("2-") || id.startsWith("3-") || id.startsWith("4-") || id.startsWith("5-") || id.startsWith("6-") || id.startsWith("7-") || id.startsWith("8-") || id.startsWith("9-") || id.startsWith("10-") || id.startsWith("11-") || id.startsWith("12-") || id === "custom")
+                  .map(([id, info]) => (
+                    <option key={id} value={id}>
+                      {info.label}
+                    </option>
+                  ))}
               </select>
             </label>
 
@@ -1624,32 +1694,41 @@ export default function BeatStudio() {
             onTouchStart={() => setIsAddTrackMenuOpen(false)}
           />
           <div className="add-track-menu">
+            <div className="add-track-menu-header">
+              <span>Adicionar Camada Extra</span>
+              <small>({melodyLayers.length}/{MAX_MELODY_LAYERS})</small>
+            </div>
             <button
               className="add-track-menu-item"
-              onClick={() => {
-                addMelodyLayer();
-                setIsAddTrackMenuOpen(false);
-              }}
+              onClick={() => addExtraLayer("lead")}
               disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
             >
               <span className="menu-icon"><IconMelody /></span>
-              {melodyLayers.length >= MAX_MELODY_LAYERS ? "Limite de Melodias Atingido" : "Nova Camada Melódica"}
+              + Melodia Lead (Principal)
             </button>
-            <button className="add-track-menu-item" disabled>
-              <span className="menu-icon"><IconBass /></span>
-              808 Bass (Ativo)
+            <button
+              className="add-track-menu-item"
+              onClick={() => addExtraLayer("pluck")}
+              disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
+            >
+              <span className="menu-icon"><IconMelody /></span>
+              + Camada Pluck / Sinos (Bells)
             </button>
-            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
-              <span className="menu-icon"><IconDrums /></span>
-              Kick (Bateria Individual)
+            <button
+              className="add-track-menu-item"
+              onClick={() => addExtraLayer("pad")}
+              disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
+            >
+              <span className="menu-icon"><IconMelody /></span>
+              + Camada Pad (Acordes & Harmonia)
             </button>
-            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
-              <span className="menu-icon"><IconDrums /></span>
-              Snare / Clap
-            </button>
-            <button className="add-track-menu-item" disabled title="Bateria individual em breve">
-              <span className="menu-icon"><IconDrums /></span>
-              Hi-Hat
+            <button
+              className="add-track-menu-item"
+              onClick={() => addExtraLayer("arp")}
+              disabled={melodyLayers.length >= MAX_MELODY_LAYERS}
+            >
+              <span className="menu-icon"><IconMelody /></span>
+              + Camada Arp / Contra-Melodia
             </button>
           </div>
         </>

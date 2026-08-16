@@ -12,14 +12,27 @@ export type ScaleId =
 
 export type ArtistPresetId =
   | "custom"
-  | "akon-lonely"
+  | "1-matue-kennyg"
+  | "2-travis-fein"
+  | "3-centralcee-doja"
+  | "4-metro-superhero"
+  | "5-veigh-novobalanco"
+  | "6-drake-richflex"
+  | "7-mchariel-mandelao"
+  | "8-dennis-taok"
+  | "9-drdre-stilldre"
+  | "10-post-rockstar"
+  | "11-kabza-amapiano"
+  | "12-kayblack-melhorvibe"
+  // Legacy aliases
+  | "matue-trapbr"
   | "travis-sicko"
   | "drake-night"
   | "metro-cinematic"
   | "post-rockstar"
-  | "matue-trapbr"
   | "funk-mandelao"
   | "kabza-amapiano"
+  | "akon-lonely"
   | "reggae-bob"
   | "para-melody";
 
@@ -83,6 +96,7 @@ export interface TrackSettings {
 export type DrumElementTrack =
   | { id: string; type: "kick";     label: string; hits: DrumHit[] }
   | { id: string; type: "snare";    label: string; hits: DrumHit[] }
+  | { id: string; type: "clap";     label: string; hits: DrumHit[] }
   | { id: string; type: "hi-hat";   label: string; hits: DrumHit[] }
   | { id: string; type: "open-hat"; label: string; hits: DrumHit[] };
 
@@ -104,7 +118,7 @@ export interface DrumRoll {
 
 export interface DrumHit {
   step: number;
-  drum: "kick" | "snare" | "hat" | "open-hat";
+  drum: "kick" | "snare" | "clap" | "hat" | "open-hat";
   velocity: number;
   roll?: DrumRoll;
   microTimingMs?: number; // Bounded ±15ms

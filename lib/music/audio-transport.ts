@@ -510,6 +510,8 @@ export class SampleAccurateAudioEngine {
         if (ev.instrument === "kick") {
           this.triggerSidechainDucking(hitTime);
           this.playKick(hitTime, ev.velocity, event.drumKit);
+        } else if (ev.instrument === "clap") {
+          this.playClap(hitTime, ev.velocity);
         } else if (ev.instrument === "snare") {
           this.playSnare(hitTime, ev.velocity, event.drumKit);
         } else if (ev.instrument === "open-hat") {
@@ -544,6 +546,33 @@ export class SampleAccurateAudioEngine {
     osc.stop(when + 0.33);
 
     this.trackNode(osc);
+  }
+
+  private playClap(when: number, velocity = 92) {
+    if (!this.ctx || !this.snareNoiseBuffer) return;
+    const trackGain = this.getOrCreateTrackGain("drums");
+    const vol = (velocity / 127) * 0.38;
+
+    const burstOffsets = [0, 0.011, 0.022];
+    burstOffsets.forEach((offset, idx) => {
+      if (!this.ctx || !this.snareNoiseBuffer) return;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.snareNoiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1400;
+      filter.Q.value = 1.5;
+
+      const gain = this.ctx.createGain();
+      const burstVol = idx === 2 ? vol : vol * 0.55;
+      gain.gain.setValueAtTime(burstVol, when + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, when + offset + (idx === 2 ? 0.16 : 0.015));
+
+      noise.connect(filter).connect(gain).connect(trackGain);
+      noise.start(when + offset);
+      noise.stop(when + offset + (idx === 2 ? 0.17 : 0.016));
+      this.trackNode(noise);
+    });
   }
 
   private playSnare(when: number, velocity = 90, kit: DrumKitMode = "trap-808") {

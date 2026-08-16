@@ -457,6 +457,29 @@ export function renderDspAudio({
             left[sampleIdx] += out;
             right[sampleIdx] += out;
           }
+        } else if (ev.instrument === "clap") {
+          const vel = (currentVel / 127) * 0.38 * effectiveDrumsVol;
+          const offsets = [0, 0.011, 0.022];
+          const bpFilter = new BiquadFilter();
+          bpFilter.setBandpass(1400, 1.5, sampleRate);
+
+          offsets.forEach((offsetSec, idx) => {
+            const burstStart = startSample + Math.floor(offsetSec * sampleRate);
+            const isMain = idx === 2;
+            const burstDurSec = isMain ? 0.16 : 0.015;
+            const burstDurSamples = Math.floor(burstDurSec * sampleRate);
+            const burstVel = isMain ? vel : vel * 0.55;
+
+            for (let n = 0; n < burstDurSamples; n++) {
+              const sampleIdx = burstStart + n;
+              if (sampleIdx >= totalSamples) break;
+              const progress = n / burstDurSamples;
+              const noise = rng.nextNoise();
+              const out = bpFilter.process(noise) * burstVel * Math.exp(-progress * (isMain ? 8.5 : 20.0));
+              left[sampleIdx] += out;
+              right[sampleIdx] += out;
+            }
+          });
         } else if (ev.instrument === "open-hat") {
           const durSec = 0.22;
           const durSamples = Math.floor(durSec * sampleRate);

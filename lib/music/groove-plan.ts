@@ -3,7 +3,7 @@ import type { DrumHit, DrumRoll } from "./types.ts";
 export interface GrooveEvent {
   eventId: string;
   trackId: string;
-  instrument: "kick" | "snare" | "hat" | "open-hat";
+  instrument: "kick" | "snare" | "clap" | "hat" | "open-hat";
   step: number;
   subIndex: number;
   timeSeconds: number;

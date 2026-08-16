@@ -159,22 +159,36 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   }
 
   // 2. Snare / Clap / Rim
+  const preferClap = options.style === "trap-br" || options.style === "trap-usa";
+  const mainSnareDrum: DrumHit["drum"] = preferClap && deterministicRng(seed, "prefer-clap", 0) > 0.3 ? "clap" : "snare";
+
   if (patternMode === "half-time") {
-    add(8, "snare", 108);
-    if (comp >= 3 && deterministicRng(seed, "snare-half-14", 14) > 0.45) add(14, "snare", 68);
+    add(8, mainSnareDrum, 110);
+    if (comp >= 3 && deterministicRng(seed, "snare-half-14", 14) > 0.45) add(14, "snare", 72);
   } else if (options.style === "trap-uk") {
-    add(3, "snare", 92);
-    add(8, "snare", 105);
-    if (comp >= 3) add(11, "snare", 65);
-    if (comp >= 4 && deterministicRng(seed, "snare-drill-15", 15) > 0.4) add(15, "snare", 72);
+    add(3, "snare", 96);
+    add(8, mainSnareDrum, 108);
+    if (comp >= 3) add(11, "snare", 68);
+    if (comp >= 4 && deterministicRng(seed, "snare-drill-15", 15) > 0.4) add(15, "snare", 76);
+  } else if (options.style === "funk") {
+    preset.snare.forEach((step) => {
+      const isClapAccent = (step === 6 || step === 14) && deterministicRng(seed, "funk-clap", step) > 0.4;
+      add(step, isClapAccent ? "clap" : "snare", 104);
+    });
   } else {
-    preset.snare.forEach((step) => add(step, "snare", 102));
+    preset.snare.forEach((step) => {
+      add(step, mainSnareDrum, 104);
+      // Layer snare + clap on major downbeat for rich acoustic impact
+      if (step === 12 && comp >= 3 && deterministicRng(seed, "layer-clap-12", 12) > 0.4) {
+        add(step, "clap", 92);
+      }
+    });
     if (comp >= 3 && deterministicRng(seed, "snare-ghost-10", 10) > 0.4) {
-      add(10, "snare", 58); // Ghost note
+      add(10, "snare", 62); // Ghost note
     }
     if (comp >= 4 && deterministicRng(seed, "snare-fill-14", 14) > 0.4) {
-      add(14, "snare", 72);
-      add(15, "snare", 88);
+      add(14, "snare", 74);
+      add(15, "snare", 90);
     }
   }
 
