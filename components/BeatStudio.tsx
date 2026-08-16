@@ -603,6 +603,7 @@ export default function BeatStudio() {
   // Arrangement State
   const [arrangementBlocks, setArrangementBlocks] = useState<ArrangementBlockData[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [isArrangementMenuOpen, setIsArrangementMenuOpen] = useState(false);
 
   // UI / Export state
   const [busy, setBusy] = useState<string | null>(null);
@@ -1340,16 +1341,38 @@ export default function BeatStudio() {
         </div>
 
         {arrangementBlocks.length > 0 && (
-          <div className="arrangement-tabs flex gap-2 mt-4">
-            {arrangementBlocks.map((block, idx) => (
-              <button 
-                key={idx} 
-                className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx ? "bg-white text-black border-white" : "bg-black text-white border-white/20 hover:border-white/50"}`}
-                onClick={() => selectArrangementBlock(idx)}
+          <div className="arrangement-tabs relative mt-4" style={{ position: "relative" }}>
+            <button
+              className="px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all bg-[#181822] text-white border-[#3e3e4d] hover:border-white/50 flex items-center gap-2"
+              onClick={() => setIsArrangementMenuOpen(!isArrangementMenuOpen)}
+            >
+              Arranjo: {arrangementBlocks[currentBlockIndex]?.type} <IconChevronDown />
+            </button>
+            
+            {isArrangementMenuOpen && (
+              <div 
+                className="absolute top-full mt-2 left-0 flex flex-col gap-1 z-50 shadow-lg"
+                style={{ 
+                  backgroundColor: "#181822", border: "1px solid #3e3e4d", 
+                  borderRadius: "10px", padding: "8px",
+                  minWidth: "160px"
+                }}
               >
-                {block.type}
-              </button>
-            ))}
+                {arrangementBlocks.map((block, idx) => (
+                  <button 
+                    key={idx} 
+                    className={`px-4 py-2 rounded-md font-bold uppercase text-xs tracking-wider border transition-all ${currentBlockIndex === idx ? "bg-white text-black border-white" : "bg-transparent text-white border-transparent hover:bg-[#2a2a35]"}`}
+                    style={{ textAlign: "left", width: "100%" }}
+                    onClick={() => {
+                      selectArrangementBlock(idx);
+                      setIsArrangementMenuOpen(false);
+                    }}
+                  >
+                    {block.type}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
