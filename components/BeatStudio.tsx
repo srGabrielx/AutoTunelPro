@@ -497,13 +497,17 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
 export default function BeatStudio() {
 
   // Global settings (Default to Preset 1: Matuê Kenny G Trap BR)
-  const [bpm, setBpm] = useState(130);
-  const [bpmInput, setBpmInput] = useState("130");
-  const [key, setKey] = useState("A");
-  const [globalScale, setGlobalScale] = useState<ScaleId>("pentatonic-minor");
+  const [bpm, setBpm] = useState(134);
+  const [bpmInput, setBpmInput] = useState("134");
+  const [key, setKey] = useState("G#");
+  const [globalScale, setGlobalScale] = useState<ScaleId>("natural-minor");
   const [artistPreset, setArtistPreset] = useState<ArtistPresetId>("1-matue-kennyg");
-  const [complexity, setComplexity] = useState(3);
+  const [complexity, setComplexity] = useState(4);
   const [isTransportOpen, setIsTransportOpen] = useState(false);
+  
+  // Preset Browser Modal State
+  const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
+  const [presetCategory, setPresetCategory] = useState<string>("Trap");
 
   // Draggable FAB state
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
@@ -1341,19 +1345,12 @@ export default function BeatStudio() {
           <div className="master-params-group">
             <label className="param-field">
               <span className="param-label">Preset de Artista (Vibe)</span>
-              <select
-                className="param-select artist-select"
-                value={artistPreset}
-                onChange={(e) => applyArtistPreset(e.target.value as ArtistPresetId)}
+              <button
+                className="param-select artist-select text-left"
+                onClick={() => setIsPresetBrowserOpen(true)}
               >
-                {Object.entries(ARTIST_PRESETS)
-                  .filter(([id]) => id.startsWith("1-") || id.startsWith("2-") || id.startsWith("3-") || id.startsWith("4-") || id.startsWith("5-") || id.startsWith("6-") || id.startsWith("7-") || id.startsWith("8-") || id.startsWith("9-") || id.startsWith("10-") || id.startsWith("11-") || id.startsWith("12-") || id === "custom")
-                  .map(([id, info]) => (
-                    <option key={id} value={id}>
-                      {info.label}
-                    </option>
-                  ))}
-              </select>
+                {ARTIST_PRESETS[artistPreset]?.label || "Selecione uma Vibe..."}
+              </button>
             </label>
 
 
@@ -1912,6 +1909,62 @@ export default function BeatStudio() {
             </button>
           </div>
         </>
+      )}
+
+      {/* ==========================================
+          PRESET BROWSER MODAL (PAGINATED)
+          ========================================== */}
+      {isPresetBrowserOpen && (
+        <div className="preset-modal-overlay" onClick={() => setIsPresetBrowserOpen(false)}>
+          <div className="preset-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="preset-modal-header">
+              <h2>Biblioteca de Vibes (Presets)</h2>
+              <button className="close-btn" onClick={() => setIsPresetBrowserOpen(false)}>
+                Fechar
+              </button>
+            </div>
+            
+            <div className="preset-tabs">
+              {["Trap", "Drill", "Funk", "R&B / Pop"].map(tab => (
+                <button 
+                  key={tab} 
+                  className={`preset-tab ${presetCategory === tab ? "active" : ""}`}
+                  onClick={() => setPresetCategory(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="preset-grid">
+              {Object.entries(ARTIST_PRESETS)
+                .filter(([id, info]) => {
+                  if (presetCategory === "Trap") return info.style.includes("trap") && !info.style.includes("uk");
+                  if (presetCategory === "Drill") return info.style.includes("uk") || info.label.toLowerCase().includes("drill");
+                  if (presetCategory === "Funk") return info.style.includes("funk");
+                  if (presetCategory === "R&B / Pop") return info.style.includes("rnb") || info.style.includes("pop") || id === "custom";
+                  return true;
+                })
+                .map(([id, info]) => (
+                  <button
+                    key={id}
+                    className={`preset-card ${artistPreset === id ? "active" : ""}`}
+                    onClick={() => {
+                      applyArtistPreset(id as ArtistPresetId);
+                      setIsPresetBrowserOpen(false);
+                    }}
+                  >
+                    <div className="preset-card-title">{info.label.replace(/^\d+\.\s*/, '')}</div>
+                    <div className="preset-card-tags">
+                      <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
+                      <span className="tag bpm">{info.bpm} BPM</span>
+                    </div>
+                    <div className="preset-card-desc">{info.description}</div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
 
       <footer className="footer-note">

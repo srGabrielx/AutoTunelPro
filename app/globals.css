@@ -17,6 +17,185 @@
   --danger: #ff4d4d;
 }
 
+/* =====================================================
+   PRESET BROWSER MODAL (PAGINATED)
+   ===================================================== */
+.preset-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(4, 4, 6, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.preset-modal {
+  width: 100%;
+  max-width: 800px;
+  max-height: 85vh;
+  background: #0e0e12;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.96) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.preset-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.preset-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.preset-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.preset-tab {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  color: #999;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.preset-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ccc;
+}
+
+.preset-tab.active {
+  background: rgba(200, 255, 61, 0.1);
+  border-color: rgba(200, 255, 61, 0.3);
+  color: var(--acid);
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  max-height: calc(85vh - 140px);
+}
+
+.preset-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.preset-card.active {
+  background: rgba(200, 255, 61, 0.05);
+  border-color: var(--acid);
+  box-shadow: 0 0 20px rgba(200, 255, 61, 0.1);
+}
+
+.preset-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.preset-card-tags {
+  display: flex;
+  gap: 6px;
+}
+
+.preset-card-tags .tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tag.scale {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ddd;
+}
+
+.tag.bpm {
+  background: rgba(200, 255, 61, 0.15);
+  color: var(--acid);
+}
+
+.preset-card-desc {
+  font-size: 12.5px;
+  color: #888;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .preset-modal-overlay {
+    padding: 12px;
+  }
+  .preset-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1729,3 +1908,5 @@ h1 {
   }
 }
 
+ 
+ 
