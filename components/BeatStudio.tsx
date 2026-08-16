@@ -1683,7 +1683,17 @@ export default function BeatStudio() {
           {isTransportOpen && (
             <div
               className="transport-drawer-container"
-              style={fabPos ? { left: `${fabPos.x}px`, top: `${fabPos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+              style={
+                fabPos
+                  ? {
+                      left: typeof window !== "undefined" && fabPos.x + 320 > window.innerWidth ? "auto" : `${fabPos.x}px`,
+                      right: typeof window !== "undefined" && fabPos.x + 320 > window.innerWidth ? "20px" : "auto",
+                      top: typeof window !== "undefined" && fabPos.y + 500 > window.innerHeight ? "auto" : `${fabPos.y}px`,
+                      bottom: typeof window !== "undefined" && fabPos.y + 500 > window.innerHeight ? "20px" : "auto",
+                      position: "fixed",
+                    }
+                  : undefined
+              }
             >
               <div className="transport-drawer">
                 <label className="param-field">
