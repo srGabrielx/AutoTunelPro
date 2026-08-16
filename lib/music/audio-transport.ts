@@ -118,17 +118,36 @@ export class SampleAccurateAudioEngine {
     const sData = this.snareNoiseBuffer.getChannelData(0);
     for (let i = 0; i < snareSamples; i++) sData[i] = Math.random() * 2 - 1;
 
-    // Hat noise buffer (0.05s)
+    // Inharmonic Metallic Hat Buffer (Analogue Roland TR-808/909 Modeling)
+    const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
+
+    // Closed Hat noise buffer (0.05s)
     const hatSamples = Math.ceil(sampleRate * 0.05);
     this.hatNoiseBuffer = ctx.createBuffer(1, hatSamples, sampleRate);
     const hData = this.hatNoiseBuffer.getChannelData(0);
-    for (let i = 0; i < hatSamples; i++) hData[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < hatSamples; i++) {
+      const t = i / sampleRate;
+      let metal = 0;
+      for (let f = 0; f < inharmonicFreqs.length; f++) {
+        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+      }
+      const noise = Math.random() * 2 - 1;
+      hData[i] = metal * 0.65 + noise * 0.35;
+    }
 
     // Open-hat noise buffer (0.25s)
     const ohSamples = Math.ceil(sampleRate * 0.25);
     this.openHatNoiseBuffer = ctx.createBuffer(1, ohSamples, sampleRate);
     const ohData = this.openHatNoiseBuffer.getChannelData(0);
-    for (let i = 0; i < ohSamples; i++) ohData[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < ohSamples; i++) {
+      const t = i / sampleRate;
+      let metal = 0;
+      for (let f = 0; f < inharmonicFreqs.length; f++) {
+        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+      }
+      const noise = Math.random() * 2 - 1;
+      ohData[i] = metal * 0.55 + noise * 0.45;
+    }
   }
 
   private initDistortionCurves() {
@@ -740,17 +759,18 @@ export class SampleAccurateAudioEngine {
     const filter = this.ctx.createBiquadFilter();
     const gain = this.ctx.createGain();
 
-    osc1.type = synthType === "pad" ? "triangle" : synthType === "arp" ? "sawtooth" : "sawtooth";
-    osc1.frequency.setValueAtTime(freq, when);
+    const detuneCents = synthType === "pad" ? 8 : synthType === "lead" ? 10 : 6;
+    osc1.type = synthType === "pad" ? "sawtooth" : synthType === "arp" ? "sawtooth" : "sawtooth";
+    osc1.frequency.setValueAtTime(freq * Math.pow(2, -detuneCents / 1200), when);
 
-    osc2.type = synthType === "pluck" ? "sine" : "triangle";
-    osc2.frequency.setValueAtTime(freq * 1.003, when);
+    osc2.type = synthType === "pluck" ? "sine" : synthType === "pad" ? "triangle" : "sawtooth";
+    osc2.frequency.setValueAtTime(freq * Math.pow(2, detuneCents / 1200), when);
 
     filter.type = "lowpass";
-    const cutoff = synthType === "pad" ? 1800 : synthType === "pluck" ? 4200 : synthType === "arp" ? 3600 : 3000;
+    const cutoff = synthType === "pad" ? 2200 : synthType === "pluck" ? 4600 : synthType === "arp" ? 3800 : 3400;
     filter.frequency.setValueAtTime(cutoff, when);
-    filter.frequency.exponentialRampToValueAtTime(450, when + durationSec * 0.9);
-    filter.Q.value = synthType === "pluck" ? 5.0 : 3.2;
+    filter.frequency.exponentialRampToValueAtTime(380, when + durationSec * 0.92);
+    filter.Q.value = synthType === "pluck" ? 4.5 : 2.5;
 
     gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);

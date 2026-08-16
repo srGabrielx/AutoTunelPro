@@ -261,8 +261,9 @@ export function renderDspAudio({
 
         let phase1 = 0;
         let phase2 = 0;
-        const phaseInc1 = freq / sampleRate;
-        const phaseInc2 = (freq * 1.003) / sampleRate;
+        const detuneCents = synthType === "pad" ? 8 : synthType === "lead" ? 10 : 6;
+        const phaseInc1 = (freq * Math.pow(2, -detuneCents / 1200)) / sampleRate;
+        const phaseInc2 = (freq * Math.pow(2, detuneCents / 1200)) / sampleRate;
 
         for (let n = 0; n < durSamples; n++) {
           const sampleIdx = startSample + n;
@@ -484,6 +485,7 @@ export function renderDspAudio({
           const durSec = 0.22;
           const durSamples = Math.floor(durSec * sampleRate);
           const vel = (currentVel / 127) * 0.24 * effectiveDrumsVol;
+          const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
 
           const hpFilter = new BiquadFilter();
           hpFilter.setHighpass(6200, 1.2, sampleRate);
@@ -493,16 +495,22 @@ export function renderDspAudio({
             if (sampleIdx >= totalSamples) break;
 
             const progress = n / durSamples;
-            const noise = rng.nextNoise();
-            const out = hpFilter.process(noise) * vel * Math.exp(-progress * 4.2);
+            const t = n / sampleRate;
+            let metal = 0;
+            for (let f = 0; f < inharmonicFreqs.length; f++) {
+              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+            }
+            const rawSig = metal * 0.55 + rng.nextNoise() * 0.45;
+            const out = hpFilter.process(rawSig) * vel * Math.exp(-progress * 4.2);
             left[sampleIdx] += out;
             right[sampleIdx] += out;
           }
         } else {
-          // Closed Hat with Pitch Cents and Filter Curve
+          // Closed Hat with Pitch Cents and Inharmonic Metallic Synthesis
           const durSec = 0.038;
           const durSamples = Math.floor(durSec * sampleRate);
           const vel = (currentVel / 127) * 0.2 * effectiveDrumsVol;
+          const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
 
           const hpFilter = new BiquadFilter();
           let cutoff = 7500;
@@ -519,8 +527,13 @@ export function renderDspAudio({
             if (sampleIdx >= totalSamples) break;
 
             const progress = n / durSamples;
-            const noise = rng.nextNoise();
-            const out = hpFilter.process(noise * pitchRate) * vel * Math.exp(-progress * 14.0);
+            const t = n / sampleRate;
+            let metal = 0;
+            for (let f = 0; f < inharmonicFreqs.length; f++) {
+              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t * pitchRate) > 0 ? 0.12 : -0.12;
+            }
+            const rawSig = metal * 0.65 + rng.nextNoise() * 0.35;
+            const out = hpFilter.process(rawSig) * vel * Math.exp(-progress * 14.0);
             left[sampleIdx] += out;
             right[sampleIdx] += out;
           }

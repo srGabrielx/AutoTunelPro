@@ -69,3 +69,8 @@
 - **Preservação dos Tempos Fortes:** O swing deve afetar preferencialmente os contratempos (offbeats/passos ímpares), sem deslocar os tempos fortes principais (0, 4, 8, 12) do Kick e Snare.
 - **Sidechain (Kick → 808):** O ducking deve ocorrer em todo evento de kick enquanto existir uma voz de 808 sustentada. No Web Audio, usar nó dedicado `Sidechain GainNode` (1.0 → 0.32 → 1.0) separado do `Track GainNode` de volume. No DSP do Worker, aplicar o mesmo envelope amostra a amostra no canal do 808.
 
+## Síntese de Alta Fidelidade e Realismo Acústico
+- **Hi-Hats Metálicos (Analogue Modeling):** Os hi-hats devem combinar banco de frequências inarmônicas com envelope de ruído filtrado em passa-altas para reproduzir o timbre metálico característico de pratos físicos/TR-808.
+- **Vozes em Unison/Detune:** Camadas de melodia do tipo Lead e Pad devem empregar leve micro-desafinação stereo (detune ±6 a ±12 cents) para ganho de densidade harmônica e espacialidade.
+- **Kick & 808 Acoustic Punch:** Kicks devem ter sweep duplo (click transitório de 160-180Hz para impacto + corpo de 45-55Hz). O 808 deve conter pitch dive inicial de 40-50ms com saturação por waveshaping suave.
+- **Master Bus Soft-Clipper:** Todo som final passa por DC-blocker e limitador analógico suave com threshold em 0.88, garantindo volume comercial encorpado sem clipping digital estático.
