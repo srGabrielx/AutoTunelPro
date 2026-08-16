@@ -1,6 +1,6 @@
-import { makeSeed, rng } from "../music/random";
-import { STYLES } from "../music/styles";
-import type { DrumHit, DrumResult, DrumRoll, GenerateOptions, StyleId } from "../music/types";
+import { makeSeed } from "../music/random.ts";
+import { STYLES } from "../music/styles.ts";
+import type { DrumHit, DrumResult, DrumRoll, GenerateOptions, StyleId } from "../music/types.ts";
 
 // Default Groove DNA per Genre
 const GENRE_GROOVE_DNA: Record<
@@ -80,7 +80,6 @@ function deterministicRng(seed: number, track: string, step: number, subIndex = 
 
 export function generateDrums(options: GenerateOptions): DrumResult {
   const seed = makeSeed(options.seed);
-  const random = rng(seed);
   const preset = STYLES[options.style] ?? STYLES["trap-br"];
   const dna = GENRE_GROOVE_DNA[options.style] ?? GENRE_GROOVE_DNA["trap-br"];
   const hits: DrumHit[] = [];
@@ -131,28 +130,30 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   // 1. Kick Pattern
   if (patternMode === "half-time") {
     add(0, "kick", 108);
-    if (comp >= 2 && random() > 0.35) add(10, "kick", 90);
-    if (comp >= 4 && random() > 0.5) add(14, "kick", 82);
+    if (comp >= 2 && deterministicRng(seed, "kick-half-10", 10) > 0.35) add(10, "kick", 90);
+    if (comp >= 4 && deterministicRng(seed, "kick-half-14", 14) > 0.5) add(14, "kick", 82);
   } else if (patternMode === "double-time") {
     [0, 3, 6, 8, 10, 14].forEach((step) => add(step, "kick", 96));
   } else if (options.style === "trap-uk") {
     add(0, "kick", 105);
     add(3, "kick", 92);
-    if (random() > 0.3) add(8, "kick", 96);
-    if (comp >= 3 && random() > 0.4) add(11, "kick", 88);
-    if (comp >= 4 && random() > 0.5) add(14, "kick", 84);
+    if (deterministicRng(seed, "kick-drill-8", 8) > 0.3) add(8, "kick", 96);
+    if (comp >= 3 && deterministicRng(seed, "kick-drill-11", 11) > 0.4) add(11, "kick", 88);
+    if (comp >= 4 && deterministicRng(seed, "kick-drill-14", 14) > 0.5) add(14, "kick", 84);
   } else if (options.style === "funk") {
     [0, 4, 7, 10, 13].forEach((step) => {
       add(step, "kick", step === 0 ? 110 : 98);
     });
   } else {
     preset.kick.forEach((step) => {
-      if (random() < 0.82 + comp * 0.035) add(step, "kick", step === 0 ? 108 : 95);
+      if (deterministicRng(seed, "kick-preset", step) < 0.82 + comp * 0.035) {
+        add(step, "kick", step === 0 ? 108 : 95);
+      }
     });
     if (comp >= 3) {
       const ghostSteps = [3, 11, 13];
       ghostSteps.forEach((step) => {
-        if (random() < 0.25 + (comp - 3) * 0.25) add(step, "kick", 74);
+        if (deterministicRng(seed, "kick-ghost", step) < 0.25 + (comp - 3) * 0.25) add(step, "kick", 74);
       });
     }
   }
@@ -160,18 +161,18 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   // 2. Snare / Clap / Rim
   if (patternMode === "half-time") {
     add(8, "snare", 108);
-    if (comp >= 3 && random() > 0.45) add(14, "snare", 68);
+    if (comp >= 3 && deterministicRng(seed, "snare-half-14", 14) > 0.45) add(14, "snare", 68);
   } else if (options.style === "trap-uk") {
     add(3, "snare", 92);
     add(8, "snare", 105);
     if (comp >= 3) add(11, "snare", 65);
-    if (comp >= 4 && random() > 0.4) add(15, "snare", 72);
+    if (comp >= 4 && deterministicRng(seed, "snare-drill-15", 15) > 0.4) add(15, "snare", 72);
   } else {
     preset.snare.forEach((step) => add(step, "snare", 102));
-    if (comp >= 3 && random() > 0.4) {
+    if (comp >= 3 && deterministicRng(seed, "snare-ghost-10", 10) > 0.4) {
       add(10, "snare", 58); // Ghost note
     }
-    if (comp >= 4 && random() > 0.4) {
+    if (comp >= 4 && deterministicRng(seed, "snare-fill-14", 14) > 0.4) {
       add(14, "snare", 72);
       add(15, "snare", 88);
     }
@@ -226,9 +227,10 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   }
 
   // 4. Open-Hat (Crashes / Accents)
-  if (comp >= 2 && random() > 0.25) {
+  if (comp >= 2 && deterministicRng(seed, "open-hat-chance", 0) > 0.25) {
     const openSteps = options.style === "trap-uk" ? [2, 8, 14] : [2, 6, 10, 14];
-    const chosen = openSteps[Math.floor(random() * openSteps.length)];
+    const pickIdx = Math.floor(deterministicRng(seed, "open-hat-step", 0) * openSteps.length);
+    const chosen = openSteps[pickIdx];
     add(chosen, "open-hat", 88);
   }
 

@@ -1,13 +1,12 @@
+import { buildGrooveEventPlan, type GrooveEvent } from "./groove-plan.ts";
 import type {
   BassDrive,
   BassResult,
-  DrumHit,
   DrumKitMode,
   DrumResult,
-  DrumRoll,
   MelodyLayer,
   MelodySynthType,
-} from "./types";
+} from "./types.ts";
 
 export type PlaybackMode = "all" | "melody" | "bass" | "drums";
 
@@ -28,13 +27,8 @@ export interface ScheduledStepEvent {
     slide?: boolean;
     drive: BassDrive;
   };
-  drumHits: Array<{
-    drum: DrumHit["drum"];
-    velocity: number;
-    kit: DrumKitMode;
-    roll?: DrumRoll;
-    microTimingMs?: number;
-  }>;
+  grooveEvents: GrooveEvent[];
+  drumKit: DrumKitMode;
 }
 
 export class SampleAccurateAudioEngine {
@@ -42,6 +36,7 @@ export class SampleAccurateAudioEngine {
   private delayNode: DelayNode | null = null;
   private delayGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
+  private bassSidechainGain: GainNode | null = null;
 
   // Per-track persistent GainNodes
   private trackGainNodes: Map<string, GainNode> = new Map();
@@ -85,6 +80,11 @@ export class SampleAccurateAudioEngine {
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 1.0;
       this.masterGain.connect(this.ctx.destination);
+
+      // Bass Dedicated Sidechain Gain (Between Bass TrackGain and MasterGain)
+      this.bassSidechainGain = this.ctx.createGain();
+      this.bassSidechainGain.gain.value = 1.0;
+      this.bassSidechainGain.connect(this.masterGain);
 
       // Delay Bus
       this.delayNode = this.ctx.createDelay();
@@ -158,7 +158,14 @@ export class SampleAccurateAudioEngine {
     const ctx = this.init();
     const gain = ctx.createGain();
     gain.gain.value = 0.8; // default 80%
-    gain.connect(this.masterGain || ctx.destination);
+
+    // 808 Bass connects through bassSidechainGain; others connect to masterGain
+    if (trackId === "bass" && this.bassSidechainGain) {
+      gain.connect(this.bassSidechainGain);
+    } else {
+      gain.connect(this.masterGain || ctx.destination);
+    }
+
     this.trackGainNodes.set(trackId, gain);
     return gain;
   }
@@ -178,17 +185,26 @@ export class SampleAccurateAudioEngine {
   }
 
   /**
-   * Duck 808 sub-bass briefly when kick triggers (Sidechain Compression).
+   * Duck 808 sub-bass via dedicated Sidechain GainNode when kick triggers.
    */
-  public duck808(when: number) {
-    const bassGain = this.trackGainNodes.get("bass");
-    if (!bassGain || !this.ctx) return;
-    const currentVol = this.trackVolumes.get("bass") ?? 0.8;
-    const duckedVol = currentVol * 0.32;
+  public triggerSidechainDucking(when: number) {
+    if (!this.ctx || !this.bassSidechainGain) return;
+    const gainParam = this.bassSidechainGain.gain;
+    const attackSec = 0.005;  // 5ms attack
+    const releaseSec = 0.075; // 75ms release
+    const duckTarget = 0.32;
+    const baseline = 1.0;
+
     try {
-      bassGain.gain.setValueAtTime(currentVol, when);
-      bassGain.gain.linearRampToValueAtTime(duckedVol, when + 0.006); // 6ms attack
-      bassGain.gain.linearRampToValueAtTime(currentVol, when + 0.075); // 75ms release
+      if (typeof (gainParam as unknown as { cancelAndHoldAtTime?: (t: number) => void }).cancelAndHoldAtTime === "function") {
+        (gainParam as unknown as { cancelAndHoldAtTime: (t: number) => void }).cancelAndHoldAtTime(when);
+      } else {
+        gainParam.cancelScheduledValues(when);
+        gainParam.setValueAtTime(baseline, when);
+      }
+      gainParam.setValueAtTime(baseline, when);
+      gainParam.linearRampToValueAtTime(duckTarget, when + attackSec);
+      gainParam.linearRampToValueAtTime(baseline, when + attackSec + releaseSec);
     } catch {}
   }
 
@@ -259,7 +275,8 @@ export class SampleAccurateAudioEngine {
     const events: ScheduledStepEvent[] = Array.from({ length: 16 }, (_, step) => ({
       step,
       melodyNotes: [],
-      drumHits: [],
+      grooveEvents: [],
+      drumKit,
     }));
 
     // Index Melody Layers
@@ -298,19 +315,20 @@ export class SampleAccurateAudioEngine {
       });
     }
 
-    // Index Drums
-    if (drums && !muteDrums) {
-      drums.hits.forEach((hit) => {
-        if (hit.step >= 0 && hit.step < 16) {
-          events[hit.step].drumHits.push({
-            drum: hit.drum,
-            velocity: hit.velocity,
-            kit: drumKit,
-            roll: hit.roll,
-            microTimingMs: hit.microTimingMs,
-          });
-        }
+    // Index Drums via Single Source of Truth Groove Plan
+    if (drums && !muteDrums && drums.hits.length > 0) {
+      const plan = buildGrooveEventPlan({
+        hits: drums.hits,
+        bpm: this.bpm,
+        patternDurationSteps: 16,
       });
+
+      for (let i = 0; i < plan.length; i++) {
+        const ev = plan[i];
+        if (ev.step >= 0 && ev.step < 16) {
+          events[ev.step].grooveEvents.push(ev);
+        }
+      }
     }
 
     this.indexedEvents = events;
@@ -482,54 +500,22 @@ export class SampleAccurateAudioEngine {
       );
     }
 
-    // 3. Drums with Sub-Step Rolls, Parametric Pitch Curves, Micro-Timing & Sidechain
+    // 3. Drums with Pre-Calculated Groove Event Plan (Zero Runtime Calculations)
     if (this.playbackMode === "all" || this.playbackMode === "drums") {
-      for (let i = 0; i < event.drumHits.length; i++) {
-        const d = event.drumHits[i];
-        const offset = (d.microTimingMs || 0) / 1000;
-        const hitTime = Math.max(when, when + offset);
+      for (let i = 0; i < event.grooveEvents.length; i++) {
+        const ev = event.grooveEvents[i];
+        const stepOffsetSec = ev.timeSeconds - (event.step * stepDuration);
+        const hitTime = Math.max(when, when + stepOffsetSec);
 
-        // Sidechain kick to 808 ducking
-        if (d.drum === "kick" && this.playbackMode === "all") {
-          this.duck808(hitTime);
-        }
-
-        if (d.roll && d.roll.count > 1) {
-          const subCount = d.roll.count;
-          const subInterval = stepDuration / subCount;
-          const pitchCurve = d.roll.pitchCurve;
-
-          for (let s = 0; s < subCount; s++) {
-            const subTime = hitTime + s * subInterval;
-            let velScale = 1.0;
-            if (d.roll.velocityCurve === "crescendo") {
-              velScale = 0.55 + 0.45 * (s / (subCount - 1 || 1));
-            } else if (d.roll.velocityCurve === "decrescendo") {
-              velScale = 1.0 - 0.45 * (s / (subCount - 1 || 1));
-            }
-            const subVel = Math.max(25, Math.min(127, Math.round(d.velocity * velScale)));
-
-            if (d.drum === "hat") {
-              let startF = 7500;
-              let endF = 7500;
-              if (pitchCurve) {
-                startF = 7500 * Math.pow(2, pitchCurve.startCents / 1200);
-                endF = 7500 * Math.pow(2, pitchCurve.endCents / 1200);
-              }
-              this.playHat(subTime, subVel, startF, subInterval * 0.82, endF);
-            } else if (d.drum === "snare") {
-              this.playSnare(subTime, subVel, d.kit);
-            } else if (d.drum === "kick") {
-              this.playKick(subTime, subVel, d.kit);
-            } else {
-              this.playOpenHat(subTime, subVel);
-            }
-          }
+        if (ev.instrument === "kick") {
+          this.triggerSidechainDucking(hitTime);
+          this.playKick(hitTime, ev.velocity, event.drumKit);
+        } else if (ev.instrument === "snare") {
+          this.playSnare(hitTime, ev.velocity, event.drumKit);
+        } else if (ev.instrument === "open-hat") {
+          this.playOpenHat(hitTime, ev.velocity);
         } else {
-          if (d.drum === "kick") this.playKick(hitTime, d.velocity, d.kit);
-          else if (d.drum === "snare") this.playSnare(hitTime, d.velocity, d.kit);
-          else if (d.drum === "open-hat") this.playOpenHat(hitTime, d.velocity);
-          else this.playHat(hitTime, d.velocity);
+          this.playHat(hitTime, ev.velocity, ev.pitchCents, ev.filterCurve);
         }
       }
     }
@@ -605,23 +591,34 @@ export class SampleAccurateAudioEngine {
   private playHat(
     when: number,
     velocity = 75,
-    filterFreq = 7500,
-    dur = 0.038,
-    pitchEndFreq?: number
+    pitchCents?: number,
+    filterCurve?: { startHz: number; endHz: number; durationMs: number }
   ) {
     if (!this.ctx || !this.hatNoiseBuffer) return;
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.hatNoiseBuffer;
 
+    if (pitchCents !== undefined && pitchCents !== 0) {
+      try {
+        noise.playbackRate.setValueAtTime(Math.pow(2, pitchCents / 1200), when);
+      } catch {}
+    }
+
     const filter = this.ctx.createBiquadFilter();
     filter.type = "highpass";
-    filter.frequency.setValueAtTime(filterFreq, when);
-    if (pitchEndFreq && pitchEndFreq !== filterFreq) {
-      filter.frequency.exponentialRampToValueAtTime(Math.max(1000, pitchEndFreq), when + dur);
+    if (filterCurve) {
+      filter.frequency.setValueAtTime(filterCurve.startHz, when);
+      filter.frequency.exponentialRampToValueAtTime(
+        Math.max(100, filterCurve.endHz),
+        when + filterCurve.durationMs / 1000
+      );
+    } else {
+      filter.frequency.setValueAtTime(7500, when);
     }
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
+    const dur = 0.038;
     gain.gain.setValueAtTime((velocity / 127) * 0.18, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 

@@ -1,3 +1,4 @@
+import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan.ts";
 import type {
   BassDrive,
   BassResult,
@@ -319,26 +320,33 @@ export function renderDspAudio({
       });
     });
 
-    // Pre-calculate kick hit timestamps for 808 sidechain ducking
-    const kickTimes: number[] = [];
-    if (drums && drums.hits.length > 0) {
-      drums.hits.forEach((hit) => {
-        if (hit.drum === "kick") {
-          const microTimingSec = (hit.microTimingMs || 0) / 1000;
-          kickTimes.push(loopOffsetSec + hit.step * stepDuration + microTimingSec);
-        }
-      });
-    }
+    // Pre-calculate groove event plan for this loop
+    const groovePlan: GrooveEvent[] =
+      drums && drums.hits.length > 0
+        ? buildGrooveEventPlan({
+            hits: drums.hits,
+            bpm,
+            patternDurationSteps: 16,
+            loopOffsetSec,
+          })
+        : [];
+
+    const kickTimes: number[] = groovePlan
+      .filter((ev) => ev.instrument === "kick")
+      .map((ev) => ev.timeSeconds);
+
+    const effectiveBassVol = trackSettings["bass"]?.volume ?? bassVolume;
+    const effectiveDrumsVol = trackSettings["drums"]?.volume ?? drumsVolume;
 
     // --- 2. SINTETIZAR 808 SUB-BASS (With Kick Sidechain Ducking) ---
-    if (bass && bass.notes.length > 0) {
+    if (bass && bass.notes.length > 0 && !trackSettings["bass"]?.muted) {
       bass.notes.forEach((bNote) => {
         const startSec = loopOffsetSec + bNote.step * stepDuration;
         const durSec = stepDuration * (bNote.duration || 2) * 0.98;
         const startSample = Math.floor(startSec * sampleRate);
         const durSamples = Math.floor(durSec * sampleRate);
         const rootFreq = 440 * Math.pow(2, (bNote.note - 69) / 12);
-        const baseVel = (bNote.velocity / 127) * 0.52 * bassVolume;
+        const baseVel = (bNote.velocity / 127) * 0.52 * effectiveBassVol;
 
         let phase = 0;
 
@@ -366,12 +374,12 @@ export function renderDspAudio({
           const env = baseVel * Math.exp(-progress * 2.8);
           const rawSine = Math.sin(2 * Math.PI * phase) * env;
 
-          // Sidechain Kick -> 808 ducking factor
+          // Sidechain Kick -> 808 ducking factor (active whenever any kick hit occurred within 80ms)
           let duckFactor = 1.0;
           for (let k = 0; k < kickTimes.length; k++) {
             const dt = absTimeSec - kickTimes[k];
             if (dt >= 0 && dt < 0.080) {
-              const kDuck = dt < 0.006 ? 1.0 - 0.68 * (dt / 0.006) : 0.32 + 0.68 * ((dt - 0.006) / 0.074);
+              const kDuck = dt < 0.005 ? 1.0 - 0.68 * (dt / 0.005) : 0.32 + 0.68 * ((dt - 0.005) / 0.075);
               duckFactor = Math.min(duckFactor, kDuck);
             }
           }
@@ -385,127 +393,113 @@ export function renderDspAudio({
       });
     }
 
-    // --- 3. SINTETIZAR DRUMS (Kick, Snare, Hi-Hats with DrumRolls) ---
-    if (drums && drums.hits.length > 0) {
-      drums.hits.forEach((hit) => {
-        const microTimingSec = (hit.microTimingMs || 0) / 1000;
-        const rollObj = hit.roll;
-        const subCount = rollObj && rollObj.count > 1 ? rollObj.count : 1;
-        const subDurationSec = stepDuration / subCount;
+    // --- 3. SINTETIZAR DRUMS (Kick, Snare, Hi-Hats from Single Groove Plan) ---
+    if (groovePlan.length > 0 && !trackSettings["drums"]?.muted) {
+      groovePlan.forEach((ev) => {
+        const startSample = Math.floor(ev.timeSeconds * sampleRate);
+        const currentVel = ev.velocity;
 
-        for (let sub = 0; sub < subCount; sub++) {
-          const startSec = loopOffsetSec + hit.step * stepDuration + microTimingSec + sub * subDurationSec;
-          const startSample = Math.floor(startSec * sampleRate);
+        if (ev.instrument === "kick") {
+          const durSec = 0.34;
+          const durSamples = Math.floor(durSec * sampleRate);
+          const startF = drumKit === "drill-punch" ? 180 : drumKit === "funk-tamborzao" ? 140 : 155;
+          const endF = drumKit === "funk-tamborzao" ? 52 : 44;
+          const vel = (currentVel / 127) * (drumKit === "funk-tamborzao" ? 0.56 : 0.48) * effectiveDrumsVol;
 
-          let velScale = 1.0;
-          if (rollObj?.velocityCurve === "crescendo" && subCount > 1) {
-            velScale = 0.55 + 0.45 * (sub / (subCount - 1));
-          } else if (rollObj?.velocityCurve === "decrescendo" && subCount > 1) {
-            velScale = 1.0 - 0.45 * (sub / (subCount - 1));
+          let phase = 0;
+          for (let n = 0; n < durSamples; n++) {
+            const sampleIdx = startSample + n;
+            if (sampleIdx >= totalSamples) break;
+
+            const t = n / sampleRate;
+            const progress = n / durSamples;
+            const f = t < 0.08 ? startF - (startF - endF) * (t / 0.08) : endF;
+            phase = (phase + f / sampleRate) % 1.0;
+
+            const env = vel * Math.exp(-progress * 6.5);
+            let s = Math.sin(2 * Math.PI * phase);
+            if (drumKit === "funk-tamborzao") {
+              s = 2.0 * Math.abs(2.0 * (phase - Math.floor(phase + 0.5))) - 1.0; // triangle body
+            }
+            const out = s * env;
+            left[sampleIdx] += out;
+            right[sampleIdx] += out;
           }
-          const currentVel = hit.velocity * velScale;
+        } else if (ev.instrument === "snare") {
+          const durSec = drumKit === "funk-tamborzao" ? 0.1 : 0.14;
+          const durSamples = Math.floor(durSec * sampleRate);
+          const vel = (currentVel / 127) * 0.38 * effectiveDrumsVol;
 
-          if (hit.drum === "kick") {
-            const durSec = 0.34;
-            const durSamples = Math.floor(durSec * sampleRate);
-            const startF = drumKit === "drill-punch" ? 180 : drumKit === "funk-tamborzao" ? 140 : 155;
-            const endF = drumKit === "funk-tamborzao" ? 52 : 44;
-            const vel = (currentVel / 127) * (drumKit === "funk-tamborzao" ? 0.56 : 0.48) * drumsVolume;
+          const bpFilter = new BiquadFilter();
+          bpFilter.setBandpass(drumKit === "drill-punch" ? 2200 : 1600, 1.4, sampleRate);
 
-            let phase = 0;
-            for (let n = 0; n < durSamples; n++) {
-              const sampleIdx = startSample + n;
-              if (sampleIdx >= totalSamples) break;
+          let tPhase = 0;
+          for (let n = 0; n < durSamples; n++) {
+            const sampleIdx = startSample + n;
+            if (sampleIdx >= totalSamples) break;
 
-              const t = n / sampleRate;
-              const progress = n / durSamples;
-              const f = t < 0.08 ? startF - (startF - endF) * (t / 0.08) : endF;
-              phase = (phase + f / sampleRate) % 1.0;
+            const progress = n / durSamples;
+            const t = n / sampleRate;
 
-              const env = vel * Math.exp(-progress * 6.5);
-              let s = Math.sin(2 * Math.PI * phase);
-              if (drumKit === "funk-tamborzao") {
-                s = 2.0 * Math.abs(2.0 * (phase - Math.floor(phase + 0.5))) - 1.0; // triangle body
-              }
-              const out = s * env;
-              left[sampleIdx] += out;
-              right[sampleIdx] += out;
-            }
-          } else if (hit.drum === "snare") {
-            const durSec = drumKit === "funk-tamborzao" ? 0.1 : 0.14;
-            const durSamples = Math.floor(durSec * sampleRate);
-            const vel = (currentVel / 127) * 0.38 * drumsVolume;
+            // Noise snap
+            const noise = rng.nextNoise();
+            const filteredNoise = bpFilter.process(noise) * vel * Math.exp(-progress * 7.5);
 
-            const bpFilter = new BiquadFilter();
-            bpFilter.setBandpass(drumKit === "drill-punch" ? 2200 : 1600, 1.4, sampleRate);
+            // Body tone
+            const toneFreq = t < 0.07 ? 190 - (190 - 85) * (t / 0.07) : 85;
+            tPhase = (tPhase + toneFreq / sampleRate) % 1.0;
+            const triangleTone =
+              (2.0 * Math.abs(2.0 * (tPhase - Math.floor(tPhase + 0.5))) - 1.0) *
+              (vel * 0.7) *
+              Math.exp(-progress * 10.0);
 
-            let tPhase = 0;
-            for (let n = 0; n < durSamples; n++) {
-              const sampleIdx = startSample + n;
-              if (sampleIdx >= totalSamples) break;
+            const out = filteredNoise + triangleTone;
+            left[sampleIdx] += out;
+            right[sampleIdx] += out;
+          }
+        } else if (ev.instrument === "open-hat") {
+          const durSec = 0.22;
+          const durSamples = Math.floor(durSec * sampleRate);
+          const vel = (currentVel / 127) * 0.24 * effectiveDrumsVol;
 
-              const progress = n / durSamples;
-              const t = n / sampleRate;
+          const hpFilter = new BiquadFilter();
+          hpFilter.setHighpass(6200, 1.2, sampleRate);
 
-              // Noise snap
-              const noise = rng.nextNoise();
-              const filteredNoise = bpFilter.process(noise) * vel * Math.exp(-progress * 7.5);
+          for (let n = 0; n < durSamples; n++) {
+            const sampleIdx = startSample + n;
+            if (sampleIdx >= totalSamples) break;
 
-              // Body tone
-              const toneFreq = t < 0.07 ? 190 - (190 - 85) * (t / 0.07) : 85;
-              tPhase = (tPhase + toneFreq / sampleRate) % 1.0;
-              const triangleTone =
-                (2.0 * Math.abs(2.0 * (tPhase - Math.floor(tPhase + 0.5))) - 1.0) *
-                (vel * 0.7) *
-                Math.exp(-progress * 10.0);
+            const progress = n / durSamples;
+            const noise = rng.nextNoise();
+            const out = hpFilter.process(noise) * vel * Math.exp(-progress * 4.2);
+            left[sampleIdx] += out;
+            right[sampleIdx] += out;
+          }
+        } else {
+          // Closed Hat with Pitch Cents and Filter Curve
+          const durSec = 0.038;
+          const durSamples = Math.floor(durSec * sampleRate);
+          const vel = (currentVel / 127) * 0.2 * effectiveDrumsVol;
 
-              const out = filteredNoise + triangleTone;
-              left[sampleIdx] += out;
-              right[sampleIdx] += out;
-            }
-          } else if (hit.drum === "open-hat") {
-            const durSec = 0.22;
-            const durSamples = Math.floor(durSec * sampleRate);
-            const vel = (currentVel / 127) * 0.24 * drumsVolume;
+          const hpFilter = new BiquadFilter();
+          let cutoff = 7500;
+          if (ev.filterCurve) {
+            cutoff = ev.filterCurve.startHz;
+          }
+          hpFilter.setHighpass(Math.max(1000, cutoff), 1.2, sampleRate);
 
-            const hpFilter = new BiquadFilter();
-            hpFilter.setHighpass(6200, 1.2, sampleRate);
+          // Pitch Rate Shift
+          const pitchRate = ev.pitchCents ? Math.pow(2, ev.pitchCents / 1200) : 1.0;
 
-            for (let n = 0; n < durSamples; n++) {
-              const sampleIdx = startSample + n;
-              if (sampleIdx >= totalSamples) break;
+          for (let n = 0; n < durSamples; n++) {
+            const sampleIdx = startSample + n;
+            if (sampleIdx >= totalSamples) break;
 
-              const progress = n / durSamples;
-              const noise = rng.nextNoise();
-              const out = hpFilter.process(noise) * vel * Math.exp(-progress * 4.2);
-              left[sampleIdx] += out;
-              right[sampleIdx] += out;
-            }
-          } else {
-            // Closed Hat with Parametric Pitch Curve
-            const durSec = Math.min(0.045, subDurationSec * 0.85);
-            const durSamples = Math.floor(durSec * sampleRate);
-            const vel = (currentVel / 127) * 0.2 * drumsVolume;
-
-            const hpFilter = new BiquadFilter();
-            let cutoff = 7500;
-            if (rollObj?.pitchCurve) {
-              const startF = 7500 * Math.pow(2, rollObj.pitchCurve.startCents / 1200);
-              const endF = 7500 * Math.pow(2, rollObj.pitchCurve.endCents / 1200);
-              cutoff = subCount > 1 ? startF + (endF - startF) * (sub / (subCount - 1)) : startF;
-            }
-            hpFilter.setHighpass(Math.max(1000, cutoff), 1.2, sampleRate);
-
-            for (let n = 0; n < durSamples; n++) {
-              const sampleIdx = startSample + n;
-              if (sampleIdx >= totalSamples) break;
-
-              const progress = n / durSamples;
-              const noise = rng.nextNoise();
-              const out = hpFilter.process(noise) * vel * Math.exp(-progress * 14.0);
-              left[sampleIdx] += out;
-              right[sampleIdx] += out;
-            }
+            const progress = n / durSamples;
+            const noise = rng.nextNoise();
+            const out = hpFilter.process(noise * pitchRate) * vel * Math.exp(-progress * 14.0);
+            left[sampleIdx] += out;
+            right[sampleIdx] += out;
           }
         }
       });

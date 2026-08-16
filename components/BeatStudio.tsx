@@ -139,24 +139,7 @@ function IconRefresh({ size = 16, className = "" }: { size?: number; className?:
   );
 }
 
-function IconMenu({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
-      <line x1="4" y1="12" x2="20" y2="12" />
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="4" y1="18" x2="20" y2="18" />
-    </svg>
-  );
-}
 
-function IconClose({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`ui-icon ${className}`}>
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
 
 // ==========================================
 // CONSTANTS & HELPERS
@@ -654,6 +637,7 @@ export default function BeatStudio() {
     muteDrums,
     bassDrive,
     drumKit,
+    bassStyle,
     bassOctave,
     drumStyle,
     drumPattern,

@@ -2,6 +2,20 @@
 
 import { useEffect, useState } from "react";
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+declare global {
+  interface Window {
+    deferredPWAInstallPrompt?: BeforeInstallPromptEvent;
+  }
+  interface Navigator {
+    standalone?: boolean;
+  }
+}
+
 export default function InstallBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -9,18 +23,17 @@ export default function InstallBanner() {
     // Check if already in standalone PWA mode (installed app)
     const isStandalone =
       typeof window !== "undefined" &&
-      (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone);
+      (window.matchMedia("(display-mode: standalone)").matches || !!window.navigator.standalone);
 
     if (isStandalone) {
-      setIsVisible(false);
       return;
     }
 
     const isDismissed = typeof window !== "undefined" && sessionStorage.getItem("pwa_banner_dismissed");
     if (isDismissed) return;
 
-    if (typeof window !== "undefined" && (window as any).deferredPWAInstallPrompt) {
-      setIsVisible(true);
+    if (typeof window !== "undefined" && window.deferredPWAInstallPrompt) {
+      queueMicrotask(() => setIsVisible(true));
     }
 
     const handlePromptReady = () => {
@@ -29,7 +42,7 @@ export default function InstallBanner() {
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
-      (window as any).deferredPWAInstallPrompt = e;
+      window.deferredPWAInstallPrompt = e as BeforeInstallPromptEvent;
       setIsVisible(true);
     };
 
@@ -51,7 +64,7 @@ export default function InstallBanner() {
   }, []);
 
   const handleInstallClick = async () => {
-    const promptEvent = typeof window !== "undefined" ? (window as any).deferredPWAInstallPrompt : null;
+    const promptEvent = typeof window !== "undefined" ? window.deferredPWAInstallPrompt : null;
     if (promptEvent) {
       try {
         await promptEvent.prompt();

@@ -59,11 +59,13 @@
 ## Tipagem de useRef para Mapeamento de Estado
 - Ao adicionar novas propriedades de estado (`useState`) que precisam ser sincronizadas em um `useRef` para acesso síncrono (como o `stateRef`), garanta sempre que a nova propriedade seja adicionada **tanto na inicialização do `useRef` quanto na atribuição dentro do `useEffect`**, senão o TypeScript emitirá erros de inferência "Object literal may only specify known properties".
 
-## Paridade Absoluta Playback / WAV & Determinismo de Groove
-- **RNG Determinístico Obrigatório:** Toda humanização, velocity e micro-timing devem ser calculados a partir de um PRNG derivado de `(seed, trackId, step, rollIndex)`. **Nunca** use `Math.random()` na síntese ou agendamento de áudio, garantindo que o áudio tocado no navegador seja bit-accurate com o arquivo WAV exportado.
-- **Estrutura Explícita de Rolls:** Subdivisões de passos de 1/16 devem ser expressas como `rollCount: 1 | 2 | 3 | 4 | 6` dentro da interface `DrumRoll`, evitando ambiguidades de frações e permitindo cálculo direto do intervalo (`stepDuration / rollCount`).
-- **Pitch Curves Paramétricas:** Curvas de afinação em rolls de hi-hat (pitch drop) devem utilizar parâmetros quantitativos (`startCents`, `endCents`, `durationMs`) em vez de booleanos soltos.
-- **Limites de Micro-Timing:** O micro-timing deve ser armazenado como `microTimingMs`, convertido em segundos apenas no scheduler, e estritamente limitado a no máximo ±15ms.
-- **Preservação de Compasso:** O micro-timing nunca pode deslocar um hit para fora do seu compasso ou inverter a ordem cronológica com hits vizinhos.
-- **Preservação dos Tempos Fortes:** O swing deve afetar preferencialmente os contratempos (offbeats/passos ímpares), sem deslocar destrutivamente os tempos fortes (1 e 3) do Kick e Snare.
-- **Sidechain (Kick → 808):** Em qualquer reprodução ou exportação WAV onde Kick e 808 coincidam, deve ser aplicado ducking automático e suave no 808 (atenuação rápida de 6ms com release de 75-80ms).
+## Paridade de Groove & Equivalência Perceptual
+- **Paridade Determinística do Plano de Eventos:** A mesma seed produz obrigatoriamente o mesmo plano musical (instrumentos, steps, timestamps, `rollCount`, `subIndex`, velocities, `microTimingMs`, curvas de pitch, envelopes de sidechain e volumes). Garantir equivalência perceptual entre playback Web Audio e exportação WAV.
+- **RNG Determinístico Obrigatório:** Toda humanização, velocity e micro-timing devem ser derivados de `(seed, trackId, step, subIndex)`. **Nunca** use `Math.random()` na síntese, agendamento ou exportação de áudio.
+- **Estrutura Explícita de Rolls:** Subdivisões de passos de 1/16 devem ser expressas como `rollCount: 1 | 2 | 3 | 4 | 6` dentro da interface `DrumRoll`, com cálculo direto do intervalo (`rollInterval = stepDuration / roll.count`).
+- **Pitch Curves Paramétricas:** Curvas de afinação em rolls de hi-hat devem utilizar parâmetros quantitativos (`startCents`, `endCents`, `durationMs`) que afetam a afinação real (`frequency = baseFrequency * Math.pow(2, cents / 1200)` e `playbackRate = Math.pow(2, cents / 1200)`), ou `filterCurve` (`startHz`, `endHz`, `durationMs`) para modulação de filtro.
+- **Limites de Micro-Timing:** O micro-timing deve ser armazenado como `microTimingMs`, convertido em segundos apenas no scheduler, e estritamente limitado entre -15ms e +15ms.
+- **Preservação de Compasso:** O micro-timing nunca pode produzir timestamp negativo, deslocar um hit para fora do seu compasso ou inverter a ordem cronológica com hits vizinhos.
+- **Preservação dos Tempos Fortes:** O swing deve afetar preferencialmente os contratempos (offbeats/passos ímpares), sem deslocar os tempos fortes principais (0, 4, 8, 12) do Kick e Snare.
+- **Sidechain (Kick → 808):** O ducking deve ocorrer em todo evento de kick enquanto existir uma voz de 808 sustentada. No Web Audio, usar nó dedicado `Sidechain GainNode` (1.0 → 0.32 → 1.0) separado do `Track GainNode` de volume. No DSP do Worker, aplicar o mesmo envelope amostra a amostra no canal do 808.
+

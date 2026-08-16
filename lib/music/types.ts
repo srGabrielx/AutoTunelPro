@@ -95,6 +95,11 @@ export interface DrumRoll {
     endCents: number;
     durationMs: number;
   };
+  filterCurve?: {
+    startHz: number;
+    endHz: number;
+    durationMs: number;
+  };
 }
 
 export interface DrumHit {
