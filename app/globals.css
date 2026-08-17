@@ -1396,6 +1396,8 @@ h1 {
   object-fit: contain;
   border-radius: 8px;
   filter: drop-shadow(0 0 6px rgba(200, 255, 61, 0.4));
+  transform: rotate(165deg);
+  transition: transform 0.3s ease;
 }
 
 .btn-logo-inline {
