@@ -178,6 +178,8 @@ export interface DrumProfile {
 
 export interface SynthesisProfile {
   808?: { drive: number; attack: number; release: number; };
+  sub?: { drive: number; attack: number; release: number; };
+  synth?: { drive: number; attack: number; release: number; };
   hats?: { closedDecay: number; openDecay: number; };
 }
 

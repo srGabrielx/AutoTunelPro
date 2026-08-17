@@ -37,6 +37,15 @@ export function getAllPresets(): PresetDefinition[] {
   return Array.from(presetRegistry.values());
 }
 
-// Em uma implementação real, os presets seriam importados aqui
-// import { trapBrPreset } from "./trap/trap-br";
-// registerPreset(trapBrPreset);
+// Importação e registro dos presets
+import { trapBrPreset } from "./trap/trap-br";
+import { reggaePreset } from "./reggae/reggae-default";
+import { boombapPreset } from "./boombap/boombap-default";
+import { hiphopPreset } from "./hiphop/hiphop-default";
+import { dubstepPreset } from "./dubstep/dubstep-default";
+
+registerPreset(trapBrPreset);
+registerPreset(reggaePreset);
+registerPreset(boombapPreset);
+registerPreset(hiphopPreset);
+registerPreset(dubstepPreset);
