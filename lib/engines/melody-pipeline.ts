@@ -263,24 +263,38 @@ function applyVoiceLeading(notes: MelodyNote[], ctx: PipelineContext): MelodyNot
 
     // Voice leading: limit jump to maxJump semitones
     if (i > 0) {
-      const jump = Math.abs(sorted[i].note - sorted[i - 1].note);
+      const prev = sorted[i - 1].note;
+      let jump = Math.abs(sorted[i].note - prev);
       if (jump > ctx.profile.maxJump) {
-        // Move the current note closer by octave transposition
-        const prev = sorted[i - 1].note;
+        // First try octave shifts
         let candidate = sorted[i].note;
-
-        // Try octave shifts to reduce the jump
         while (Math.abs(candidate - prev) > ctx.profile.maxJump) {
-          if (candidate > prev) {
+          if (candidate > prev && candidate - 12 >= safeMin) {
             candidate -= 12;
-          } else {
+          } else if (candidate < prev && candidate + 12 <= safeMax) {
             candidate += 12;
-          }
-          // Safety: don't go out of register
-          if (candidate < safeMin || candidate > safeMax) {
-            candidate = sorted[i].note; // revert if impossible
+          } else {
             break;
           }
+        }
+
+        // If still exceeding maxJump, snap candidate to nearest valid scale note within maxJump distance
+        if (Math.abs(candidate - prev) > ctx.profile.maxJump) {
+          let best = candidate;
+          let bestDiff = Infinity;
+          for (let oct = -2; oct <= 4; oct++) {
+            for (const inter of ctx.scaleIntervals) {
+              const pitch = ctx.root + inter + oct * 12;
+              if (pitch >= safeMin && pitch <= safeMax && Math.abs(pitch - prev) <= ctx.profile.maxJump) {
+                const diff = Math.abs(pitch - candidate);
+                if (diff < bestDiff) {
+                  bestDiff = diff;
+                  best = pitch;
+                }
+              }
+            }
+          }
+          candidate = best;
         }
 
         sorted[i] = { ...sorted[i], note: candidate };
@@ -443,6 +457,9 @@ export function runMelodyPipeline(options: GenerateOptions, random: () => number
 
   // Stage 7: Validate
   notes = validateNotes(notes, ctx);
+
+  // Re-apply voice leading after validation to guarantee maxJump invariant
+  notes = applyVoiceLeading(notes, ctx);
 
   // Ensure at least some notes exist (fallback)
   if (notes.length < 2) {
