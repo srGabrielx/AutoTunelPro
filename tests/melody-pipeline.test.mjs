@@ -11,8 +11,8 @@ test("Melody Pipeline - Determinism", () => {
     seed: 55555,
   };
 
-  const res1 = generateMelody(options);
-  const res2 = generateMelody(options);
+  const res1 = generateMelody(options, {}, 'mock-seed', 0, 38400);
+  const res2 = generateMelody(options, {}, 'mock-seed', 0, 38400);
 
   assert.deepEqual(res1.notes, res2.notes);
 });
@@ -30,7 +30,7 @@ test("Melody Pipeline - Voice Leading Constraints (Max Jump)", () => {
   // We mock a compositionPlan injection
   options.compositionPlan = plan;
 
-  const res = generateMelody(options);
+  const res = generateMelody(options, {}, 'mock-seed', 0, 38400);
   
   // Verify that jumps between consecutive notes never exceed 7 semitones
   for (let i = 1; i < res.notes.length; i++) {
@@ -50,7 +50,7 @@ test("Melody Pipeline - Chord Tone Priority on Downbeats", () => {
   const plan = buildCompositionPlan(options);
   options.compositionPlan = plan;
 
-  const res = generateMelody(options);
+  const res = generateMelody(options, {}, 'mock-seed', 0, 38400);
   
   // For complexity 1, most downbeats should strictly be chord tones
   for (const note of res.notes) {

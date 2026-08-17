@@ -3,8 +3,10 @@ CREATE TABLE IF NOT EXISTS projects (
   owner_id text NOT NULL,
   name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 80),
   bpm integer NOT NULL CHECK (bpm BETWEEN 60 AND 200),
-  melody jsonb NOT NULL DEFAULT '{}'::jsonb,
-  drums jsonb NOT NULL DEFAULT '{}'::jsonb,
+  schema_version integer NOT NULL DEFAULT 1,
+  generation_id text,
+  master_seed text,
+  composition_state jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

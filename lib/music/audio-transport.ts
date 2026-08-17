@@ -13,6 +13,8 @@ import type {
   MelodyLayer,
   MelodySynthType,
 } from "./types.ts";
+import { Mixer } from "../audio/mixer.ts";
+import { VoiceManager } from "../audio/voice-manager.ts";
 
 export type PlaybackMode = "all" | "melody" | "bass" | "drums";
 
@@ -39,14 +41,12 @@ export interface ScheduledStepEvent {
 
 export class SampleAccurateAudioEngine {
   private ctx: AudioContext | null = null;
-  private delayNode: DelayNode | null = null;
-  private delayGain: GainNode | null = null;
-  private masterGain: GainNode | null = null;
-  private bassSidechainGain: GainNode | null = null;
+  private mixer: Mixer | null = null;
+  private voiceManager: VoiceManager | null = null;
 
-  // Per-track persistent GainNodes
+  // Per-track persistent GainNodes (connected to Buses)
   private trackGainNodes: Map<string, GainNode> = new Map();
-  private trackVolumes: Map<string, number> = new Map();
+  private trackVolumesMap: Map<string, number> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
   private snareNoiseBuffer: AudioBuffer | null = null;
@@ -56,9 +56,6 @@ export class SampleAccurateAudioEngine {
   // Waveshaper distortion curves
   private distWarmCurve: Float32Array | null = null;
   private distOverdriveCurve: Float32Array | null = null;
-
-  // Active scheduled nodes for instant cleanup (using Set to avoid unbounded array growth or orphan nodes)
-  private activeNodes: Set<{ stop: (time: number) => void; onended: ((this: AudioScheduledSourceNode, ev: Event) => void) | null }> = new Set();
 
   // Transport state
   private isPlaying = false;
@@ -83,24 +80,9 @@ export class SampleAccurateAudioEngine {
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
 
-      // Master Gain
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 1.0;
-      this.masterGain.connect(this.ctx.destination);
-
-      // Bass Dedicated Sidechain Gain (Between Bass TrackGain and MasterGain)
-      this.bassSidechainGain = this.ctx.createGain();
-      this.bassSidechainGain.gain.value = 1.0;
-      this.bassSidechainGain.connect(this.masterGain);
-
-      // Delay Bus
-      this.delayNode = this.ctx.createDelay();
-      this.delayNode.delayTime.value = 0.24;
-      this.delayGain = this.ctx.createGain();
-      this.delayGain.gain.value = 0.22;
-      this.delayNode.connect(this.delayGain);
-      this.delayGain.connect(this.delayNode);
-      this.delayGain.connect(this.masterGain);
+      // Inicializa a Infraestrutura Lote 9 (Mixer e VoiceManager)
+      this.mixer = new Mixer(this.ctx);
+      this.voiceManager = new VoiceManager(this.ctx);
 
       // Pre-allocate Noise Buffers
       this.initNoiseBuffers(this.ctx);
@@ -193,11 +175,10 @@ export class SampleAccurateAudioEngine {
     const gain = ctx.createGain();
     gain.gain.value = 0.8; // default 80%
 
-    // 808 Bass connects through bassSidechainGain; others connect to masterGain
-    if (trackId === "bass" && this.bassSidechainGain) {
-      gain.connect(this.bassSidechainGain);
-    } else {
-      gain.connect(this.masterGain || ctx.destination);
+    if (this.mixer) {
+      if (trackId === "bass") gain.connect(this.mixer.getBus("bass"));
+      else if (trackId === "drums") gain.connect(this.mixer.getBus("drums"));
+      else gain.connect(this.mixer.getBus("melody"));
     }
 
     this.trackGainNodes.set(trackId, gain);
@@ -209,7 +190,7 @@ export class SampleAccurateAudioEngine {
    */
   public setTrackVolume(trackId: string, volume: number) {
     const gain = this.getOrCreateTrackGain(trackId);
-    this.trackVolumes.set(trackId, volume);
+    this.trackVolumesMap.set(trackId, volume);
     if (!this.ctx) return;
     gain.gain.setTargetAtTime(
       Math.max(0, Math.min(1, volume)),
@@ -222,8 +203,8 @@ export class SampleAccurateAudioEngine {
    * Duck 808 sub-bass via dedicated Sidechain GainNode when kick triggers.
    */
   public triggerSidechainDucking(when: number) {
-    if (!this.ctx || !this.bassSidechainGain) return;
-    const gainParam = this.bassSidechainGain.gain;
+    if (!this.ctx || !this.mixer) return;
+    const gainParam = (this.mixer.getBus("bass_sidechain") as GainNode).gain;
     const attackSec = 0.005;  // 5ms attack
     const releaseSec = 0.075; // 75ms release
     const duckTarget = 0.32;
@@ -655,7 +636,7 @@ export class SampleAccurateAudioEngine {
     osc.start(when);
     osc.stop(when + 0.33);
 
-    this.trackNode(osc);
+    this.voiceManager?.registerVoice(osc, { layerId: "drums", gainNode: gain });
   }
 
   private playClap(when: number, velocity = 92) {
@@ -681,7 +662,7 @@ export class SampleAccurateAudioEngine {
       noise.connect(filter).connect(gain).connect(trackGain);
       noise.start(when + offset);
       noise.stop(when + offset + (idx === 2 ? 0.17 : 0.016));
-      this.trackNode(noise);
+      this.voiceManager?.registerVoice(noise, { layerId: "drums", gainNode: gain });
     });
   }
 
@@ -707,7 +688,7 @@ export class SampleAccurateAudioEngine {
       noise.connect(filter).connect(gain).connect(trackGain);
       noise.start(when);
       noise.stop(when + dur);
-      this.trackNode(noise);
+      this.voiceManager?.registerVoice(noise, { layerId: "drums", gainNode: gain });
     }
 
     // Body tone
@@ -724,7 +705,7 @@ export class SampleAccurateAudioEngine {
     osc.connect(tGain).connect(trackGain);
     osc.start(when);
     osc.stop(when + 0.09);
-    this.trackNode(osc);
+    this.voiceManager?.registerVoice(osc, { layerId: "drums", gainNode: tGain });
   }
 
   private playHat(
@@ -764,7 +745,7 @@ export class SampleAccurateAudioEngine {
     noise.connect(filter).connect(gain).connect(trackGain);
     noise.start(when);
     noise.stop(when + dur);
-    this.trackNode(noise);
+    this.voiceManager?.registerVoice(noise, { layerId: "drums", chokeGroup: "hats", gainNode: gain });
   }
 
   private playOpenHat(when: number, velocity = 80) {
@@ -785,7 +766,7 @@ export class SampleAccurateAudioEngine {
     noise.connect(filter).connect(gain).connect(trackGain);
     noise.start(when);
     noise.stop(when + dur);
-    this.trackNode(noise);
+    this.voiceManager?.registerVoice(noise, { layerId: "drums", chokeGroup: "hats", gainNode: gain });
   }
 
   private play808Bass(
@@ -850,8 +831,8 @@ export class SampleAccurateAudioEngine {
     cleanOsc.stop(when + durationSec + 0.05);
     satOsc.stop(when + durationSec + 0.05);
 
-    this.trackNode(cleanOsc);
-    this.trackNode(satOsc);
+    this.voiceManager?.registerVoice(cleanOsc, { layerId: "bass", maxPolyphony: 1, gainNode: cleanGain });
+    this.voiceManager?.registerVoice(satOsc, { layerId: "bass", maxPolyphony: 1, gainNode: satGain });
   }
 
   private playMelodyNote(
@@ -893,22 +874,13 @@ export class SampleAccurateAudioEngine {
     filter.connect(gain);
     gain.connect(trackGain);
 
-    if (this.delayNode) gain.connect(this.delayNode);
-
     osc1.start(when);
     osc2.start(when);
     osc1.stop(when + durationSec + 0.05);
     osc2.stop(when + durationSec + 0.05);
 
-    this.trackNode(osc1);
-    this.trackNode(osc2);
-  }
-
-  private trackNode(node: AudioScheduledSourceNode) {
-    this.activeNodes.add(node);
-    node.onended = () => {
-      this.activeNodes.delete(node);
-    };
+    this.voiceManager?.registerVoice(osc1, { layerId, gainNode: gain });
+    this.voiceManager?.registerVoice(osc2, { layerId, gainNode: gain });
   }
 
   /**
@@ -916,26 +888,16 @@ export class SampleAccurateAudioEngine {
    */
   public stop() {
     this.isPlaying = false;
-    if (this.wakeTimer) {
-      clearInterval(this.wakeTimer);
+    if (this.wakeTimer !== null) {
+      clearInterval(this.wakeTimer as NodeJS.Timeout);
       this.wakeTimer = null;
     }
-
-    if (this.ctx && this.ctx.state !== "closed") {
-      const now = this.ctx.currentTime;
-      for (const node of this.activeNodes) {
-        try {
-          node.stop(now);
-          // Disconnect as a safety measure for faster garbage collection
-          if ('disconnect' in node && typeof node.disconnect === 'function') {
-             (node as unknown as AudioNode).disconnect();
-          }
-        } catch {
-          // Ignore already stopped nodes
-        }
-      }
+    
+    // O Lote 9 previne clippagem e notas penduradas no momento do Stop
+    if (this.voiceManager) {
+      this.voiceManager.stopAll();
     }
-    this.activeNodes.clear();
+
     this.nextAbsoluteStep = 0;
   }
 }
