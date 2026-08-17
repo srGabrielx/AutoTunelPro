@@ -2066,7 +2066,7 @@ export default function BeatStudio() {
             </div>
             
             <div className="preset-tabs">
-              {["Trap", "Drill", "Funk", "R&B / Pop", "Meus Presets"].map((tab) => (
+              {["Trap", "Drill", "Funk", "R&B / Pop", "Hip Hop / Boom Bap", "Reggae", "Dubstep", "Meus Presets"].map((tab) => (
                 <button 
                   key={tab} 
                   className={`preset-tab ${presetCategory === tab ? "active" : ""}`}
@@ -2127,6 +2127,9 @@ export default function BeatStudio() {
                     if (presetCategory === "Drill") return info.style.includes("uk") || info.label.toLowerCase().includes("drill");
                     if (presetCategory === "Funk") return info.style.includes("funk");
                     if (presetCategory === "R&B / Pop") return info.style.includes("rnb") || info.style.includes("pop") || info.style.includes("amapiano");
+                    if (presetCategory === "Hip Hop / Boom Bap") return info.style.includes("hip") || info.style.includes("boom");
+                    if (presetCategory === "Reggae") return info.style.includes("reggae");
+                    if (presetCategory === "Dubstep") return info.style.includes("dubstep");
                     return true;
                   })
                   .map(([id, info]) => (
