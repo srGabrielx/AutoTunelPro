@@ -1,3 +1,4 @@
+import type { CompositionPlan } from "./composition-plan";
 
 export type StyleId = "trap-br" | "trap-uk" | "trap-usa" | "hip-hop" | "funk" | "amapiano";
 
@@ -46,6 +47,7 @@ export interface GenerateOptions {
   swing?: number;       // 0 to 100 %
   rollDensity?: number; // 0 to 100 %
   humanize?: number;    // 0 to 100 %
+  compositionPlan?: CompositionPlan; // Injected shared plan for Lote 3+
 }
 
 export interface MelodyNote {
@@ -158,17 +160,17 @@ export interface BassProfile {
   type: string;
   slideProbability: number;
   syncWithKick: number;
-  restProbability?: number; // legacy fallback
+  restProbability?: number;
 }
 
 export interface DrumProfile {
   hatRolls: boolean;
-  hatRollThreshold?: number; // legacy fallback
-  kickSyncopation: number; // For UI mapping if needed
+  hatRollThreshold?: number;
+  kickSyncopation: number;
   kickDensity?: number;
   kickGapMin?: number;
   kickGapMax?: number;
-  snareOn?: number[]; // [3] for half-time
+  snareOn?: number[];
   snareDensity?: number;
   snareGapMin?: number;
   snareGapMax?: number;
@@ -182,3 +184,4 @@ export interface SynthesisProfile {
 export interface ArrangementProfile {
   energyCurve: string;
 }
+
