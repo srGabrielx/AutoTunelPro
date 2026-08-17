@@ -318,7 +318,7 @@ interface MelodyLayerCardProps {
   totalLayers: number;
   busy: string | null;
   onUpdate: (id: string, patch: Partial<MelodyLayer>) => void;
-  onGenerate: (layerId: string) => void;
+  onGenerate: (layerId: string, customSeed?: number) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
   trackSettings: TrackSettings | undefined;
@@ -481,7 +481,7 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
       <div className="message">
         {layer.result ? (
           <span>
-            Seed <code>{layer.result.seed}</code> · <b>{layer.result.notes.length}</b> notas ativas · Clique nos passos para editar.
+            <SeedInput seed={layer.result.seed} onApply={(s) => onGenerate(layer.id, s)} /> · <b>{layer.result.notes.length}</b> notas ativas · Clique nos passos para editar.
           </span>
         ) : (
           "Aguardando geração da camada."
@@ -494,6 +494,32 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
 // ==========================================
 // MAIN STUDIO COMPONENT
 // ==========================================
+function SeedInput({ seed, onApply, label = "Seed" }: { seed: number | string; onApply: (val: number) => void; label?: string }) {
+  const [val, setVal] = useState(String(seed));
+  useEffect(() => { setVal(String(seed)); }, [seed]);
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+      {label} <input 
+        type="text"
+        value={val}
+        onChange={(e) => setVal(e.target.value.replace(/\D/g, ''))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            const n = parseInt(val, 10);
+            if (!isNaN(n)) onApply(n);
+          }
+        }}
+        onBlur={() => {
+          const n = parseInt(val, 10);
+          if (!isNaN(n) && n !== seed) onApply(n);
+        }}
+        style={{ width: "80px", padding: "2px 4px", fontSize: "11px", background: "rgba(0,0,0,0.3)", color: "#FFD700", border: "1px solid rgba(255, 215, 0, 0.3)", borderRadius: "4px", fontFamily: "monospace", textAlign: "center", outline: "none" }}
+      />
+    </span>
+  );
+}
+
 export default function BeatStudio() {
 
   // Global settings (Default to Preset 1: Matuê Kenny G Trap BR)
@@ -1027,7 +1053,7 @@ export default function BeatStudio() {
 
   // Worker-Powered Generator: Single Melody Layer
   const generateMelodyLayer = useCallback(
-    async (layerId: string) => {
+    async (layerId: string, customSeed?: number) => {
       const layer = stateRef.current.melodyLayers.find((l) => l.id === layerId);
       if (!layer || !workerClientRef.current) return;
       stopPlayback();
@@ -1041,6 +1067,7 @@ export default function BeatStudio() {
           key: layer.key,
           scale: layer.scale,
           complexity,
+          seed: customSeed,
         });
         updateLayer(layerId, { result });
       } catch (err: unknown) {
@@ -1054,7 +1081,7 @@ export default function BeatStudio() {
 
   // Worker-Powered Generator: Bass / Drums
   const generateEngine = useCallback(
-    async (engine: "bass" | "drums") => {
+    async (engine: "bass" | "drums", customSeed?: number) => {
       if (!workerClientRef.current) return;
       stopPlayback();
       setBusy(engine);
@@ -1068,6 +1095,7 @@ export default function BeatStudio() {
             scale: globalScale,
             bassOctave,
             complexity,
+            seed: customSeed,
           });
           setBass(bassData);
           patchActiveBlock({ bass: bassData });
@@ -1080,6 +1108,7 @@ export default function BeatStudio() {
             swing: drumSwing,
             rollDensity: drumRollDensity,
             humanize: drumHumanize,
+            seed: customSeed,
           });
           setDrums(drumsData);
           patchActiveBlock({ drums: drumsData });
@@ -1575,7 +1604,7 @@ export default function BeatStudio() {
           <div className="message">
             {bass ? (
               <span>
-                Seed <code>{bass.seed}</code> · Afinado em <b>{key}</b> ({bassOctave === -36 ? "C0" : bassOctave === -24 ? "C1" : "C2"}) · <b>{bass.notes.length}</b> ataques
+                <SeedInput seed={bass.seed} onApply={(s) => generateEngine("bass", s)} /> · Afinado em <b>{key}</b> ({bassOctave === -36 ? "C0" : bassOctave === -24 ? "C1" : "C2"}) · <b>{bass.notes.length}</b> ataques
               </span>
             ) : (
               "Motor 808 autônomo com afinação procedural."
@@ -1724,7 +1753,7 @@ export default function BeatStudio() {
           <div className="message">
             {drums ? (
               <span>
-                Seed <code>{drums.seed}</code> · Padrão <b>{drumPattern}</b> · <b>{drums.hits.length}</b> peças rítmicas
+                <SeedInput seed={drums.seed} onApply={(s) => generateEngine("drums", s)} /> · Padrão <b>{drumPattern}</b> · <b>{drums.hits.length}</b> peças rítmicas
               </span>
             ) : (
               "Motor rítmico autônomo."
