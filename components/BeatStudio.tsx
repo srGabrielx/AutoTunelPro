@@ -578,9 +578,9 @@ export default function BeatStudio() {
     dragState.current.hasMoved = false;
   };
 
-  // Multi-Layer Melody State
+  // Multi-Layer Melody State (Default to Pluck / Sinos for Matuê Kenny G)
   const [melodyLayers, setMelodyLayers] = useState<MelodyLayer[]>(() => [
-    createDefaultLayer("trap-br", "A", "pentatonic-minor", "lead"),
+    createDefaultLayer("trap-br", "G#", "natural-minor", "pluck"),
   ]);
 
   // Per-track settings (Volume/Mute)
@@ -840,12 +840,25 @@ export default function BeatStudio() {
       setBassStyle(config.style);
       setDrumStyle(config.style);
 
-      const updatedLayers = stateRef.current.melodyLayers.map((l) => ({
-        ...l,
-        key: config.key,
-        scale: config.scale,
-        style: config.style,
-      }));
+      const labelMap: Record<MelodySynthType, string> = {
+        lead: "Lead Principal",
+        pad: "Pad / Harmonia",
+        pluck: "Pluck / Sinos",
+        arp: "Arp / Variação",
+      };
+      const preferred = config.preferredSynths ?? ["pluck", "pad", "lead"];
+
+      const updatedLayers = stateRef.current.melodyLayers.map((l, idx) => {
+        const synthType = preferred[idx % preferred.length];
+        return {
+          ...l,
+          key: config.key,
+          scale: config.scale,
+          style: config.style,
+          synthType,
+          label: labelMap[synthType as keyof typeof labelMap] || l.label,
+        };
+      });
       setMelodyLayers(updatedLayers);
 
       if (workerClientRef.current) {
@@ -1074,8 +1087,29 @@ export default function BeatStudio() {
     if (!workerClientRef.current) return;
     stopPlayback();
     setBusy("all");
-    setError("");
     try {
+      const synthCycle: MelodySynthType[] = ["pluck", "lead", "pad", "arp"];
+      const labelMap: Record<MelodySynthType, string> = {
+        lead: "Lead Principal",
+        pad: "Pad / Harmonia",
+        pluck: "Pluck / Sinos",
+        arp: "Arp / Variação",
+      };
+
+      const preferred = artistPreset !== "custom" && ARTIST_PRESETS[artistPreset]?.preferredSynths
+        ? ARTIST_PRESETS[artistPreset].preferredSynths
+        : synthCycle;
+
+      const refreshedLayers = stateRef.current.melodyLayers.map((l, idx) => {
+        const synthType = preferred[idx % preferred.length];
+        return {
+          ...l,
+          synthType,
+          label: labelMap[synthType as keyof typeof labelMap] || l.label,
+        };
+      });
+      setMelodyLayers(refreshedLayers);
+
       const allData = await workerClientRef.current.generateAll({
         bpm,
         key,
@@ -1088,7 +1122,7 @@ export default function BeatStudio() {
         swing: drumSwing,
         rollDensity: drumRollDensity,
         humanize: drumHumanize,
-        melodyLayers: stateRef.current.melodyLayers.map((l) => ({
+        melodyLayers: refreshedLayers.map((l) => ({
           id: l.id,
           style: l.style,
           key: l.key,

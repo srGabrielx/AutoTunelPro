@@ -1,4 +1,4 @@
-import type { ArtistPresetId, ScaleId, StyleId } from "./types";
+import type { ArtistPresetId, MelodySynthType, ScaleId, StyleId } from "./types";
 
 export interface StylePreset {
   label: string;
@@ -64,6 +64,7 @@ export interface ArtistPresetConfig {
   style: StyleId;
   complexity: number;
   description: string;
+  preferredSynths?: MelodySynthType[];
 }
 
 export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
@@ -77,6 +78,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-br",
     complexity: 4,
     description: "Lead psicodélico, 808 pesado de Trap BR com slides rápidos e ambiência imersiva.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "2-travis-fein": {
     label: "2. Travis Scott - FE!N / Goosebumps (Dark Trap)",
@@ -88,6 +90,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-usa",
     complexity: 4,
     description: "Tensão sombria, sintetizadores distorcidos e 808 sub de alto impacto.",
+    preferredSynths: ["lead", "pad", "arp"],
   },
   "3-centralcee-doja": {
     label: "3. Central Cee - Doja / Sprinter (UK Drill)",
@@ -99,6 +102,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-uk",
     complexity: 4,
     description: "Hi-hat triplets com pitch drop, kicks fora do grid e contra-tempos drill.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "4-metro-superhero": {
     label: "4. Metro Boomin - Superhero / Creepin (Cinematic Trap)",
@@ -110,6 +114,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-usa",
     complexity: 4,
     description: "Orquestração melancólica de bells, graves afinados e snares pontuais.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "5-veigh-novobalanco": {
     label: "5. Veigh - Novo Balanço / Mandrake (Trap BR)",
@@ -121,6 +126,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-br",
     complexity: 4,
     description: "Guitarras acústicas/plucks com groove moderno e 808 encorpado.",
+    preferredSynths: ["pluck", "arp", "pad"],
   },
   "6-drake-richflex": {
     label: "6. Drake & 21 Savage - Rich Flex (Midnight OVO)",
@@ -132,6 +138,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-usa",
     complexity: 3,
     description: "Pads aveludados e atmosfera noturna com baterias nítidas.",
+    preferredSynths: ["pad", "pluck", "lead"],
   },
   "7-mchariel-mandelao": {
     label: "7. MC Hariel & DJ Arana - Montagem 2000 (Funk SP)",
@@ -143,6 +150,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "funk",
     complexity: 3,
     description: "Tamborzão reto com caixas sincopadas e baixo pulsante característico.",
+    preferredSynths: ["lead", "arp", "pluck"],
   },
   "8-dennis-taok": {
     label: "8. Dennis DJ & Kevin o Chris - Tá OK (Funk Tamborzão)",
@@ -154,6 +162,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "funk",
     complexity: 3,
     description: "Tamborzao pesado de pista, palmas marcantes e hook empolgante.",
+    preferredSynths: ["lead", "pluck", "pad"],
   },
   "9-drdre-stilldre": {
     label: "9. 2Pac & Dr. Dre - Still D.R.E. (West Coast 90s)",
@@ -165,6 +174,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "hip-hop",
     complexity: 3,
     description: "Piano clássico marcante em colcheias, groove boom-bap cadenciado.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "10-post-rockstar": {
     label: "10. Post Malone - Rockstar / Circles (Melodic Trap)",
@@ -176,6 +186,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-usa",
     complexity: 3,
     description: "Progressão de acordes cativante e ritmo dinâmico para refrões épicos.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "11-kabza-amapiano": {
     label: "11. Kabza De Small - Asibe Happy (Amapiano)",
@@ -187,6 +198,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "amapiano",
     complexity: 3,
     description: "Teclados jazzísticos, log drums suaves e percussões africanas.",
+    preferredSynths: ["pluck", "pad", "arp"],
   },
   "12-kayblack-melhorvibe": {
     label: "12. KayBlack - Melhor Vibe / Salve (Trap R&B)",
@@ -198,6 +210,7 @@ export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
     style: "trap-br",
     complexity: 3,
     description: "Plucks sedosos, clima intimista e batida envolvente de Trap R&B.",
+    preferredSynths: ["pluck", "pad", "lead"],
   },
   "custom": {
     label: "0. Configuração Manual (Livre)",
