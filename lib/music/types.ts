@@ -1,6 +1,6 @@
 import type { CompositionPlan } from "./composition-plan";
 
-export type StyleId = "trap-br" | "trap-uk" | "trap-usa" | "hip-hop" | "funk" | "amapiano";
+export type StyleId = "trap-br" | "trap-uk" | "trap-usa" | "hip-hop" | "funk" | "amapiano" | "reggae-default" | "boombap-default" | "hiphop-default" | "dubstep-default";
 
 export type ScaleId =
   | "natural-minor"

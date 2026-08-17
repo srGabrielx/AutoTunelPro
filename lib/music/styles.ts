@@ -275,6 +275,38 @@ export const STYLES: Record<StyleId, StylePreset> = {
     snare: [6, 14],
     hat: [0, 2, 4, 6, 8, 10, 12, 14],
   },
+  "reggae-default": {
+    label: "Reggae Roots",
+    bpm: [70, 95],
+    scale: [0, 2, 4, 5, 7, 9, 11],
+    kick: [0, 8],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "boombap-default": {
+    label: "Boom Bap Classic",
+    bpm: [80, 95],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 8, 10],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "hiphop-default": {
+    label: "Modern Hip Hop",
+    bpm: [110, 140],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 8, 11],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "dubstep-default": {
+    label: "Dubstep Heavy",
+    bpm: [140, 150],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 10],
+    snare: [8],
+    hat: [0, 4, 8, 12],
+  },
 };
 
 export const KEYS: Record<string, number> = {

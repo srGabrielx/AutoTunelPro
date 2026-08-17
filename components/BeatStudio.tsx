@@ -204,9 +204,13 @@ const STYLE_OPTIONS: [StyleId, string][] = [
   ["trap-br", "Trap BR"],
   ["trap-uk", "Trap UK (Drill)"],
   ["trap-usa", "Trap EUA"],
-  ["hip-hop", "Hip Hop"],
+  ["hip-hop", "Hip Hop Anos 90"],
+  ["hiphop-default", "Modern Hip Hop"],
   ["funk", "Funk"],
   ["amapiano", "Amapiano"],
+  ["reggae-default", "Reggae Roots"],
+  ["boombap-default", "Boom Bap Classic"],
+  ["dubstep-default", "Dubstep Heavy"],
 ];
 
 const SYNTH_OPTIONS: [MelodySynthType, string][] = [
