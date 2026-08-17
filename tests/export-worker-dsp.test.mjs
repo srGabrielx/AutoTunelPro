@@ -79,19 +79,23 @@ test("WAV Export - Valid RIFF and WAVE Headers & PCM Structure", () => {
   const { left, right, sampleRate } = renderDspAudio({
     bpm: 140,
     melodyLayers: [],
-    bass: {
-      style: "trap-br",
-      bpm: 140,
-      key: "C",
-      notes: [{ step: 0, note: 36, velocity: 100, duration: 2 }],
-      seed: "test",
-    },
-    drums: {
-      style: "trap-br",
-      bpm: 140,
-      hits: [{ step: 0, drum: "kick", velocity: 90 }],
-      seed: "test",
-    },
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-br",
+        bpm: 140,
+        key: "C",
+        notes: [{ step: 0, note: 36, velocity: 100, duration: 2 }],
+        seed: "test",
+      },
+      drums: {
+        style: "trap-br",
+        bpm: 140,
+        hits: [{ step: 0, drum: "kick", velocity: 90 }],
+        seed: "test",
+      },
+      melodyResults: [],
+    }],
     loops: 1,
     sampleRate: 44100,
   });
@@ -178,9 +182,25 @@ test("DSP Synthesis - Deterministic Sound Generation", () => {
           scale: "harmonic-minor",
           notes: [{ step: 0, note: 62, velocity: 85, duration: 1 }],
           seed: "fixed-seed",
-        },
-      },
+        }
+      }
     ],
+    blocks: [{
+      type: "verse",
+      bass: { style: "trap-br", bpm: 130, key: "C", notes: [], seed: "b" },
+      drums: { style: "trap-br", bpm: 130, hits: [], seed: "d" },
+      melodyResults: [{
+        layerId: "l1",
+        result: {
+          style: "trap-uk",
+          bpm: 130,
+          key: "D",
+          scale: "harmonic-minor",
+          notes: [{ step: 0, note: 62, velocity: 85, duration: 1 }],
+          seed: "fixed-seed",
+        }
+      }]
+    }],
     loops: 1,
     sampleRate: 44100,
   };
@@ -211,7 +231,7 @@ test("MIDI Export - Rolls Expanded Into Individual MIDI Notes", () => {
     ],
   };
 
-  const midi = createMidiFile({ bpm, drums });
+  const midi = createMidiFile({ bpm, blocks: [{ type: "intro", bass: { notes: [] }, drums, melodyResults: [] }] });
   assert.ok(midi instanceof Uint8Array);
 
   // The groove plan should expand the roll count:3 into 3 sub-events
@@ -242,7 +262,7 @@ test("MIDI Export - Clap Events Use GM Hand Clap Pitch 39", () => {
     ],
   };
 
-  const midi = createMidiFile({ bpm, drums });
+  const midi = createMidiFile({ bpm, blocks: [{ type: "intro", bass: { notes: [] }, drums, melodyResults: [] }] });
 
   // Count Note On events (0x99) for clap pitch (39)
   let clapNoteOns = 0;
@@ -259,7 +279,7 @@ test("MIDI Export - Event Count Matches Groove Plan", () => {
   const drums = generateDrums({ style: "trap-uk", bpm, seed: 554433, complexity: 4 });
   const plan = buildGrooveEventPlan({ hits: drums.hits, bpm, patternDurationSteps: 16 });
 
-  const midi = createMidiFile({ bpm, drums });
+  const midi = createMidiFile({ bpm, blocks: [{ type: "intro", bass: { notes: [] }, drums, melodyResults: [] }] });
 
   // Count total Note On events (0x99) in MIDI
   let midiNoteOns = 0;
@@ -280,7 +300,7 @@ test("MIDI Export - Generated Drums Still Produce Valid MIDI", () => {
   const bpm = 140;
   const drums = generateDrums({ style: "trap-br", bpm, seed: 778899, complexity: 5 });
 
-  const midi = createMidiFile({ bpm, drums });
+  const midi = createMidiFile({ bpm, blocks: [{ type: "intro", bass: { notes: [] }, drums, melodyResults: [] }] });
   assert.ok(midi instanceof Uint8Array);
   assert.ok(midi.length > 44, "MIDI file must have sufficient length");
 

@@ -147,19 +147,23 @@ test("10. Groove Engine - Kick Applies Ducking on Sustained 808", () => {
     bpm,
     loops: 1,
     sampleRate,
-    bass: {
-      style: "trap-br",
-      bpm,
-      key: "C",
-      notes: [{ step: 0, note: 36, velocity: 110, duration: 6, slide: false }],
-      seed: "bass-test",
-    },
-    drums: {
-      style: "trap-br",
-      bpm,
-      hits: [{ step: 3, drum: "kick", velocity: 100 }],
-      seed: "kick-test",
-    },
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-br",
+        bpm,
+        key: "C",
+        notes: [{ step: 0, note: 36, velocity: 110, duration: 6, slide: false }],
+        seed: "bass-test",
+      },
+      drums: {
+        style: "trap-br",
+        bpm,
+        hits: [{ step: 3, drum: "kick", velocity: 100 }],
+        seed: "kick-test",
+      },
+      melodyResults: []
+    }],
   });
 
   const kickStartSample = Math.floor(3 * stepDuration * sampleRate);
@@ -175,23 +179,27 @@ test("11. Groove Engine - Repeated Kicks Envelope Stability", () => {
   const pcm = renderDspAudio({
     bpm,
     loops: 1,
-    bass: {
-      style: "trap-br",
-      bpm,
-      key: "C",
-      notes: [{ step: 0, note: 36, velocity: 110, duration: 8, slide: false }],
-      seed: "bass-test",
-    },
-    drums: {
-      style: "trap-br",
-      bpm,
-      hits: [
-        { step: 0, drum: "kick", velocity: 100 },
-        { step: 1, drum: "kick", velocity: 100 },
-        { step: 2, drum: "kick", velocity: 100 },
-      ],
-      seed: "kick-test",
-    },
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-br",
+        bpm,
+        key: "C",
+        notes: [{ step: 0, note: 36, velocity: 110, duration: 8, slide: false }],
+        seed: "bass-test",
+      },
+      drums: {
+        style: "trap-br",
+        bpm,
+        hits: [
+          { step: 0, drum: "kick", velocity: 100 },
+          { step: 1, drum: "kick", velocity: 100 },
+          { step: 2, drum: "kick", velocity: 100 },
+        ],
+        seed: "kick-test",
+      },
+      melodyResults: []
+    }]
   });
 
   for (let i = 0; i < pcm.left.length; i++) {
@@ -206,28 +214,36 @@ test("12. Groove Engine - Sidechain Preserves User Track Volume", () => {
     bpm,
     loops: 1,
     trackSettings: { bass: { volume: 0.8, muted: false } },
-    bass: {
-      style: "trap-br",
-      bpm,
-      key: "C",
-      notes: [{ step: 0, note: 36, velocity: 100, duration: 4, slide: false }],
-      seed: "bass-vol",
-    },
-    drums: { style: "trap-br", bpm, hits: [{ step: 0, drum: "kick", velocity: 100 }], seed: "kick" },
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-br",
+        bpm,
+        key: "C",
+        notes: [{ step: 0, note: 36, velocity: 100, duration: 4, slide: false }],
+        seed: "bass-vol",
+      },
+      drums: { style: "trap-br", bpm, hits: [{ step: 0, drum: "kick", velocity: 100 }], seed: "kick" },
+      melodyResults: []
+    }]
   });
 
   const pcmLow = renderDspAudio({
     bpm,
     loops: 1,
     trackSettings: { bass: { volume: 0.4, muted: false } },
-    bass: {
-      style: "trap-br",
-      bpm,
-      key: "C",
-      notes: [{ step: 0, note: 36, velocity: 100, duration: 4, slide: false }],
-      seed: "bass-vol",
-    },
-    drums: { style: "trap-br", bpm, hits: [{ step: 0, drum: "kick", velocity: 100 }], seed: "kick" },
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-br",
+        bpm,
+        key: "C",
+        notes: [{ step: 0, note: 36, velocity: 100, duration: 4, slide: false }],
+        seed: "bass-vol",
+      },
+      drums: { style: "trap-br", bpm, hits: [{ step: 0, drum: "kick", velocity: 100 }], seed: "kick" },
+      melodyResults: []
+    }]
   });
 
   // Lower user track volume must produce smaller peak
@@ -267,14 +283,30 @@ test("13. Groove Engine - Full Beat Render Peak Limiter (No Clipping <= 1.0)", (
         },
       },
     ],
-    bass: {
-      style: "trap-uk",
-      bpm,
-      key: "C",
-      notes: Array.from({ length: 8 }, (_, i) => ({ step: i * 2, note: 36, velocity: 125, duration: 2, slide: true })),
-      seed: "b-seed",
-    },
-    drums,
+    blocks: [{
+      type: "verse",
+      bass: {
+        style: "trap-uk",
+        bpm,
+        key: "C",
+        notes: Array.from({ length: 8 }, (_, i) => ({ step: i * 2, note: 36, velocity: 125, duration: 2, slide: true })),
+        seed: "b-seed",
+      },
+      drums,
+      melodyResults: [
+        {
+          layerId: "l1",
+          result: {
+            style: "trap-uk",
+            bpm,
+            key: "C",
+            scale: "natural-minor",
+            notes: Array.from({ length: 16 }, (_, i) => ({ step: i, note: 60 + (i % 8), velocity: 120, duration: 1 })),
+            seed: "m-seed",
+          }
+        }
+      ]
+    }]
   });
 
   let maxPeak = 0;
@@ -288,7 +320,7 @@ test("13. Groove Engine - Full Beat Render Peak Limiter (No Clipping <= 1.0)", (
 test("14. Groove Engine - Absence of NaN and Infinity in Rendered PCM", () => {
   const bpm = 140;
   const drums = generateDrums({ style: "trap-br", bpm, seed: 1234, complexity: 4 });
-  const pcm = renderDspAudio({ bpm, loops: 1, drums });
+  const pcm = renderDspAudio({ bpm, loops: 1, blocks: [{ type: "verse", bass: { style: "trap-br", bpm: 140, key: "C", notes: [], seed: "b" }, drums, melodyResults: [] }] });
 
   for (let i = 0; i < pcm.left.length; i++) {
     assert.ok(!Number.isNaN(pcm.left[i]), `NaN detected in left channel at ${i}`);

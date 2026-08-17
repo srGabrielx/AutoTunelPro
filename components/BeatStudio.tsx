@@ -912,10 +912,25 @@ export default function BeatStudio() {
     );
   }, [arrangementBlocks]);
 
+  const patchActiveBlock = useCallback((patch: Partial<ArrangementBlockData>) => {
+    setArrangementBlocks((prev) => {
+      const idx = stateRef.current.currentBlockIndex;
+      if (!prev[idx]) return prev;
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], ...patch };
+      return copy;
+    });
+  }, []);
+
   // Layer CRUD
   const updateLayer = useCallback((id: string, patch: Partial<MelodyLayer>) => {
-    setMelodyLayers((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-  }, []);
+    setMelodyLayers((prev) => {
+      const next = prev.map((l) => (l.id === id ? { ...l, ...patch } : l));
+      const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+      patchActiveBlock({ melodyResults });
+      return next;
+    });
+  }, [patchActiveBlock]);
 
   const addExtraLayer = useCallback(
     async (synthType: MelodySynthType) => {
@@ -938,9 +953,12 @@ export default function BeatStudio() {
             scale: newLayer.scale,
             complexity,
           });
-          setMelodyLayers((prev) =>
-            prev.map((l) => (l.id === newLayerId ? { ...l, result } : l))
-          );
+          setMelodyLayers((prev) => {
+            const next = prev.map((l) => (l.id === newLayerId ? { ...l, result } : l));
+            const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+            patchActiveBlock({ melodyResults });
+            return next;
+          });
         } catch (err) {
           console.error(err);
         } finally {
@@ -952,12 +970,18 @@ export default function BeatStudio() {
   );
 
   const removeMelodyLayer = useCallback((id: string) => {
-    setMelodyLayers((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.id !== id)));
-  }, []);
+    setMelodyLayers((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((l) => l.id !== id);
+      const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+      patchActiveBlock({ melodyResults });
+      return next;
+    });
+  }, [patchActiveBlock]);
 
   const toggleMelodyStep = useCallback((layerId: string, stepIdx: number) => {
-    setMelodyLayers((prev) =>
-      prev.map((layer) => {
+    setMelodyLayers((prev) => {
+      const next = prev.map((layer) => {
         if (layer.id !== layerId || !layer.result) return layer;
         const exists = layer.result.notes.find((n) => n.step === stepIdx);
         const root = KEYS[layer.key] ?? 60;
@@ -970,9 +994,12 @@ export default function BeatStudio() {
               (a, b) => a.step - b.step
             );
         return { ...layer, result: { ...layer.result, notes: updatedNotes } };
-      })
-    );
-  }, []);
+      });
+      const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+      patchActiveBlock({ melodyResults });
+      return next;
+    });
+  }, [patchActiveBlock]);
 
   // Worker-Powered Generator: Single Melody Layer
   const generateMelodyLayer = useCallback(
@@ -998,7 +1025,7 @@ export default function BeatStudio() {
         setBusy(null);
       }
     },
-    [bpm, complexity, updateLayer]
+    [bpm, complexity, updateLayer, stopPlayback]
   );
 
   // Worker-Powered Generator: Bass / Drums
@@ -1019,6 +1046,7 @@ export default function BeatStudio() {
             complexity,
           });
           setBass(bassData);
+          patchActiveBlock({ bass: bassData });
         } else {
           const drumsData = await workerClientRef.current.generateDrums({
             style: drumStyle,
@@ -1030,6 +1058,7 @@ export default function BeatStudio() {
             humanize: drumHumanize,
           });
           setDrums(drumsData);
+          patchActiveBlock({ drums: drumsData });
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : `Erro ao gerar ${engine}.`);
@@ -1037,7 +1066,7 @@ export default function BeatStudio() {
         setBusy(null);
       }
     },
-    [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize]
+    [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, patchActiveBlock]
   );
 
   // Worker-Powered Generator: Full Beat (Simultaneous Promise.all Orchestrated in Worker)
@@ -1077,7 +1106,7 @@ export default function BeatStudio() {
     } finally {
       setBusy(null);
     }
-  }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize]);
+  }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, selectArrangementBlock]);
 
   // Bass step edit
   const toggleBassStep = (stepIdx: number) => {
@@ -1092,7 +1121,9 @@ export default function BeatStudio() {
       : [...bass.notes, { step: stepIdx, note: root + degree, velocity: 105, duration: 2 }].sort(
           (a, b) => a.step - b.step
         );
-    setBass({ ...bass, notes: updatedNotes });
+    const newBass = { ...bass, notes: updatedNotes };
+    setBass(newBass);
+    patchActiveBlock({ bass: newBass });
   };
 
   // Drum step edit
@@ -1103,7 +1134,9 @@ export default function BeatStudio() {
     if (currentHits.length === 0) updatedHits.push({ step: stepIdx, drum: "kick", velocity: 95 });
     else if (currentHits.some((h) => h.drum === "kick")) updatedHits.push({ step: stepIdx, drum: "snare", velocity: 95 });
     else if (currentHits.some((h) => h.drum === "snare")) updatedHits.push({ step: stepIdx, drum: "hat", velocity: 75 });
-    setDrums({ ...drums, hits: updatedHits.sort((a, b) => a.step - b.step) });
+    const newDrums = { ...drums, hits: updatedHits.sort((a, b) => a.step - b.step) };
+    setDrums(newDrums);
+    patchActiveBlock({ drums: newDrums });
   };
 
   // Export MIDI (Processed in Worker with Zero-Copy ArrayBuffer Transfer)

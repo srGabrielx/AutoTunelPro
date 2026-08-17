@@ -1,6 +1,6 @@
 import type { ArrangementBlockData } from "../workers/protocol";
 import type { BassResult, DrumResult, MelodyLayer } from "../music/types";
-import { buildGrooveEventPlan } from "../music/groove-plan";
+import { buildGrooveEventPlan } from "../music/groove-plan.ts";
 
 // Helper to write Variable-Length Quantities in MIDI
 function writeVarLength(value: number): number[] {

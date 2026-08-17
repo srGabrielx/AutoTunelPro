@@ -58,7 +58,7 @@ export class SampleAccurateAudioEngine {
   private distOverdriveCurve: Float32Array | null = null;
 
   // Active scheduled nodes for instant cleanup (using Set to avoid unbounded array growth or orphan nodes)
-  private activeNodes: Set<{ stop: (time: number) => void; onended: ((this: AudioScheduledSourceNode, ev: Event) => any) | null }> = new Set();
+  private activeNodes: Set<{ stop: (time: number) => void; onended: ((this: AudioScheduledSourceNode, ev: Event) => void) | null }> = new Set();
 
   // Transport state
   private isPlaying = false;
@@ -928,7 +928,7 @@ export class SampleAccurateAudioEngine {
           node.stop(now);
           // Disconnect as a safety measure for faster garbage collection
           if ('disconnect' in node && typeof node.disconnect === 'function') {
-             (node as any).disconnect();
+             (node as unknown as AudioNode).disconnect();
           }
         } catch {
           // Ignore already stopped nodes

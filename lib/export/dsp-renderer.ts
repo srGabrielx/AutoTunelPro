@@ -1,11 +1,11 @@
 import type { ArrangementBlockData } from "../workers/protocol";
-import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan";
+import { buildGrooveEventPlan, type GrooveEvent } from "../music/groove-plan.ts";
 import {
   BASS_808_CONFIGS,
   DRUM_KIT_SYNTH_CONFIGS,
   getMelodySynthConfig,
   MASTER_BUS_CONFIG,
-} from "../music/synthesis-presets";
+} from "../music/synthesis-presets.ts";
 import type {
   BassDrive,
   BassResult,
