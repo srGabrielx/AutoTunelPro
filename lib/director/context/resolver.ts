@@ -1,5 +1,5 @@
 import type { CompositionState } from '../../core/state/composition.ts';
-import type { PresetDefinition } from '../../presets/catalog.ts';
+import { getPreset, type PresetDefinition } from '../../presets/catalog.ts';
 import type { ScaleId } from '../../music/types.ts';
 
 export interface UIParameters {
@@ -35,6 +35,9 @@ export interface ResolvedMusicalContext {
  * Converte StyleIds antigos (L0-L9) para Perfis exatos equivalentes ao comportamento hardcoded antigo.
  */
 export function getLegacyProfile(style: string): PresetDefinition {
+  const catalogPreset = getPreset(style);
+  if (catalogPreset) return catalogPreset;
+
   const baseProfile = {
     id: `legacy-${style}`,
     version: 1,

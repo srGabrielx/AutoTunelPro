@@ -159,6 +159,62 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
     durations: [1, 2],
     longNoteProbability: 0.35,
   },
+  "reggae-default": {
+    progressions: [
+      [CHORD_i, CHORD_iv, CHORD_i, CHORD_iv],
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],
+      [CHORD_i, CHORD_v, CHORD_iv, CHORD_v],
+    ],
+    motifLengths: [2, 4],
+    restProbability: 0.4,
+    maxJump: 5,
+    registerRange: [0, 12],
+    syncopation: 0.8,
+    durations: [1, 2],
+    longNoteProbability: 0.5,
+  },
+  "boombap-default": {
+    progressions: [
+      [CHORD_i, CHORD_iv, CHORD_i, CHORD_v],
+      [CHORD_ii, CHORD_v, CHORD_i, CHORD_VI],
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],
+    ],
+    motifLengths: [4, 3],
+    restProbability: 0.3,
+    maxJump: 6,
+    registerRange: [-12, 12],
+    syncopation: 0.5,
+    durations: [1, 3],
+    longNoteProbability: 0.4,
+  },
+  "hiphop-default": {
+    progressions: [
+      [CHORD_i, CHORD_VI, CHORD_III, CHORD_VII],
+      [CHORD_i, CHORD_iv, CHORD_VI, CHORD_v],
+      [CHORD_i, CHORD_VII, CHORD_iv, CHORD_VI],
+    ],
+    motifLengths: [3, 4],
+    restProbability: 0.25,
+    maxJump: 7,
+    registerRange: [-12, 12],
+    syncopation: 0.4,
+    durations: [1, 2],
+    longNoteProbability: 0.35,
+  },
+  "dubstep-default": {
+    progressions: [
+      [CHORD_i, CHORD_i, CHORD_VI, CHORD_VII],
+      [CHORD_i, CHORD_v, CHORD_VI, CHORD_iv],
+      [CHORD_i, CHORD_iv, CHORD_v, CHORD_i],
+    ],
+    motifLengths: [2, 4],
+    restProbability: 0.2,
+    maxJump: 12,
+    registerRange: [-24, 0],
+    syncopation: 0.7,
+    durations: [2, 4],
+    longNoteProbability: 0.6,
+  },
 };
 
 // Fix reference: CHORD_IV doesn't exist, use CHORD_iv

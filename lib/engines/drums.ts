@@ -63,6 +63,38 @@ const GENRE_GROOVE_DNA: Record<
     pitchDropProbability: 0.2,
     swingOffsetMs: 10,
   },
+  "reggae-default": {
+    defaultSwing: 30,
+    defaultRollDensity: 10,
+    defaultHumanize: 80,
+    favoredRollCount: 2,
+    pitchDropProbability: 0,
+    swingOffsetMs: 5,
+  },
+  "boombap-default": {
+    defaultSwing: 65,
+    defaultRollDensity: 30,
+    defaultHumanize: 75,
+    favoredRollCount: 2,
+    pitchDropProbability: 0.05,
+    swingOffsetMs: 15,
+  },
+  "hiphop-default": {
+    defaultSwing: 40,
+    defaultRollDensity: 50,
+    defaultHumanize: 50,
+    favoredRollCount: 3,
+    pitchDropProbability: 0.1,
+    swingOffsetMs: 8,
+  },
+  "dubstep-default": {
+    defaultSwing: 0,
+    defaultRollDensity: 85,
+    defaultHumanize: 20,
+    favoredRollCount: 4,
+    pitchDropProbability: 0.5,
+    swingOffsetMs: 0,
+  },
 };
 
 /**
