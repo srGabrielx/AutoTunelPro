@@ -2024,7 +2024,7 @@ export default function BeatStudio() {
                     setPresetCategory("Meus Presets");
                   }}
                 >
-                  <span>+</span> Salvar Atual
+                  <span>+</span> Salvar
                 </button>
                 <button className="close-btn" onClick={() => setIsPresetBrowserOpen(false)}>
                   Fechar
@@ -2048,7 +2048,7 @@ export default function BeatStudio() {
               {presetCategory === "Meus Presets" ? (
                 Object.keys(userPresets).length === 0 ? (
                   <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 20px", color: "#888" }}>
-                    Nenhum preset salvo ainda. Clique no botão <b>+ Salvar Atual</b> acima para salvar a vibe e timbres que você acabou de criar!
+                    Nenhum preset salvo ainda. Clique no botão <b>+ Salvar</b> acima para salvar a vibe e timbres que você acabou de criar!
                   </div>
                 ) : (
                   Object.entries(userPresets).map(([id, info]) => (
