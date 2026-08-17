@@ -837,10 +837,10 @@ export default function BeatStudio() {
   // Artist Preset Handler
   // Artist Preset Handler (Loads Hit Vibe & Automatically Generates Full Beat)
   const applyArtistPreset = useCallback(
-    async (presetId: ArtistPresetId) => {
-      setArtistPreset(presetId);
-      if (presetId === "custom") return;
-      const config = ARTIST_PRESETS[presetId];
+    async (presetId: string, customConfig?: ArtistPresetConfig) => {
+      setArtistPreset(presetId as ArtistPresetId);
+      if (presetId === "custom" && !customConfig) return;
+      const config = customConfig || ARTIST_PRESETS[presetId as ArtistPresetId];
       if (!config) return;
 
       setKey(config.key);
@@ -2057,17 +2057,16 @@ export default function BeatStudio() {
                       className={`preset-card ${artistPreset === id ? "active" : ""}`}
                       style={{ position: "relative" }}
                       onClick={() => {
-                        setKey(info.key);
-                        setGlobalScale(info.scale);
-                        setBpm(info.bpm);
-                        setBpmInput(String(info.bpm));
-                        setComplexity(info.complexity);
-                        setBassStyle(info.style);
-                        setDrumStyle(info.style);
+                        applyArtistPreset(id, info);
                         setIsPresetBrowserOpen(false);
                       }}
                     >
                       <div className="preset-card-title">{info.label}</div>
+                      <div className="preset-card-tags">
+                        <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
+                        <span className="tag bpm">{info.bpm} BPM</span>
+                      </div>
+                      <div className="preset-card-desc">{info.description}</div>
                       <button
                         className="delete-user-preset-btn"
                         onClick={(e) => {
