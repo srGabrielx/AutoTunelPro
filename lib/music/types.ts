@@ -25,18 +25,7 @@ export type ArtistPresetId =
   | "9-drdre-stilldre"
   | "10-post-rockstar"
   | "11-kabza-amapiano"
-  | "12-kayblack-melhorvibe"
-  // Legacy aliases
-  | "matue-trapbr"
-  | "travis-sicko"
-  | "drake-night"
-  | "metro-cinematic"
-  | "post-rockstar"
-  | "funk-mandelao"
-  | "kabza-amapiano"
-  | "akon-lonely"
-  | "reggae-bob"
-  | "para-melody";
+  | "12-kayblack-melhorvibe";
 
 export type MelodySynthType = "lead" | "pad" | "pluck" | "arp";
 

@@ -67,6 +67,32 @@
   letter-spacing: -0.02em;
 }
 
+.preset-modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.save-preset-btn {
+  background: var(--acid);
+  color: #000;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.save-preset-btn:hover {
+  background: #d6ff5c;
+  transform: translateY(-1px);
+}
+
 .close-btn {
   background: transparent;
   border: none;
@@ -81,6 +107,24 @@
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
+}
+
+.delete-user-preset-btn {
+  background: transparent;
+  border: none;
+  color: #ff4d4d;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  align-self: flex-start;
+  transition: background 0.2s;
+}
+
+.delete-user-preset-btn:hover {
+  background: rgba(255, 77, 77, 0.15);
 }
 
 .preset-tabs {

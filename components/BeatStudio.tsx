@@ -17,7 +17,7 @@ import type {
 } from "../lib/music/types";
 import { downloadMidiBlob } from "../lib/export/midi";
 import { downloadWavBlob } from "../lib/export/wav";
-import { ARTIST_PRESETS, KEYS, SCALES } from "../lib/music/styles";
+import { ARTIST_PRESETS, KEYS, SCALES, type ArtistPresetConfig } from "../lib/music/styles";
 import {
   WorkerErrorResponse,
   WorkerSuccessResponse,
@@ -508,6 +508,17 @@ export default function BeatStudio() {
   // Preset Browser Modal State
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetCategory, setPresetCategory] = useState<string>("Trap");
+  const [userPresets, setUserPresets] = useState<Record<string, ArtistPresetConfig>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("autotunel_user_presets");
+        return saved ? JSON.parse(saved) : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
 
   // Draggable FAB state
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
@@ -1986,49 +1997,129 @@ export default function BeatStudio() {
           <div className="preset-modal" onClick={(e) => e.stopPropagation()}>
             <div className="preset-modal-header">
               <h2>Biblioteca de Vibes (Presets)</h2>
-              <button className="close-btn" onClick={() => setIsPresetBrowserOpen(false)}>
-                Fechar
-              </button>
+              <div className="preset-modal-header-actions">
+                <button
+                  className="save-preset-btn"
+                  onClick={() => {
+                    const name = prompt("Nome do seu Preset:", `Meu Preset ${Object.keys(userPresets).length + 1}`);
+                    if (!name || !name.trim()) return;
+                    const id = `user-${Date.now()}`;
+                    const newConfig: ArtistPresetConfig = {
+                      label: name.trim(),
+                      artist: "Produtor",
+                      songRef: `${key} ${globalScale} · ${bpm} BPM`,
+                      key,
+                      scale: globalScale,
+                      bpm,
+                      style: bassStyle,
+                      complexity,
+                      description: `Preset personalizado criado por você (${melodyLayers.length} camadas).`,
+                      preferredSynths: melodyLayers.map((l) => l.synthType),
+                    };
+                    const updated = { ...userPresets, [id]: newConfig };
+                    setUserPresets(updated);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("autotunel_user_presets", JSON.stringify(updated));
+                    }
+                    setPresetCategory("Meus Presets");
+                  }}
+                >
+                  <span>+</span> Salvar Atual
+                </button>
+                <button className="close-btn" onClick={() => setIsPresetBrowserOpen(false)}>
+                  Fechar
+                </button>
+              </div>
             </div>
             
             <div className="preset-tabs">
-              {["Trap", "Drill", "Funk", "R&B / Pop"].map(tab => (
+              {["Trap", "Drill", "Funk", "R&B / Pop", "Meus Presets"].map((tab) => (
                 <button 
                   key={tab} 
                   className={`preset-tab ${presetCategory === tab ? "active" : ""}`}
                   onClick={() => setPresetCategory(tab)}
                 >
-                  {tab}
+                  {tab} {tab === "Meus Presets" && Object.keys(userPresets).length > 0 && `(${Object.keys(userPresets).length})`}
                 </button>
               ))}
             </div>
 
             <div className="preset-grid">
-              {Object.entries(ARTIST_PRESETS)
-                .filter(([id, info]) => {
-                  if (presetCategory === "Trap") return info.style.includes("trap") && !info.style.includes("uk");
-                  if (presetCategory === "Drill") return info.style.includes("uk") || info.label.toLowerCase().includes("drill");
-                  if (presetCategory === "Funk") return info.style.includes("funk");
-                  if (presetCategory === "R&B / Pop") return info.style.includes("rnb") || info.style.includes("pop") || id === "custom";
-                  return true;
-                })
-                .map(([id, info]) => (
-                  <button
-                    key={id}
-                    className={`preset-card ${artistPreset === id ? "active" : ""}`}
-                    onClick={() => {
-                      applyArtistPreset(id as ArtistPresetId);
-                      setIsPresetBrowserOpen(false);
-                    }}
-                  >
-                    <div className="preset-card-title">{info.label.replace(/^\d+\.\s*/, '')}</div>
-                    <div className="preset-card-tags">
-                      <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
-                      <span className="tag bpm">{info.bpm} BPM</span>
+              {presetCategory === "Meus Presets" ? (
+                Object.keys(userPresets).length === 0 ? (
+                  <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 20px", color: "#888" }}>
+                    Nenhum preset salvo ainda. Clique no botão <b>+ Salvar Atual</b> acima para salvar a vibe e timbres que você acabou de criar!
+                  </div>
+                ) : (
+                  Object.entries(userPresets).map(([id, info]) => (
+                    <div
+                      key={id}
+                      className={`preset-card ${artistPreset === id ? "active" : ""}`}
+                      style={{ position: "relative" }}
+                      onClick={() => {
+                        setKey(info.key);
+                        setGlobalScale(info.scale);
+                        setBpm(info.bpm);
+                        setBpmInput(String(info.bpm));
+                        setComplexity(info.complexity);
+                        setBassStyle(info.style);
+                        setDrumStyle(info.style);
+                        setIsPresetBrowserOpen(false);
+                      }}
+                    >
+                      <div className="preset-card-title">{info.label}</div>
+                      <div className="preset-card-tags">
+                        <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
+                        <span className="tag bpm">{info.bpm} BPM</span>
+                      </div>
+                      <div className="preset-card-desc">{info.description}</div>
+                      <button
+                        className="delete-user-preset-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Excluir o preset "${info.label}"?`)) {
+                            const copy = { ...userPresets };
+                            delete copy[id];
+                            setUserPresets(copy);
+                            if (typeof window !== "undefined") {
+                              localStorage.setItem("autotunel_user_presets", JSON.stringify(copy));
+                            }
+                          }
+                        }}
+                      >
+                        🗑️ Excluir
+                      </button>
                     </div>
-                    <div className="preset-card-desc">{info.description}</div>
-                  </button>
-                ))}
+                  ))
+                )
+              ) : (
+                Object.entries(ARTIST_PRESETS)
+                  .filter(([id, info]) => {
+                    if (id === "custom") return false;
+                    if (presetCategory === "Trap") return info.style.includes("trap") && !info.style.includes("uk");
+                    if (presetCategory === "Drill") return info.style.includes("uk") || info.label.toLowerCase().includes("drill");
+                    if (presetCategory === "Funk") return info.style.includes("funk");
+                    if (presetCategory === "R&B / Pop") return info.style.includes("rnb") || info.style.includes("pop") || info.style.includes("amapiano");
+                    return true;
+                  })
+                  .map(([id, info]) => (
+                    <button
+                      key={id}
+                      className={`preset-card ${artistPreset === id ? "active" : ""}`}
+                      onClick={() => {
+                        applyArtistPreset(id as ArtistPresetId);
+                        setIsPresetBrowserOpen(false);
+                      }}
+                    >
+                      <div className="preset-card-title">{info.label.replace(/^\d+\.\s*/, '')}</div>
+                      <div className="preset-card-tags">
+                        <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
+                        <span className="tag bpm">{info.bpm} BPM</span>
+                      </div>
+                      <div className="preset-card-desc">{info.description}</div>
+                    </button>
+                  ))
+              )}
             </div>
           </div>
         </div>
