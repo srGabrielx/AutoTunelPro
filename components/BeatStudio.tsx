@@ -2068,11 +2068,6 @@ export default function BeatStudio() {
                       }}
                     >
                       <div className="preset-card-title">{info.label}</div>
-                      <div className="preset-card-tags">
-                        <span className="tag scale">{SCALES[info.scale]?.label || info.scale}</span>
-                        <span className="tag bpm">{info.bpm} BPM</span>
-                      </div>
-                      <div className="preset-card-desc">{info.description}</div>
                       <button
                         className="delete-user-preset-btn"
                         onClick={(e) => {

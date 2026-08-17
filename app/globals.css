@@ -134,9 +134,16 @@
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.preset-tabs::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
 }
 
 .preset-tab {
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
   color: #999;
