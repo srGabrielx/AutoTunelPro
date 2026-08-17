@@ -25,7 +25,11 @@ export type ArtistPresetId =
   | "9-drdre-stilldre"
   | "10-post-rockstar"
   | "11-kabza-amapiano"
-  | "12-kayblack-melhorvibe";
+  | "12-kayblack-melhorvibe"
+  | "13-bobmarley-roots"
+  | "14-nas-nystate"
+  | "15-kendrick-dna"
+  | "16-skrillex-bangarang";
 
 export type MelodySynthType = "lead" | "pad" | "pluck" | "arp";
 
