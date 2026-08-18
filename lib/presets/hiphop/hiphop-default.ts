@@ -1,17 +1,17 @@
-import type { PresetDefinition } from "../catalog";
+import type { PresetDefinition } from "../catalog.ts";
 
 export const hiphopPreset: PresetDefinition = {
   id: "hiphop-default",
   version: 1,
   label: "Modern Hip Hop",
   genre: "hiphop",
-  tags: ["modern", "urban", "bounce"],
+  tags: ["modern", "urban", "bounce", "smooth"],
   bpmRange: [85, 105],
   defaultBpm: 95,
   rhythmicFeel: "normal",
   
   harmonicProfile: {
-    allowedScales: ["natural-minor", "natural-major", "harmonic-minor"],
+    allowedScales: ["natural-minor", "natural-major", "harmonic-minor", "dorian"],
     defaultScale: "natural-minor",
     complexity: 0.4
   },
@@ -25,13 +25,27 @@ export const hiphopPreset: PresetDefinition = {
   bassProfile: {
     type: "808",
     slideProbability: 0.2,
-    syncWithKick: 0.8
+    syncWithKick: 0.8,
+    restProbability: 0.75,
+    octaveJumpProbability: 0.2,
+    sustainRatio: 1.0
   },
   
   drumProfile: {
-    hatRolls: true, // Moderados
+    hatRolls: true,
+    hatRollThreshold: 0.88,
+    favoredRollCount: 2,
+    pitchDropProbability: 0.15,
+    kickDensity: 12,
     kickSyncopation: 0.5,
-    snareOn: [2, 4]
+    kickGapMin: 2,
+    kickGapMax: 4,
+    snareOn: [2, 4],
+    snareDensity: 8,
+    snareGapMin: 2,
+    snareGapMax: 4,
+    ghostNoteProbability: 0.2,
+    offbeatEmphasis: false
   },
   
   synthesisProfile: {

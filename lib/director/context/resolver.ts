@@ -61,7 +61,9 @@ export function getLegacyProfile(style: string): PresetDefinition {
       type: "808",
       slideProbability: 0.2,
       syncWithKick: 0.8,
-      restProbability: 0.8 // 100% igual à versão antiga: rng.next() > 0.8
+      restProbability: 0.8, // 100% igual à versão antiga: rng.next() > 0.8
+      octaveJumpProbability: 0.2,
+      sustainRatio: 1.0,
     },
     synthesisProfile: {
       808: { drive: 0.5, attack: 0.01, release: 1.0 },

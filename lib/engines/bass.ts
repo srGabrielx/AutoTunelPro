@@ -33,7 +33,7 @@ export function generateBass(options: GenerateOptions): BassResult {
       const isStrongAnchor = anchor && anchor.type === "downbeat";
 
       if (isStrongAnchor || (anchor && random() < anchor.weight * (comp / 3))) {
-        const isSlide = options.style === "trap-uk" && comp >= 3 && random() > 0.6;
+        const isSlide = comp >= 3 && random() > 0.7;
         const duration = isSlide ? 1 : (comp >= 3 && random() > 0.5 ? 3 : 2);
 
         notes.push({
@@ -52,15 +52,15 @@ export function generateBass(options: GenerateOptions): BassResult {
         
         for (const sa of syncAnchors) {
           if (!notes.some(n => n.step === sa.step) && random() < sa.weight * (comp / 5)) {
-            // Only octave jumps for syncopated accents to keep bass clean
-            const octaveJump = random() > 0.6 ? 12 : (options.style === "trap-uk" ? 12 : 0); // Forced 12 instead of 14 for UK to prevent dissonance
+            // Octave jumps for syncopated accents
+            const octaveJump = random() > 0.6 ? 12 : 0;
             
             notes.push({
               step: sa.step,
               note: bassRoot + chordRootTone + octaveJump,
               velocity: Math.round(75 + (sa.weight * 20)),
               duration: 1,
-              slide: options.style === "trap-uk" && random() > 0.4,
+              slide: random() > 0.7,
             });
           }
         }

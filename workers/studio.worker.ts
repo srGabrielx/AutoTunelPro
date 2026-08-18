@@ -145,18 +145,14 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "generate-all": {
         const p: GenerateAllPayload = req.payload;
-        const baseSeed = p.seed ?? Date.now();
+        const masterSeed = p.seed !== undefined ? p.seed.toString() : "master-default";
         const arrangementTypes: ("intro" | "verse" | "drop")[] = ["intro", "verse", "drop"];
         const blocks = [];
 
         for (let i = 0; i < arrangementTypes.length; i++) {
           const blockType = arrangementTypes[i];
-          const blockSeed = baseSeed + i;
-          
-          let blockComp = p.complexity;
-          if (blockType === "intro") blockComp = Math.max(1, p.complexity - 2);
-          if (blockType === "verse") blockComp = Math.max(1, p.complexity - 1);
-          if (blockType === "drop") blockComp = Math.min(5, p.complexity + 1);
+          const blockSeed = p.seed !== undefined ? p.seed + i : i;
+          const blockComp = p.complexity;
 
           const melodyPromises = p.melodyLayers.map(async (layer) => {
             const res = await fetch("/api/melody", {

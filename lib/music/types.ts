@@ -161,23 +161,29 @@ export interface MelodyProfile {
 }
 
 export interface BassProfile {
-  type: string;
+  type: "808" | "sub" | "synth" | "log-drum" | string;
   slideProbability: number;
   syncWithKick: number;
   restProbability?: number;
+  octaveJumpProbability?: number;
+  sustainRatio?: number;
 }
 
 export interface DrumProfile {
   hatRolls: boolean;
   hatRollThreshold?: number;
+  favoredRollCount?: 2 | 3 | 4 | 6;      // Subdivisão preferida (ex: 3 para Drill/Amapiano, 4 para Trap, 2 para BoomBap)
+  pitchDropProbability?: number;        // Probabilidade de pitch drop nos hats
   kickSyncopation: number;
   kickDensity?: number;
   kickGapMin?: number;
   kickGapMax?: number;
-  snareOn?: number[];
+  snareOn?: number[];                   // Beats onde a caixa/snare cai (ex: para half-time/reggae, para boom bap)
   snareDensity?: number;
   snareGapMin?: number;
   snareGapMax?: number;
+  ghostNoteProbability?: number;        // Ghost notes para grooves cadenciados (Boom Bap / Hip Hop)
+  offbeatEmphasis?: boolean;            // Destaque nos contratempos (Reggae / Amapiano)
 }
 
 export interface SynthesisProfile {

@@ -39,18 +39,25 @@ export function generateBass(
     const notesInBlock = Math.max(1, Math.floor(16 * rhythmDensity));
     const stepSize = Math.floor(block.durationTicks / notesInBlock);
 
+    const octaveJumpProb = plan.bassProfile?.octaveJumpProbability ?? 0.15;
+    const sustainRatio = plan.bassProfile?.sustainRatio ?? 1.0;
+    const bassType = plan.bassProfile?.type ?? '808';
+
     for (let i = 0; i < notesInBlock; i++) {
       if (currentTick >= endTick) break;
 
-      // Drop an octave for Bass
-      const bassNote = block.rootNote - 12;
-      const duration = Math.min(stepSize, 480);
+      // Octave jump if permitted by profile
+      const applyOctaveJump = rng.next() < octaveJumpProb;
+      const octaveOffset = applyOctaveJump ? 0 : -12; // Base root -12, with occasional upper octave
+      const bassNote = block.rootNote + octaveOffset;
+      const baseDuration = Math.min(stepSize, 480);
+      const duration = Math.max(120, Math.floor(baseDuration * sustainRatio));
       
       const restProb = plan.bassProfile?.restProbability ?? ((plan.bassProfile?.syncWithKick ?? 0.5) > 0.6 ? 0.9 : 0.6);
       const isRest = rng.next() > restProb;
 
       if (!isRest) {
-        const payload = `bass-${block.id}-${i}`;
+        const payload = `bass-${bassType}-${block.id}-${i}`;
         events.push({
           id: createDeterministicEventId('bass', currentTick, 'NOTE_ON', payload),
           tick: currentTick,

@@ -1,7 +1,7 @@
-import type { PresetDefinition } from "../catalog";
+import type { PresetDefinition } from "../catalog.ts";
 
 export const trapBrPreset: PresetDefinition = {
-  id: "trap-br-default",
+  id: "trap-br",
   version: 1,
   label: "Trap BR Essencial",
   genre: "trap",
@@ -11,8 +11,7 @@ export const trapBrPreset: PresetDefinition = {
   rhythmicFeel: "half-time",
   
   harmonicProfile: {
-    // Configurações de harmonia
-    allowedScales: ["pentatonic-minor", "harmonic-minor"],
+    allowedScales: ["pentatonic-minor", "harmonic-minor", "phrygian"],
     defaultScale: "pentatonic-minor",
     complexity: 0.4
   },
@@ -20,23 +19,36 @@ export const trapBrPreset: PresetDefinition = {
   melodyProfile: {
     syncopation: 0.6,
     phraseLengths: [2, 4],
-    densityRange: [0.2, 0.6]
+    densityRange: [0.3, 0.7]
   },
   
   bassProfile: {
     type: "808",
-    slideProbability: 0.3,
-    syncWithKick: 0.8
+    slideProbability: 0.35,
+    syncWithKick: 0.8,
+    restProbability: 0.75,
+    octaveJumpProbability: 0.25,
+    sustainRatio: 1.1
   },
   
   drumProfile: {
     hatRolls: true,
+    hatRollThreshold: 0.82,
+    favoredRollCount: 4,
+    pitchDropProbability: 0.35,
     kickSyncopation: 0.7,
-    snareOn: [3] // Half-time feel (beat 3 instead of 2 and 4)
+    kickDensity: 14,
+    kickGapMin: 1,
+    kickGapMax: 4,
+    snareOn: [3],
+    snareDensity: 8,
+    snareGapMin: 2,
+    snareGapMax: 4,
+    ghostNoteProbability: 0.05,
+    offbeatEmphasis: false
   },
   
   synthesisProfile: {
-    // Configurações do WebAudio/Synth
     808: { drive: 0.5, attack: 0.01, release: 1.2 },
     hats: { closedDecay: 0.1, openDecay: 0.3 }
   },

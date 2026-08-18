@@ -163,8 +163,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
     const barStart = bar * plan.timeline.stepsPerBar;
     
     // 1. Snare / Clap Placement (Backbeats)
-    const preferClap = options.style === "trap-br" || options.style === "trap-usa";
-    const mainSnareDrum: DrumHit["drum"] = preferClap && deterministicRng(seed, "prefer-clap", 0) > 0.3 ? "clap" : "snare";
+    const mainSnareDrum: DrumHit["drum"] = deterministicRng(seed, "prefer-clap", 0) > 0.4 ? "clap" : "snare";
 
     plan.rhythmicAnchors
       .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && a.type === "backbeat" && a.weight >= 0.9)
@@ -198,12 +197,10 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       const energy = plan.energyCurve[s] ?? 0.5;
       
       // Determine base hat type
-      const isTrap = options.style.startsWith("trap");
-      const isOpenHatAcc = !isTrap && isOffbeat && deterministicRng(seed, "openhat-acc", s) > 0.6;
+      const isOpenHatAcc = isOffbeat && deterministicRng(seed, "openhat-acc", s) > 0.65;
       let hatType: DrumHit["drum"] = isOpenHatAcc ? "open-hat" : "hat";
       
-      // Trap often places open hats on specific beats
-      if (isTrap && s % 8 === 6 && deterministicRng(seed, "trap-openhat", s) > 0.3) {
+      if (s % 8 === 6 && deterministicRng(seed, "accent-openhat", s) > 0.5) {
         hatType = "open-hat";
       }
       
@@ -237,13 +234,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       }
       
       // Determine if we play a hat here at all
-      let playHat = true;
-      if (options.style === "amapiano" && s % 4 !== 0 && deterministicRng(seed, "ama-hat-skip", s) > 0.3) {
-        playHat = false; // Sparsity
-      }
-      if (options.style === "funk" && deterministicRng(seed, "funk-hat-skip", s) > 0.6) {
-        playHat = false;
-      }
+      const playHat = true;
       
       if (playHat) {
         add(s, hatType, stepVel, roll ? { roll } : undefined);

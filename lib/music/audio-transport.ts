@@ -1,3 +1,4 @@
+import { PPQ, ticksToSeconds, type Tick } from "../../core/time/tick";
 import { buildGrooveEventPlan, type GrooveEvent } from "./groove-plan.ts";
 import {
   BASS_808_CONFIGS,
@@ -13,6 +14,35 @@ import type {
   MelodyLayer,
   MelodySynthType,
 } from "./types.ts";
+
+export { PPQ, ticksToSeconds, type Tick };
+
+export interface TransportSectionBoundary {
+  id: string; // Ex: "intro-1", "verse-a", "hook-2" (sem tipos hardcoded)
+  startTick: Tick;
+  durationTicks: Tick;
+}
+
+export type PlaybackScope = 
+  | { mode: "all" }
+  | { mode: "section"; sectionId: string };
+
+export interface TransportEvent {
+  eventId: string;
+  trackId: "melody" | "bass" | "drums" | string;
+  startTick: Tick;
+  durationTicks: Tick;
+  timeSeconds: number; // Calculado no agendamento via ticksToSeconds
+  payload: {
+    note?: number;
+    velocity: number;
+    instrument?: "kick" | "snare" | "clap" | "hat" | "open-hat";
+    synthType?: string;
+    slide?: boolean;
+    drive?: string;
+    [key: string]: unknown;
+  };
+}
 
 export type PlaybackMode = "all" | "melody" | "bass" | "drums";
 
@@ -67,6 +97,9 @@ export class SampleAccurateAudioEngine {
   private bpm = 140;
   private isLooping = true;
   private playbackMode: PlaybackMode = "all";
+  private playbackScope: PlaybackScope = { mode: "all" };
+  private sections: TransportSectionBoundary[] = [];
+  private totalTicks: Tick = 0;
   private wakeTimer: NodeJS.Timeout | number | null = null;
 
   // Pre-indexed step event map (steps 0..15)
@@ -75,6 +108,37 @@ export class SampleAccurateAudioEngine {
   // Callbacks
   private onStopCallback?: () => void;
   private onLoopCompleteCallback?: () => void;
+
+  public setSections(sections: TransportSectionBoundary[], totalTicks: Tick) {
+    this.sections = sections;
+    this.totalTicks = totalTicks;
+  }
+
+  public setPlaybackScope(scope: PlaybackScope) {
+    this.playbackScope = scope;
+  }
+
+  /**
+   * Retorna a janela ativa [startTick, endTick] e a duração em ticks
+   */
+  public getActiveWindow(): { startTick: Tick; endTick: Tick; durationTicks: Tick } {
+    const scope = this.playbackScope;
+    if (scope.mode === "section") {
+      const target = this.sections.find((s) => s.id === scope.sectionId);
+      if (target) {
+        return {
+          startTick: target.startTick,
+          endTick: target.startTick + target.durationTicks,
+          durationTicks: target.durationTicks,
+        };
+      }
+    }
+    return {
+      startTick: 0,
+      endTick: this.totalTicks,
+      durationTicks: Math.max(PPQ * 4, this.totalTicks),
+    };
+  }
 
   public init(): AudioContext {
     if (!this.ctx || this.ctx.state === "closed") {

@@ -40,9 +40,9 @@ export function generateMelody(
     const durationTicks = rng.nextInt(240, 960); // Quarter to whole note ticks
     const velocity = rng.nextInt(60, 127);
     
-    // Gap affected by syncopation profile
+    // Gap affected continuously by syncopation profile
     const syncopation = plan.melodyProfile?.syncopation ?? 0.5;
-    const maxGap = syncopation > 0.5 ? 960 : 480;
+    const maxGap = Math.max(120, Math.floor(960 * syncopation));
     const gap = rng.nextInt(0, maxGap);
     
     currentTick += gap;
