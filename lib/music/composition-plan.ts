@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 import { makeSeed, pick, rng } from "./random.ts";
 import type { GenerateOptions, ScaleId, StyleId } from "./types.ts";
 import { GENRE_MELODY_PROFILES } from "../engines/melody-context.ts";
 
+=======
+import { pick, rng } from "./random.ts";
+import { KEYS, SCALES, STYLES } from "./styles.ts";
+import type { GenerateOptions, ScaleId, StyleId } from "./types.ts";
+import { GENRE_MELODY_PROFILES, resolveChordToIntervals } from "../engines/melody-context.ts";
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
 export interface PatternTimeline {
   stepsPerBar: number;
@@ -20,7 +27,11 @@ export interface HarmonicRegion {
 export interface RhythmicAnchor {
   step: number;
   weight: number;          // Importance of this beat (0-1)
+<<<<<<< HEAD
   type: "downbeat" | "backbeat" | "syncopation" | "pickup" | "ghost";
+=======
+  type: "downbeat" | "backbeat" | "syncopation" | "pickup";
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }
 
 export interface CompositionPlan {
@@ -41,7 +52,11 @@ export interface CompositionPlan {
  * Serves as the single source of truth for Melody, Bass, and Drums.
  */
 export function buildCompositionPlan(options: GenerateOptions, randomGen?: () => number): CompositionPlan {
+<<<<<<< HEAD
   const seed = makeSeed(options.seed);
+=======
+  const seed = options.seed ?? Math.floor(Math.random() * 1000000);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   const random = randomGen ?? rng(seed);
 
   // 1. Timeline (Default 16 steps for UI compatibility in Lote 2)
@@ -55,6 +70,13 @@ export function buildCompositionPlan(options: GenerateOptions, randomGen?: () =>
   const profile = GENRE_MELODY_PROFILES[styleId] ?? GENRE_MELODY_PROFILES["trap-br"];
   
   const scaleId = options.scale ?? "pentatonic-minor";
+<<<<<<< HEAD
+=======
+  const scaleIntervals = options.scale 
+    ? SCALES[scaleId]?.intervals ?? SCALES["pentatonic-minor"].intervals
+    : STYLES[styleId]?.scale ?? SCALES["pentatonic-minor"].intervals;
+
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   // 2. Harmonic Grid
   // Select a progression from the genre profile
   const progression = pick(random, profile.progressions);

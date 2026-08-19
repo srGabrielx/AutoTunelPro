@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const UINT32_RANGE = 0x1_0000_0000;
 
 /**
@@ -54,3 +55,8 @@ export function hashHex(value: string): string {
 export function pick<T>(random: () => number, values: readonly T[]): T {
   return values[Math.floor(random() * values.length)];
 }
+=======
+export function makeSeed(value?: number) { return Number.isFinite(value) ? Math.abs(Math.trunc(value!)) : Math.floor(Math.random()*2_147_483_647); }
+export function rng(seed:number) { let state=seed||1; return ()=>{ state=(state*1664525+1013904223)>>>0; return state/4294967296; }; }
+export function pick<T>(random:()=>number,values:T[]) { return values[Math.floor(random()*values.length)]; }
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2

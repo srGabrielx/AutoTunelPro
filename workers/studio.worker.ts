@@ -13,11 +13,14 @@ import type {
   WorkerRequest,
   WorkerSuccessResponse,
 } from "../lib/workers/protocol";
+<<<<<<< HEAD
 import {
   generateFullComposition,
   regenerateCompositionTrack,
 } from "../lib/music/full-composition.ts";
 import { deriveSeed } from "../lib/music/random.ts";
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
 interface DedicatedWorkerScope {
   postMessage: (msg: unknown, transfer?: Transferable[]) => void;
@@ -28,6 +31,7 @@ const workerScope = self as unknown as DedicatedWorkerScope;
 
 // Keep active AbortControllers mapped by requestId
 const activeControllers = new Map<string, AbortController>();
+<<<<<<< HEAD
 let implicitFullVariationIndex = 0;
 const implicitSelectiveVariations = new Map<string, number>();
 
@@ -37,6 +41,8 @@ function resolveSelectiveSeed(explicitSeed: number | undefined, operation: strin
   implicitSelectiveVariations.set(operation, variation + 1);
   return deriveSeed(0, "studio-worker", operation, `variation:${variation}`);
 }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
 workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
@@ -65,6 +71,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     switch (req.type) {
       case "generate-melody": {
         const p: GenerateMelodyPayload = req.payload;
+<<<<<<< HEAD
         const seed = resolveSelectiveSeed(p.seed, `melody:${p.layerId}`);
         if (p.context) {
           const data = regenerateCompositionTrack({
@@ -83,6 +90,8 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         const res = await fetch("/api/melody", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -93,7 +102,10 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
             key: p.key,
             scale: p.scale,
             complexity: p.complexity,
+<<<<<<< HEAD
             seed,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           }),
         });
 
@@ -115,6 +127,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "generate-bass": {
         const p: GenerateBassPayload = req.payload;
+<<<<<<< HEAD
         const seed = resolveSelectiveSeed(
           p.seed,
           `bass:${p.context?.block.id ?? "legacy"}`,
@@ -134,6 +147,8 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         const res = await fetch("/api/bass", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -145,7 +160,10 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
             scale: p.scale,
             bassOctave: p.bassOctave,
             complexity: p.complexity,
+<<<<<<< HEAD
             seed,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           }),
         });
 
@@ -166,6 +184,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "generate-drums": {
         const p: GenerateDrumsPayload = req.payload;
+<<<<<<< HEAD
         const seed = resolveSelectiveSeed(
           p.seed,
           `drums:${p.context?.block.id ?? "legacy"}`,
@@ -185,6 +204,8 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         const res = await fetch("/api/drums", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -197,7 +218,10 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
             swing: p.swing,
             rollDensity: p.rollDensity,
             humanize: p.humanize,
+<<<<<<< HEAD
             seed,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           }),
         });
 
@@ -218,6 +242,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "generate-all": {
         const p: GenerateAllPayload = req.payload;
+<<<<<<< HEAD
         const variationIndex = p.variationIndex ?? (
           p.seed === undefined ? implicitFullVariationIndex++ : 0
         );
@@ -227,6 +252,96 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           variationIndex,
         });
         if (controller.signal.aborted) break;
+=======
+        const masterSeed = p.seed !== undefined ? p.seed.toString() : "master-default";
+        const arrangementTypes: ("intro" | "verse" | "drop")[] = ["intro", "verse", "drop"];
+        const blocks = [];
+
+        for (let i = 0; i < arrangementTypes.length; i++) {
+          const blockType = arrangementTypes[i];
+          const blockSeed = p.seed !== undefined ? p.seed + i : i;
+          const blockComp = p.complexity;
+
+          const melodyPromises = p.melodyLayers.map(async (layer) => {
+            const res = await fetch("/api/melody", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: layer.style,
+                bpm: p.bpm,
+                key: layer.key,
+                scale: layer.scale,
+                complexity: blockComp,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) {
+              throw { engine: "melody", message: `Erro ao gerar melodia camada ${layer.id}` };
+            }
+            const melodyData: MelodyResult = await res.json();
+            return { layerId: layer.id, result: melodyData };
+          });
+
+          const bassPromise = (async () => {
+            const res = await fetch("/api/bass", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: p.bassStyle,
+                bpm: p.bpm,
+                key: p.key,
+                scale: p.globalScale,
+                bassOctave: p.bassOctave,
+                complexity: blockComp,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) throw { engine: "bass", message: `Erro ao gerar bass` };
+            const bassData: BassResult = await res.json();
+            return bassData;
+          })();
+
+          const drumsPromise = (async () => {
+            const res = await fetch("/api/drums", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                style: p.drumStyle,
+                bpm: p.bpm,
+                drumPattern: p.drumPattern,
+                complexity: blockComp,
+                swing: p.swing,
+                rollDensity: p.rollDensity,
+                humanize: p.humanize,
+                seed: blockSeed,
+              }),
+            });
+            if (!res.ok) throw { engine: "drums", message: `Erro ao gerar drums` };
+            const drumsData: DrumResult = await res.json();
+            return drumsData;
+          })();
+
+          const [bassResult, drumResult, ...melodyResults] = await Promise.all([
+            bassPromise,
+            drumsPromise,
+            ...melodyPromises,
+          ]);
+
+          blocks.push({
+            type: blockType,
+            bass: bassResult,
+            drums: drumResult,
+            melodyResults,
+          });
+        }
+
+        const allData: GenerateAllResponseData = {
+          blocks,
+        };
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
         const successRes: WorkerSuccessResponse = {
           type: "generate-all",

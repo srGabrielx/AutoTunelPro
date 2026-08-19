@@ -19,6 +19,7 @@ import { downloadMidiBlob } from "../lib/export/midi";
 import { downloadWavBlob } from "../lib/export/wav";
 import { ARTIST_PRESETS, KEYS, SCALES, type ArtistPresetConfig } from "../lib/music/styles";
 import {
+<<<<<<< HEAD
   ArrangementBlockData,
   CompositionTimelineMetadata,
   FullCompositionIdentity,
@@ -38,6 +39,16 @@ import {
   serializeCompositionSnapshot,
   type CompositionSessionSnapshot,
 } from "../lib/music/composition-snapshot";
+=======
+  WorkerErrorResponse,
+  WorkerSuccessResponse,
+  ArrangementBlockData,
+  ArrangementBlockType,
+} from "../lib/workers/protocol";
+import { StudioWorkerClient } from "../lib/workers/studio-worker-client";
+import { SampleAccurateAudioEngine, type PlaybackMode } from "../lib/music/audio-transport";
+import { usePlayheadController } from "../lib/music/usePlayheadController";
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
 // ==========================================
 // SVG ICONS (Explicit dimensions & zero bugs)
@@ -233,6 +244,7 @@ const SYNTH_OPTIONS: [MelodySynthType, string][] = [
 
 const KEYS_LIST = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_MELODY_LAYERS = 4;
+<<<<<<< HEAD
 const COMPOSITION_STORAGE_KEY = "autotunel_composition_snapshot_v1";
 
 function createUnlockedSeed(): number {
@@ -271,6 +283,16 @@ function createDefaultLayer(
   synthType: MelodySynthType = "lead",
   existingIds: readonly string[] = [],
 ): MelodyLayer {
+=======
+
+let layerCounter = 0;
+function createLayerId(): string {
+  layerCounter += 1;
+  return `layer-${layerCounter}-${Date.now()}`;
+}
+
+function createDefaultLayer(style: StyleId, key: string, scale: ScaleId, synthType: MelodySynthType = "lead"): MelodyLayer {
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   const labelMap: Record<MelodySynthType, string> = {
     lead: "Lead Principal",
     pad: "Pad / Harmonia",
@@ -278,7 +300,11 @@ function createDefaultLayer(
     arp: "Arp / Variação",
   };
   return {
+<<<<<<< HEAD
     id: createLayerId(existingIds),
+=======
+    id: createLayerId(),
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     label: labelMap[synthType] || "Melodia",
     synthType,
     style,
@@ -526,7 +552,11 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
       <div className="message">
         {layer.result ? (
           <span>
+<<<<<<< HEAD
             <SeedInput key={layer.result.seed} seed={layer.result.seed} onApply={(s) => onGenerate(layer.id, s)} /> · <b>{layer.result.notes.length}</b> notas ativas · Clique nos passos para editar.
+=======
+            <SeedInput seed={layer.result.seed} onApply={(s) => onGenerate(layer.id, s)} /> · <b>{layer.result.notes.length}</b> notas ativas · Clique nos passos para editar.
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           </span>
         ) : (
           "Aguardando geração da camada."
@@ -541,6 +571,10 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
 // ==========================================
 function SeedInput({ seed, onApply, label = "Seed" }: { seed: number | string; onApply: (val: number) => void; label?: string }) {
   const [val, setVal] = useState(String(seed));
+<<<<<<< HEAD
+=======
+  useEffect(() => { setVal(String(seed)); }, [seed]);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
@@ -689,12 +723,15 @@ export default function BeatStudio() {
   const [arrangementBlocks, setArrangementBlocks] = useState<ArrangementBlockData[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [isAutoArrangement, setIsAutoArrangement] = useState(false);
+<<<<<<< HEAD
   const [compositionSeed, setCompositionSeed] = useState(0);
   const [seedLocked, setSeedLocked] = useState(false);
   const [variationIndex, setVariationIndex] = useState(0);
   const [generationIdentity, setGenerationIdentity] = useState<FullCompositionIdentity | null>(null);
   const [compositionTimeline, setCompositionTimeline] = useState<CompositionTimelineMetadata | null>(null);
   const [compositionId, setCompositionId] = useState<string | null>(null);
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // UI / Export state
   const [busy, setBusy] = useState<string | null>(null);
@@ -709,10 +746,19 @@ export default function BeatStudio() {
   // Audio Engine & Web Worker RPC Client References
   const audioEngineRef = useRef<SampleAccurateAudioEngine>(new SampleAccurateAudioEngine());
   const workerClientRef = useRef<StudioWorkerClient | null>(null);
+<<<<<<< HEAD
   const mutationEpochRef = useRef(0);
   const generationEpochRef = useRef(0);
   const selectiveEpochRef = useRef<Record<string, number>>({});
   const sessionHydratedRef = useRef(false);
+=======
+
+  // Playhead 60FPS RAF Controller
+  const { registerContainer, registerPlayhead } = usePlayheadController({
+    audioEngineRef,
+    isPlaying: playbackMode !== null,
+  });
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // Keep state refs for immediate access
   const stateRef = useRef({
@@ -740,12 +786,15 @@ export default function BeatStudio() {
     arrangementBlocks,
     currentBlockIndex,
     isAutoArrangement,
+<<<<<<< HEAD
     compositionSeed,
     seedLocked,
     variationIndex,
     generationIdentity,
     compositionTimeline,
     artistPreset,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   });
 
   useEffect(() => {
@@ -774,18 +823,24 @@ export default function BeatStudio() {
       arrangementBlocks,
       currentBlockIndex,
       isAutoArrangement,
+<<<<<<< HEAD
       compositionSeed,
       seedLocked,
       variationIndex,
       generationIdentity,
       compositionTimeline,
       artistPreset,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     };
 
     // Update real-time step events map without restarting playback
     if (audioEngineRef.current.getIsPlaying()) {
       audioEngineRef.current.prepareStepEvents({
+<<<<<<< HEAD
         bpm,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         melodyLayers,
         bass,
         drums,
@@ -793,7 +848,10 @@ export default function BeatStudio() {
         muteDrums,
         bassDrive,
         drumKit,
+<<<<<<< HEAD
         blocks: playbackMode === "all" ? arrangementBlocks : undefined,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       });
     }
   }, [
@@ -821,6 +879,7 @@ export default function BeatStudio() {
     arrangementBlocks,
     currentBlockIndex,
     isAutoArrangement,
+<<<<<<< HEAD
     compositionSeed,
     seedLocked,
     variationIndex,
@@ -851,6 +910,10 @@ export default function BeatStudio() {
     onSectionChange: syncVisiblePlaybackSection,
   });
 
+=======
+  ]);
+
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   // Stop playback helper
   const stopPlayback = useCallback(() => {
     audioEngineRef.current.stop();
@@ -869,7 +932,10 @@ export default function BeatStudio() {
   const startPlayback = useCallback((mode: PlaybackMode) => {
     stopPlayback();
     setPlaybackMode(mode);
+<<<<<<< HEAD
     if (mode === "all") setIsAutoArrangement(true);
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     const s = stateRef.current;
     // Apply current track volumes before playback start
@@ -890,6 +956,7 @@ export default function BeatStudio() {
       muteDrums: s.muteDrums,
       bassDrive: s.bassDrive,
       drumKit: s.drumKit,
+<<<<<<< HEAD
       blocks: mode === "all" ? s.arrangementBlocks : undefined,
       onStop: () => {
         setPlaybackMode(null);
@@ -910,6 +977,30 @@ export default function BeatStudio() {
         setError("O player não corresponde ao snapshot canônico atual.");
       }
     }
+=======
+      onStop: () => {
+        setPlaybackMode(null);
+      },
+      onLoopComplete: () => {
+        const currentState = stateRef.current;
+        if (currentState.isAutoArrangement && currentState.arrangementBlocks.length > 0) {
+          const nextIdx = (currentState.currentBlockIndex + 1) % currentState.arrangementBlocks.length;
+          setCurrentBlockIndex(nextIdx);
+          const nextBlock = currentState.arrangementBlocks[nextIdx];
+          if (nextBlock) {
+            setBass(nextBlock.bass);
+            setDrums(nextBlock.drums);
+            setMelodyLayers((prev) =>
+              prev.map((l) => {
+                const found = nextBlock.melodyResults.find((m) => m.layerId === l.id);
+                return found ? { ...l, result: found.result } : l;
+              })
+            );
+          }
+        }
+      },
+    });
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }, [stopPlayback]);
 
   // BPM Input Handler (Live Tempo Update Without Stopping Music)
@@ -945,10 +1036,16 @@ export default function BeatStudio() {
         muteDrums,
         bassDrive,
         drumKit,
+<<<<<<< HEAD
         blocks: playbackMode === "all" ? arrangementBlocks : undefined,
       });
     }
   }, [bpm, melodyLayers, bass, drums, muteBass, muteDrums, bassDrive, drumKit, playbackMode, arrangementBlocks]);
+=======
+      });
+    }
+  }, [bpm, melodyLayers, bass, drums, muteBass, muteDrums, bassDrive, drumKit, playbackMode]);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // Artist Preset Handler
   // Artist Preset Handler (Loads Hit Vibe & Automatically Generates Full Beat)
@@ -990,6 +1087,7 @@ export default function BeatStudio() {
 
       if (workerClientRef.current) {
         stopPlayback();
+<<<<<<< HEAD
         const mutationEpoch = ++mutationEpochRef.current;
         const requestEpoch = ++generationEpochRef.current;
         const seed = stateRef.current.seedLocked
@@ -999,11 +1097,16 @@ export default function BeatStudio() {
           ? stateRef.current.variationIndex + 1
           : 0;
         setCompositionSeed(seed);
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         setBusy("all");
         setError("");
         try {
           const allData = await workerClientRef.current.generateAll({
+<<<<<<< HEAD
             presetId,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
             bpm: config.bpm,
             key: config.key,
             globalScale: config.scale,
@@ -1021,6 +1124,7 @@ export default function BeatStudio() {
               key: l.key,
               scale: l.scale,
               muted: l.muted,
+<<<<<<< HEAD
               label: l.label,
               synthType: l.synthType,
             })),
@@ -1039,6 +1143,14 @@ export default function BeatStudio() {
             setCompositionTimeline(allData.timeline);
             setCompositionId(`composition-${allData.timeline.hash}`);
             setVariationIndex(allData.identity.variationIndex);
+=======
+            })),
+          });
+
+          if (allData.blocks && allData.blocks.length > 0) {
+            setArrangementBlocks(allData.blocks);
+            
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
             const firstBlock = allData.blocks[0];
             setCurrentBlockIndex(0);
             setBass(firstBlock.bass);
@@ -1046,11 +1158,16 @@ export default function BeatStudio() {
             setMelodyLayers((prev) =>
               prev.map((l) => {
                 const found = firstBlock.melodyResults.find((m) => m.layerId === l.id);
+<<<<<<< HEAD
                 return { ...l, result: found?.result ?? null };
+=======
+                return found ? { ...l, result: found.result } : l;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
               })
             );
           }
         } catch (err: unknown) {
+<<<<<<< HEAD
           if (
             !isSupersededWorkerRequest(err)
             && requestEpoch === generationEpochRef.current
@@ -1063,22 +1180,34 @@ export default function BeatStudio() {
             requestEpoch === generationEpochRef.current
             && mutationEpoch === mutationEpochRef.current
           ) setBusy(null);
+=======
+          setError(err instanceof Error ? err.message : "Erro ao carregar preset.");
+        } finally {
+          setBusy(null);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         }
       }
     },
     [stopPlayback]
   );
 
+<<<<<<< HEAD
   const selectArrangementBlock = useCallback((index: number, blocks?: ArrangementBlockData[]) => {
     const sourceBlocks = blocks ?? stateRef.current.arrangementBlocks;
     if (!sourceBlocks[index]) return;
     const block = sourceBlocks[index];
+=======
+  const selectArrangementBlock = useCallback((index: number, blocks: ArrangementBlockData[] = arrangementBlocks) => {
+    if (!blocks[index]) return;
+    const block = blocks[index];
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     setCurrentBlockIndex(index);
     setBass(block.bass);
     setDrums(block.drums);
     setMelodyLayers((prev) =>
       prev.map((l) => {
         const found = block.melodyResults.find((m) => m.layerId === l.id);
+<<<<<<< HEAD
         return { ...l, result: found?.result ?? null };
       })
     );
@@ -1113,6 +1242,21 @@ export default function BeatStudio() {
         layer.id === layerId ? { ...layer, result } : layer
       ));
     }
+=======
+        return found ? { ...l, result: found.result } : l;
+      })
+    );
+  }, [arrangementBlocks]);
+
+  const patchActiveBlock = useCallback((patch: Partial<ArrangementBlockData>) => {
+    setArrangementBlocks((prev) => {
+      const idx = stateRef.current.currentBlockIndex;
+      if (!prev[idx]) return prev;
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], ...patch };
+      return copy;
+    });
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }, []);
 
   // Layer CRUD
@@ -1129,6 +1273,7 @@ export default function BeatStudio() {
     async (synthType: MelodySynthType) => {
       if (melodyLayers.length >= MAX_MELODY_LAYERS) return;
       const currentStyle = stateRef.current.melodyLayers[0]?.style ?? "trap-br";
+<<<<<<< HEAD
       const newLayer = createDefaultLayer(
         currentStyle,
         key,
@@ -1136,12 +1281,16 @@ export default function BeatStudio() {
         synthType,
         stateRef.current.melodyLayers.map((layer) => layer.id),
       );
+=======
+      const newLayer = createDefaultLayer(currentStyle, key, globalScale, synthType);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       const newLayerId = newLayer.id;
 
       setMelodyLayers((prev) => [...prev, newLayer]);
       setIsAddTrackMenuOpen(false);
 
       if (workerClientRef.current) {
+<<<<<<< HEAD
         const targetBlock = stateRef.current.arrangementBlocks[stateRef.current.currentBlockIndex];
         if (!targetBlock) return;
         const operationKey = `melody:${newLayerId}`;
@@ -1152,6 +1301,8 @@ export default function BeatStudio() {
           String(stateRef.current.compositionSeed),
           `${stateRef.current.variationIndex}:${targetBlock.id}:${operationKey}:${requestEpoch}`,
         );
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         setBusy(newLayerId);
         try {
           const result = await workerClientRef.current.generateMelody({
@@ -1161,6 +1312,7 @@ export default function BeatStudio() {
             key: newLayer.key,
             scale: newLayer.scale,
             complexity,
+<<<<<<< HEAD
             seed,
           });
           if (
@@ -1181,6 +1333,23 @@ export default function BeatStudio() {
       }
     },
     [key, globalScale, bpm, complexity, melodyLayers.length, publishMelodyResult]
+=======
+          });
+          setMelodyLayers((prev) => {
+            const next = prev.map((l) => (l.id === newLayerId ? { ...l, result } : l));
+            const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+            patchActiveBlock({ melodyResults });
+            return next;
+          });
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setBusy(null);
+        }
+      }
+    },
+    [key, globalScale, bpm, complexity, melodyLayers.length]
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   );
 
   const removeMelodyLayer = useCallback((id: string) => {
@@ -1200,6 +1369,7 @@ export default function BeatStudio() {
         const exists = layer.result.notes.find((n) => n.step === stepIdx);
         const root = KEYS[layer.key] ?? 60;
         const scaleIntervals = SCALES[layer.scale]?.intervals || [0, 2, 3, 5, 7, 8, 10];
+<<<<<<< HEAD
         const activeBlockId = stateRef.current.arrangementBlocks[stateRef.current.currentBlockIndex]?.id ?? "active";
         const degreeIndex = deterministicIndex(
           stateRef.current.compositionSeed,
@@ -1208,6 +1378,9 @@ export default function BeatStudio() {
           scaleIntervals.length,
         );
         const randomDegree = scaleIntervals[degreeIndex] || 0;
+=======
+        const randomDegree = scaleIntervals[Math.floor(Math.random() * scaleIntervals.length)] || 0;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
         const updatedNotes = exists
           ? layer.result.notes.filter((n) => n.step !== stepIdx)
@@ -1226,6 +1399,7 @@ export default function BeatStudio() {
   const generateMelodyLayer = useCallback(
     async (layerId: string, customSeed?: number) => {
       const layer = stateRef.current.melodyLayers.find((l) => l.id === layerId);
+<<<<<<< HEAD
       const targetBlock = stateRef.current.arrangementBlocks[stateRef.current.currentBlockIndex];
       if (!layer || !targetBlock || !workerClientRef.current) return;
       const operationKey = `melody:${layerId}`;
@@ -1236,6 +1410,9 @@ export default function BeatStudio() {
         String(stateRef.current.compositionSeed),
         `${stateRef.current.variationIndex}:${targetBlock.id}:${operationKey}:${requestEpoch}`,
       );
+=======
+      if (!layer || !workerClientRef.current) return;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       stopPlayback();
       setBusy(layerId);
       setError("");
@@ -1247,6 +1424,7 @@ export default function BeatStudio() {
           key: layer.key,
           scale: layer.scale,
           complexity,
+<<<<<<< HEAD
           seed,
         });
         if (
@@ -1270,11 +1448,24 @@ export default function BeatStudio() {
       }
     },
     [bpm, complexity, publishMelodyResult, stopPlayback]
+=======
+          seed: customSeed,
+        });
+        updateLayer(layerId, { result });
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Erro ao gerar camada de melodia.");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [bpm, complexity, updateLayer, stopPlayback]
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   );
 
   // Worker-Powered Generator: Bass / Drums
   const generateEngine = useCallback(
     async (engine: "bass" | "drums", customSeed?: number) => {
+<<<<<<< HEAD
       const targetBlock = stateRef.current.arrangementBlocks[stateRef.current.currentBlockIndex];
       if (!targetBlock || !workerClientRef.current) return;
       const mutationEpoch = ++mutationEpochRef.current;
@@ -1284,6 +1475,9 @@ export default function BeatStudio() {
         String(stateRef.current.compositionSeed),
         `${stateRef.current.variationIndex}:${targetBlock.id}:${engine}:${requestEpoch}`,
       );
+=======
+      if (!workerClientRef.current) return;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       stopPlayback();
       setBusy(engine);
       setError("");
@@ -1296,6 +1490,7 @@ export default function BeatStudio() {
             scale: globalScale,
             bassOctave,
             complexity,
+<<<<<<< HEAD
             seed,
           });
           if (
@@ -1307,6 +1502,12 @@ export default function BeatStudio() {
           if (state.arrangementBlocks[state.currentBlockIndex]?.id === targetBlock.id) {
             setBass(bassData);
           }
+=======
+            seed: customSeed,
+          });
+          setBass(bassData);
+          patchActiveBlock({ bass: bassData });
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         } else {
           const drumsData = await workerClientRef.current.generateDrums({
             style: drumStyle,
@@ -1316,6 +1517,7 @@ export default function BeatStudio() {
             swing: drumSwing,
             rollDensity: drumRollDensity,
             humanize: drumHumanize,
+<<<<<<< HEAD
             seed,
           });
           if (
@@ -1344,12 +1546,27 @@ export default function BeatStudio() {
       }
     },
     [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, patchBlockById]
+=======
+            seed: customSeed,
+          });
+          setDrums(drumsData);
+          patchActiveBlock({ drums: drumsData });
+        }
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : `Erro ao gerar ${engine}.`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, patchActiveBlock]
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   );
 
   // Worker-Powered Generator: Full Beat (Simultaneous Promise.all Orchestrated in Worker)
   const generateFullBeat = useCallback(async () => {
     if (!workerClientRef.current) return;
     stopPlayback();
+<<<<<<< HEAD
     const mutationEpoch = ++mutationEpochRef.current;
     const requestEpoch = ++generationEpochRef.current;
     const seed = stateRef.current.seedLocked
@@ -1361,6 +1578,9 @@ export default function BeatStudio() {
     setCompositionSeed(seed);
     setBusy("all");
     setError("");
+=======
+    setBusy("all");
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     try {
       const synthCycle: MelodySynthType[] = ["pluck", "lead", "pad", "arp"];
       const labelMap: Record<MelodySynthType, string> = {
@@ -1385,7 +1605,10 @@ export default function BeatStudio() {
       setMelodyLayers(refreshedLayers);
 
       const allData = await workerClientRef.current.generateAll({
+<<<<<<< HEAD
         presetId: artistPreset,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         bpm,
         key,
         globalScale,
@@ -1403,6 +1626,7 @@ export default function BeatStudio() {
           key: l.key,
           scale: l.scale,
           muted: l.muted,
+<<<<<<< HEAD
           label: l.label,
           synthType: l.synthType,
         })),
@@ -1438,6 +1662,21 @@ export default function BeatStudio() {
       ) setBusy(null);
     }
   }, [artistPreset, bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, selectArrangementBlock]);
+=======
+        })),
+      });
+
+      if (allData.blocks && allData.blocks.length > 0) {
+        setArrangementBlocks(allData.blocks);
+        selectArrangementBlock(0, allData.blocks);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar beat completo.");
+    } finally {
+      setBusy(null);
+    }
+  }, [bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, selectArrangementBlock]);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // Bass step edit
   const toggleBassStep = (stepIdx: number) => {
@@ -1445,6 +1684,7 @@ export default function BeatStudio() {
     const exists = bass.notes.find((n) => n.step === stepIdx);
     const root = (KEYS[key] ?? 60) + bassOctave;
     const scaleIntervals = SCALES[globalScale]?.intervals || [0, 2, 3, 5, 7, 8, 10];
+<<<<<<< HEAD
     const activeBlockId = stateRef.current.arrangementBlocks[stateRef.current.currentBlockIndex]?.id ?? "active";
     const degreeIndex = deterministicIndex(
       stateRef.current.compositionSeed,
@@ -1453,6 +1693,9 @@ export default function BeatStudio() {
       Math.min(3, scaleIntervals.length),
     );
     const degree = scaleIntervals[degreeIndex] || 0;
+=======
+    const degree = scaleIntervals[Math.floor(Math.random() * 3)] || 0;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     const updatedNotes = exists
       ? bass.notes.filter((n) => n.step !== stepIdx)
@@ -1482,6 +1725,7 @@ export default function BeatStudio() {
     if (!workerClientRef.current) return;
     setError("");
     try {
+<<<<<<< HEAD
       const expectedTimeline = buildCanonicalTimeline({
         bpm,
         melodyLayers: stateRef.current.melodyLayers,
@@ -1489,6 +1733,8 @@ export default function BeatStudio() {
         muteBass,
         muteDrums,
       });
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       const result = await workerClientRef.current.exportMidi({
         bpm,
         melodyLayers: stateRef.current.melodyLayers,
@@ -1497,9 +1743,12 @@ export default function BeatStudio() {
         muteDrums,
         filename: `AutoTunel-${key}-${bpm}BPM.mid`,
       });
+<<<<<<< HEAD
       if (result.timelineHash !== expectedTimeline.timelineHash) {
         throw new Error("O MIDI não corresponde ao snapshot canônico atual.");
       }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       downloadMidiBlob(result.buffer, result.filename);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao gerar arquivo MIDI no worker.");
@@ -1512,6 +1761,7 @@ export default function BeatStudio() {
     setExportingWav(true);
     setError("");
     try {
+<<<<<<< HEAD
       const expectedTimeline = buildCanonicalTimeline({
         bpm,
         melodyLayers: stateRef.current.melodyLayers,
@@ -1535,6 +1785,19 @@ export default function BeatStudio() {
       if (result.timelineHash !== expectedTimeline.timelineHash) {
         throw new Error("O WAV não corresponde ao snapshot canônico atual.");
       }
+=======
+      const result = await workerClientRef.current.exportWav({
+        bpm,
+        melodyLayers: stateRef.current.melodyLayers.filter((l) => !l.muted),
+        blocks: stateRef.current.arrangementBlocks,
+        muteBass,
+        muteDrums,
+        loops: 2,
+        bassDrive,
+        drumKit,
+        filename: `AutoTunel-${key}-${bpm}BPM-Master.wav`,
+      });
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       downloadWavBlob(result.buffer, result.filename);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao renderizar áudio WAV no worker.");
@@ -1549,6 +1812,7 @@ export default function BeatStudio() {
     const workerClient = new StudioWorkerClient();
     workerClientRef.current = workerClient;
 
+<<<<<<< HEAD
     const restored = deserializeCompositionSnapshot(
       localStorage.getItem(COMPOSITION_STORAGE_KEY) ?? "",
     );
@@ -1604,6 +1868,11 @@ export default function BeatStudio() {
 
       workerClient.generateAll({
         presetId: stateRef.current.artistPreset,
+=======
+    // Trigger initial beat generation on mount only
+    workerClient
+      .generateAll({
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         bpm: stateRef.current.bpm,
         key: stateRef.current.key,
         globalScale: stateRef.current.globalScale,
@@ -1615,6 +1884,7 @@ export default function BeatStudio() {
         swing: stateRef.current.drumSwing,
         rollDensity: stateRef.current.drumRollDensity,
         humanize: stateRef.current.drumHumanize,
+<<<<<<< HEAD
         melodyLayers: stateRef.current.melodyLayers.map((layer) => ({
           id: layer.id,
           style: layer.style,
@@ -1658,12 +1928,32 @@ export default function BeatStudio() {
     return () => {
       generationEpochRef.current += 1;
       mutationEpochRef.current += 1;
+=======
+        melodyLayers: stateRef.current.melodyLayers.map((l) => ({
+          id: l.id,
+          style: l.style,
+          key: l.key,
+          scale: l.scale,
+          muted: l.muted,
+        })),
+      })
+      .then((allData) => {
+        if (allData.blocks && allData.blocks.length > 0) {
+          setArrangementBlocks(allData.blocks);
+          selectArrangementBlock(0, allData.blocks);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       engine.stop();
       if (workerClientRef.current) {
         workerClientRef.current.terminate();
         workerClientRef.current = null;
       }
     };
+<<<<<<< HEAD
   }, [selectArrangementBlock]);
 
   useEffect(() => {
@@ -1760,6 +2050,9 @@ export default function BeatStudio() {
     melodyLayers,
     trackSettings,
   ]);
+=======
+  }, []);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // Visualizations
   const bassSteps = new Set(bass?.notes.map((n) => n.step) ?? []);
@@ -1832,6 +2125,7 @@ export default function BeatStudio() {
               )}
             </button>
 
+<<<<<<< HEAD
             <div
               className="flex items-center gap-2 rounded-lg border border-[#3e3e4d] bg-[#181822] px-2 py-1"
               data-testid="composition-identity"
@@ -1861,6 +2155,8 @@ export default function BeatStudio() {
               </span>
             </div>
 
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
             <button
               className={`master-btn ${playbackMode === "all" ? "playing" : ""}`}
               onClick={() => (playbackMode === "all" ? stopPlayback() : startPlayback("all"))}
@@ -2092,7 +2388,11 @@ export default function BeatStudio() {
           <div className="message">
             {bass ? (
               <span>
+<<<<<<< HEAD
                 <SeedInput key={bass.seed} seed={bass.seed} onApply={(s) => generateEngine("bass", s)} /> · Afinado em <b>{key}</b> ({bassOctave === -36 ? "C0" : bassOctave === -24 ? "C1" : "C2"}) · <b>{bass.notes.length}</b> ataques
+=======
+                <SeedInput seed={bass.seed} onApply={(s) => generateEngine("bass", s)} /> · Afinado em <b>{key}</b> ({bassOctave === -36 ? "C0" : bassOctave === -24 ? "C1" : "C2"}) · <b>{bass.notes.length}</b> ataques
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
               </span>
             ) : (
               "Motor 808 autônomo com afinação procedural."
@@ -2241,7 +2541,11 @@ export default function BeatStudio() {
           <div className="message">
             {drums ? (
               <span>
+<<<<<<< HEAD
                 <SeedInput key={drums.seed} seed={drums.seed} onApply={(s) => generateEngine("drums", s)} /> · Padrão <b>{drumPattern}</b> · <b>{drums.hits.length}</b> peças rítmicas
+=======
+                <SeedInput seed={drums.seed} onApply={(s) => generateEngine("drums", s)} /> · Padrão <b>{drumPattern}</b> · <b>{drums.hits.length}</b> peças rítmicas
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
               </span>
             ) : (
               "Motor rítmico autônomo."
@@ -2373,7 +2677,10 @@ export default function BeatStudio() {
                         <button
                           key={idx}
                           onClick={() => {
+<<<<<<< HEAD
                             if (playbackMode === "all") stopPlayback();
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
                             setIsAutoArrangement(false);
                             selectArrangementBlock(idx);
                           }}
@@ -2385,11 +2692,15 @@ export default function BeatStudio() {
                       <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-[#3e3e4d]">
                         <span className={`text-[10px] font-bold uppercase tracking-wider transition-all ${isAutoArrangement ? 'text-cyan drop-shadow-[0_0_5px_rgba(0,255,255,0.8)]' : 'text-gray-500'}`}>Auto</span>
                         <button
+<<<<<<< HEAD
                           onClick={() => {
                             const next = !isAutoArrangement;
                             if (!next && playbackMode === "all") stopPlayback();
                             setIsAutoArrangement(next);
                           }}
+=======
+                          onClick={() => setIsAutoArrangement(!isAutoArrangement)}
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
                           className={`relative inline-flex h-[18px] w-8 items-center rounded-full transition-all border ${
                             isAutoArrangement 
                               ? "bg-transparent border-[#00ffff] shadow-[0_0_8px_rgba(0,255,255,0.8)]" 

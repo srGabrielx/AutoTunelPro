@@ -240,6 +240,10 @@ export async function executeTransaction(
     };
 
   } catch (err: any) {
+<<<<<<< HEAD
+=======
+    console.error('[Transaction] Inner Error:', err);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     return {
       result: {
         requestId: command.requestId,

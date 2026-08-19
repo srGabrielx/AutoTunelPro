@@ -4,13 +4,19 @@ import type { SampleAccurateAudioEngine } from "./audio-transport";
 export interface PlayheadControllerOptions {
   audioEngineRef: React.RefObject<SampleAccurateAudioEngine | null>;
   isPlaying: boolean;
+<<<<<<< HEAD
   onSectionChange?: (sectionIndex: number) => void;
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }
 
 export function usePlayheadController({
   audioEngineRef,
   isPlaying,
+<<<<<<< HEAD
   onSectionChange,
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }: PlayheadControllerOptions) {
   const containerRefs = useRef<Map<string, HTMLElement>>(new Map());
   const playheadOverlayRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -97,7 +103,10 @@ export function usePlayheadController({
     }
 
     let lastDiscreteStep = -1;
+<<<<<<< HEAD
     let lastSectionIndex = -1;
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     const tick = () => {
       const engine = audioEngineRef.current;
@@ -112,6 +121,7 @@ export function usePlayheadController({
       const currentTime = ctx.currentTime;
 
       if (currentTime >= startTime && stepDuration > 0) {
+<<<<<<< HEAD
         const playhead = engine.getPlayheadPosition();
         const continuousPosition = playhead.localStep;
         const discreteStep = Math.floor(continuousPosition);
@@ -121,6 +131,12 @@ export function usePlayheadController({
           onSectionChange?.(playhead.sectionIndex);
         }
 
+=======
+        const elapsed = currentTime - startTime;
+        const continuousPosition = (elapsed / stepDuration) % 16;
+        const discreteStep = Math.floor(continuousPosition);
+
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         // 1. Update Continuous Overlay Playhead via transform: translate3d
         playheadOverlayRefs.current.forEach((el, id) => {
           const stride = stridesRef.current.get(id) || (el.parentElement?.clientWidth ? el.parentElement.clientWidth / 16 : 0);
@@ -157,7 +173,11 @@ export function usePlayheadController({
         rafIdRef.current = null;
       }
     };
+<<<<<<< HEAD
   }, [isPlaying, audioEngineRef, onSectionChange]);
+=======
+  }, [isPlaying, audioEngineRef]);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   return {
     registerContainer,

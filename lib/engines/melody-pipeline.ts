@@ -16,11 +16,20 @@
  *  7. Final validation (scale membership, register bounds)
  */
 
+<<<<<<< HEAD
 import { pick } from "../music/random.ts";
 import { KEYS, SCALES, STYLES } from "../music/styles.ts";
 import type { GenerateOptions, MelodyNote, StyleId } from "../music/types.ts";
 import {
   GENRE_MELODY_PROFILES,
+=======
+import { rng, pick } from "../music/random.ts";
+import { KEYS, SCALES, STYLES } from "../music/styles.ts";
+import type { GenerateOptions, MelodyNote, ScaleId, StyleId } from "../music/types.ts";
+import {
+  GENRE_MELODY_PROFILES,
+  resolveChordToIntervals,
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   type ChordDegrees,
   type GenreMelodyProfile,
 } from "./melody-context.ts";
@@ -46,7 +55,10 @@ interface PipelineContext {
   complexity: number;
   random: () => number;
   style: StyleId;
+<<<<<<< HEAD
   sharedProgression?: ChordDegrees[];
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }
 
 // ============================================================
@@ -74,10 +86,13 @@ function createContext(
     complexity: comp,
     random,
     style: options.style,
+<<<<<<< HEAD
     sharedProgression: options.compositionPlan?.harmonicGrid.map((region) => ({
       label: region.label,
       tones: [...region.chordDegrees],
     })),
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   };
 }
 
@@ -86,9 +101,12 @@ function createContext(
 // ============================================================
 
 function selectProgression(ctx: PipelineContext): ChordDegrees[] {
+<<<<<<< HEAD
   if (ctx.sharedProgression && ctx.sharedProgression.length > 0) {
     return ctx.sharedProgression;
   }
+=======
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   const progressions = ctx.profile.progressions;
   return pick(ctx.random, progressions);
 }
@@ -149,6 +167,11 @@ function developPhrases(
   for (let beat = 0; beat < beatsPerBar; beat++) {
     const beatStart = beat * stepsPerBeat;
     const chord = progression[beat];
+<<<<<<< HEAD
+=======
+    const chordIntervals = resolveChordToIntervals(chord, ctx.scaleIntervals);
+
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     // Determine variation type for this beat
     const variationType = ctx.random();
 
@@ -204,7 +227,11 @@ function developPhrases(
       const interval = ctx.scaleIntervals[degree % ctx.scaleSize];
 
       // Octave placement based on register range and contour
+<<<<<<< HEAD
       const octaveOffset = selectOctave(ctx, beat);
+=======
+      const octaveOffset = selectOctave(ctx, beat, i);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       const midiNote = ctx.root + interval + octaveOffset;
 
       // Duration
@@ -228,7 +255,11 @@ function developPhrases(
         // Passing tone: use a non-chord scale degree
         const passingDegree = Math.floor(ctx.random() * ctx.scaleSize);
         const passingInterval = ctx.scaleIntervals[passingDegree];
+<<<<<<< HEAD
         const octave = selectOctave(ctx, beat);
+=======
+        const octave = selectOctave(ctx, beat, 0);
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         notes.push({
           step: weakStep,
           note: ctx.root + passingInterval + octave,
@@ -269,6 +300,7 @@ function applyVoiceLeading(notes: MelodyNote[], ctx: PipelineContext): MelodyNot
     // Voice leading: limit jump to maxJump semitones
     if (i > 0) {
       const prev = sorted[i - 1].note;
+<<<<<<< HEAD
       const jump = Math.abs(sorted[i].note - prev);
       if (jump > ctx.profile.maxJump) {
         // First try every in-register octave equivalent. The old alternating
@@ -290,6 +322,19 @@ function applyVoiceLeading(notes: MelodyNote[], ctx: PipelineContext): MelodyNot
             candidate = octaveCandidate;
             bestJump = jump;
             bestDisplacement = displacement;
+=======
+      let jump = Math.abs(sorted[i].note - prev);
+      if (jump > ctx.profile.maxJump) {
+        // First try octave shifts
+        let candidate = sorted[i].note;
+        while (Math.abs(candidate - prev) > ctx.profile.maxJump) {
+          if (candidate > prev && candidate - 12 >= safeMin) {
+            candidate -= 12;
+          } else if (candidate < prev && candidate + 12 <= safeMax) {
+            candidate += 12;
+          } else {
+            break;
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           }
         }
 
@@ -427,7 +472,11 @@ function findNearestChordTone(
   return best;
 }
 
+<<<<<<< HEAD
 function selectOctave(ctx: PipelineContext, beat: number): number {
+=======
+function selectOctave(ctx: PipelineContext, beat: number, noteIndex: number): number {
+>>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   // Create a contour: start middle, reach up in beat 2, resolve in beat 3
   const contour = [0, 0, 12, 0];
   const baseOctave = contour[beat] || 0;
