@@ -1,0 +1,363 @@
+import type { ArtistPresetId, MelodySynthType, ScaleId, StyleId } from "./types";
+
+export interface StylePreset {
+  label: string;
+  bpm: [number, number];
+  scale: number[];
+  kick: number[];
+  snare: number[];
+  hat: number[];
+}
+
+// 1. Escalas Musicais Profissionais (Scale Helper)
+export const SCALES: Record<ScaleId, { label: string; intervals: number[]; description: string }> = {
+  "natural-minor": {
+    label: "Menor Natural (Aeolian)",
+    intervals: [0, 2, 3, 5, 7, 8, 10],
+    description: "Emocional, melancólico, a base do Trap e R&B clássico",
+  },
+  "harmonic-minor": {
+    label: "Menor Harmônica",
+    intervals: [0, 2, 3, 5, 7, 8, 11],
+    description: "Tensão, mistério, épico, vibe Travis Scott & UK Drill",
+  },
+  "pentatonic-minor": {
+    label: "Pentatônica Menor",
+    intervals: [0, 3, 5, 7, 10],
+    description: "Garante melodias sem notas erradas, muito usada no Trap BR e Funk",
+  },
+  "natural-major": {
+    label: "Maior Natural (Ionian)",
+    intervals: [0, 2, 4, 5, 7, 9, 11],
+    description: "Alegre, uplifting, Pop, Afrobeat e Amapiano",
+  },
+  "pentatonic-major": {
+    label: "Pentatônica Maior",
+    intervals: [0, 2, 4, 7, 9],
+    description: "Suave, melódico, R&B moderno e pop melodias",
+  },
+  "dorian": {
+    label: "Dórica",
+    intervals: [0, 2, 3, 5, 7, 9, 10],
+    description: "Jazz, soul, Hip Hop anos 90 e Boom Bap elegante",
+  },
+  "phrygian": {
+    label: "Frígia",
+    intervals: [0, 1, 3, 5, 7, 8, 10],
+    description: "Sombrio, tensão oriental, Trap pesado e Drill agressivo",
+  },
+  "blues": {
+    label: "Escala Blues",
+    intervals: [0, 3, 5, 6, 7, 10],
+    description: "Com blue note (5b), peso orgânico e punch",
+  },
+};
+
+// 2. Presets de Artistas & Músicas Conhecidas (Akon, Travis, Drake, etc.)
+export interface ArtistPresetConfig {
+  label: string;
+  artist: string;
+  songRef: string;
+  key: string;
+  scale: ScaleId;
+  bpm: number;
+  style: StyleId;
+  complexity: number;
+  description: string;
+  preferredSynths?: MelodySynthType[];
+}
+
+export const ARTIST_PRESETS: Record<ArtistPresetId, ArtistPresetConfig> = {
+  "1-matue-kennyg": {
+    label: "1. Matuê - Kenny G / Anos Luz (Trap BR)",
+    artist: "Matuê",
+    songRef: "Kenny G · Anos Luz · Máquina do Tempo",
+    key: "G#",
+    scale: "natural-minor",
+    bpm: 134,
+    style: "trap-br",
+    complexity: 4,
+    description: "Lead psicodélico, 808 pesado de Trap BR com slides rápidos e ambiência imersiva.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "2-travis-fein": {
+    label: "2. Travis Scott - FE!N / Goosebumps (Dark Trap)",
+    artist: "Travis Scott",
+    songRef: "FE!N · Goosebumps · Sicko Mode",
+    key: "F#",
+    scale: "harmonic-minor",
+    bpm: 148,
+    style: "trap-usa",
+    complexity: 4,
+    description: "Tensão sombria, sintetizadores distorcidos e 808 sub de alto impacto.",
+    preferredSynths: ["lead", "pad", "arp"],
+  },
+  "3-centralcee-doja": {
+    label: "3. Central Cee - Doja / Sprinter (UK Drill)",
+    artist: "Central Cee",
+    songRef: "Doja · Sprinter · Loading",
+    key: "C",
+    scale: "harmonic-minor",
+    bpm: 140,
+    style: "trap-uk",
+    complexity: 4,
+    description: "Hi-hat triplets com pitch drop, kicks fora do grid e contra-tempos drill.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "4-metro-superhero": {
+    label: "4. Metro Boomin - Superhero / Creepin (Cinematic Trap)",
+    artist: "Metro Boomin",
+    songRef: "Superhero · Creepin · Ric Flair Drip",
+    key: "D",
+    scale: "natural-minor",
+    bpm: 144,
+    style: "trap-usa",
+    complexity: 4,
+    description: "Orquestração melancólica de bells, graves afinados e snares pontuais.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "5-veigh-novobalanco": {
+    label: "5. Veigh - Novo Balanço / Mandrake (Trap BR)",
+    artist: "Veigh / Supernova",
+    songRef: "Novo Balanço · Perdoa Por Tudo Vida · Tendência",
+    key: "G",
+    scale: "natural-minor",
+    bpm: 134,
+    style: "trap-br",
+    complexity: 4,
+    description: "Guitarras acústicas/plucks com groove moderno e 808 encorpado.",
+    preferredSynths: ["pluck", "arp", "pad"],
+  },
+  "6-drake-richflex": {
+    label: "6. Drake & 21 Savage - Rich Flex (Midnight OVO)",
+    artist: "Drake / 21 Savage",
+    songRef: "Rich Flex · Knife Talk · Jimmy Cooks",
+    key: "E",
+    scale: "natural-minor",
+    bpm: 138,
+    style: "trap-usa",
+    complexity: 3,
+    description: "Pads aveludados e atmosfera noturna com baterias nítidas.",
+    preferredSynths: ["pad", "pluck", "lead"],
+  },
+  "7-mchariel-mandelao": {
+    label: "7. MC Hariel & DJ Arana - Montagem 2000 (Funk SP)",
+    artist: "MC Hariel / DJ Arana",
+    songRef: "Ilusão · Montagem Anos 2000 · Mandelão",
+    key: "F",
+    scale: "pentatonic-minor",
+    bpm: 130,
+    style: "funk",
+    complexity: 3,
+    description: "Tamborzão reto com caixas sincopadas e baixo pulsante característico.",
+    preferredSynths: ["lead", "arp", "pluck"],
+  },
+  "8-dennis-taok": {
+    label: "8. Dennis DJ & Kevin o Chris - Tá OK (Funk Tamborzão)",
+    artist: "Dennis DJ / Kevin o Chris",
+    songRef: "Tá OK · Ela É do Tipo · Baile de Favela",
+    key: "G#",
+    scale: "pentatonic-minor",
+    bpm: 132,
+    style: "funk",
+    complexity: 3,
+    description: "Tamborzao pesado de pista, palmas marcantes e hook empolgante.",
+    preferredSynths: ["lead", "pluck", "pad"],
+  },
+  "9-drdre-stilldre": {
+    label: "9. 2Pac & Dr. Dre - Still D.R.E. (West Coast 90s)",
+    artist: "Dr. Dre / Snoop Dogg / 2Pac",
+    songRef: "Still D.R.E. · California Love · The Next Episode",
+    key: "B",
+    scale: "dorian",
+    bpm: 94,
+    style: "hip-hop",
+    complexity: 3,
+    description: "Piano clássico marcante em colcheias, groove boom-bap cadenciado.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "10-post-rockstar": {
+    label: "10. Post Malone - Rockstar / Circles (Melodic Trap)",
+    artist: "Post Malone",
+    songRef: "Rockstar · Circles · Sunflower",
+    key: "G",
+    scale: "pentatonic-minor",
+    bpm: 158,
+    style: "trap-usa",
+    complexity: 3,
+    description: "Progressão de acordes cativante e ritmo dinâmico para refrões épicos.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "11-kabza-amapiano": {
+    label: "11. Kabza De Small - Asibe Happy (Amapiano)",
+    artist: "Kabza De Small / DJ Maphorisa",
+    songRef: "Asibe Happy · Sponono · Woza",
+    key: "F#",
+    scale: "natural-major",
+    bpm: 114,
+    style: "amapiano",
+    complexity: 3,
+    description: "Teclados jazzísticos, log drums suaves e percussões africanas.",
+    preferredSynths: ["pluck", "pad", "arp"],
+  },
+  "12-kayblack-melhorvibe": {
+    label: "12. KayBlack - Melhor Vibe / Salve (Trap R&B)",
+    artist: "KayBlack",
+    songRef: "Melhor Vibe · Cadeira Rosa · Segredo",
+    key: "D#",
+    scale: "natural-minor",
+    bpm: 124,
+    style: "trap-br",
+    complexity: 3,
+    description: "Plucks sedosos, clima intimista e batida envolvente de Trap R&B.",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "13-bobmarley-roots": {
+    label: "13. Bob Marley - One Love (Reggae Roots)",
+    artist: "Bob Marley",
+    songRef: "One Love · Three Little Birds · Is This Love",
+    key: "A",
+    scale: "natural-major",
+    bpm: 76,
+    style: "reggae-default",
+    complexity: 3,
+    description: "Baixo sub marcante evitando o tempo 1, com guitarras em contratempo (skank).",
+    preferredSynths: ["pluck", "pad", "lead"],
+  },
+  "14-nas-nystate": {
+    label: "14. Nas - N.Y. State of Mind (Boom Bap)",
+    artist: "Nas",
+    songRef: "N.Y. State of Mind · The World Is Yours",
+    key: "C",
+    scale: "natural-minor",
+    bpm: 84,
+    style: "boombap-default",
+    complexity: 3,
+    description: "Bateria suja e com muito swing, samples de jazz obscuros e baixo constante.",
+    preferredSynths: ["pad", "pluck", "lead"],
+  },
+  "15-kendrick-dna": {
+    label: "15. Kendrick Lamar - DNA (Modern Hip Hop)",
+    artist: "Kendrick Lamar",
+    songRef: "DNA · HUMBLE · N95",
+    key: "C#",
+    scale: "phrygian",
+    bpm: 130,
+    style: "hiphop-default",
+    complexity: 4,
+    description: "808 distorcido e agressivo, padrões rítmicos quebrados e alta densidade.",
+    preferredSynths: ["lead", "arp", "pluck"],
+  },
+  "16-skrillex-bangarang": {
+    label: "16. Skrillex - Bangarang (Dubstep)",
+    artist: "Skrillex",
+    songRef: "Bangarang · Scary Monsters and Nice Sprites",
+    key: "F",
+    scale: "harmonic-minor",
+    bpm: 140,
+    style: "dubstep-default",
+    complexity: 4,
+    description: "Bateria pesada e espaçada, bumbo agressivo e synths modulados no tempo.",
+    preferredSynths: ["lead", "pad", "arp"],
+  },
+  "custom": {
+    label: "0. Configuração Manual (Livre)",
+    artist: "Personalizado",
+    songRef: "Crie sua própria vibe",
+    key: "C",
+    scale: "natural-minor",
+    bpm: 140,
+    style: "trap-br",
+    complexity: 3,
+    description: "Ajuste livre de tom, BPM e estilo.",
+  },
+};
+
+// 3. Estilos Base
+export const STYLES: Record<StyleId, StylePreset> = {
+  "trap-br": {
+    label: "Trap BR",
+    bpm: [120, 150],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 6, 10, 14],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "trap-uk": {
+    label: "Trap UK",
+    bpm: [132, 146],
+    scale: [0, 2, 3, 5, 7, 9, 10],
+    kick: [0, 5, 9, 11, 15],
+    snare: [4, 12],
+    hat: [0, 2, 3, 6, 8, 10, 11, 14],
+  },
+  "trap-usa": {
+    label: "Trap EUA",
+    bpm: [130, 160],
+    scale: [0, 2, 3, 5, 7, 8, 11],
+    kick: [0, 7, 10, 15],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "hip-hop": {
+    label: "Hip Hop",
+    bpm: [85, 100],
+    scale: [0, 2, 3, 5, 7, 9, 10],
+    kick: [0, 8, 10],
+    snare: [4, 12],
+    hat: [0, 4, 8, 12],
+  },
+  "funk": {
+    label: "Funk",
+    bpm: [128, 150],
+    scale: [0, 3, 5, 7, 10],
+    kick: [0, 4, 8, 12],
+    snare: [2, 6, 10, 14],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "amapiano": {
+    label: "Amapiano",
+    bpm: [110, 118],
+    scale: [0, 2, 4, 5, 7, 9, 11],
+    kick: [0, 4, 10],
+    snare: [6, 14],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "reggae-default": {
+    label: "Reggae Roots",
+    bpm: [70, 95],
+    scale: [0, 2, 4, 5, 7, 9, 11],
+    kick: [0, 8],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "boombap-default": {
+    label: "Boom Bap Classic",
+    bpm: [80, 95],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 8, 10],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "hiphop-default": {
+    label: "Modern Hip Hop",
+    bpm: [110, 140],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 8, 11],
+    snare: [4, 12],
+    hat: [0, 2, 4, 6, 8, 10, 12, 14],
+  },
+  "dubstep-default": {
+    label: "Dubstep Heavy",
+    bpm: [140, 150],
+    scale: [0, 2, 3, 5, 7, 8, 10],
+    kick: [0, 10],
+    snare: [8],
+    hat: [0, 4, 8, 12],
+  },
+};
+
+export const KEYS: Record<string, number> = {
+  C: 60, "C#": 61, D: 62, "D#": 63, E: 64, F: 65,
+  "F#": 66, G: 67, "G#": 68, A: 69, "A#": 70, B: 71,
+};
