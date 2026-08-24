@@ -108,54 +108,54 @@ export function getMelodySynthConfig(synthType: MelodySynthType, style: StyleId 
     case "lead":
       return {
         voiceCount,
-        detuneCents: isDarkTrap ? 10 : 8,
+        detuneCents: isDarkTrap ? 9 : 7,
         gainCompensation,
-        filterStartCutoff: 3400,
-        filterEndCutoff: 380,
-        filterQ: 2.6,
-        decayExp: 4.5,
+        filterStartCutoff: 3600,
+        filterEndCutoff: 400,
+        filterQ: 2.4,
+        decayExp: 4.8,
         osc1Type: "sawtooth",
         osc2Type: "sawtooth",
-        baseVol: 0.22,
+        baseVol: 0.23,
       };
     case "pad":
       return {
         voiceCount,
-        detuneCents: 9,
+        detuneCents: 10,
         gainCompensation,
-        filterStartCutoff: 2200,
-        filterEndCutoff: 340,
-        filterQ: 1.8,
-        decayExp: 2.2,
+        filterStartCutoff: 2000,
+        filterEndCutoff: 320,
+        filterQ: 1.6,
+        decayExp: 2.0,
         osc1Type: "sawtooth",
         osc2Type: "triangle",
-        baseVol: 0.26,
+        baseVol: 0.27,
       };
     case "pluck":
       return {
         voiceCount,
-        detuneCents: 6,
+        detuneCents: 5,
         gainCompensation,
-        filterStartCutoff: 4600,
-        filterEndCutoff: 420,
-        filterQ: 4.2,
-        decayExp: 6.5,
+        filterStartCutoff: 4800,
+        filterEndCutoff: 400,
+        filterQ: 3.8,
+        decayExp: 6.8,
         osc1Type: "sawtooth",
         osc2Type: "sine",
-        baseVol: 0.24,
+        baseVol: 0.25,
       };
     case "arp":
       return {
         voiceCount,
-        detuneCents: 7,
+        detuneCents: 6,
         gainCompensation,
-        filterStartCutoff: 3800,
-        filterEndCutoff: 400,
-        filterQ: 3.0,
-        decayExp: 5.5,
+        filterStartCutoff: 3600,
+        filterEndCutoff: 420,
+        filterQ: 2.8,
+        decayExp: 5.2,
         osc1Type: "sawtooth",
         osc2Type: "sawtooth",
-        baseVol: 0.22,
+        baseVol: 0.23,
       };
   }
 }
@@ -169,22 +169,22 @@ export interface Bass808SynthConfig {
 
 export const BASS_808_CONFIGS: Record<BassDrive, Bass808SynthConfig> = {
   clean: {
-    cleanSubGain: 0.90,
-    parallelSatGain: 0.10,
+    cleanSubGain: 0.92,
+    parallelSatGain: 0.08,
     pitchDiveStartMultiplier: 1.35,
     pitchDiveDurationSec: 0.020,
   },
   warm: {
-    cleanSubGain: 0.75,
-    parallelSatGain: 0.40,
+    cleanSubGain: 0.78,
+    parallelSatGain: 0.38,
     pitchDiveStartMultiplier: 1.45,
-    pitchDiveDurationSec: 0.025,
+    pitchDiveDurationSec: 0.024,
   },
   overdrive: {
-    cleanSubGain: 0.60,
-    parallelSatGain: 0.55,
+    cleanSubGain: 0.62,
+    parallelSatGain: 0.52,
     pitchDiveStartMultiplier: 1.55,
-    pitchDiveDurationSec: 0.030,
+    pitchDiveDurationSec: 0.028,
   },
 };
 

@@ -44,6 +44,7 @@ interface PipelineContext {
   scaleSize: number;
   profile: GenreMelodyProfile;
   complexity: number;
+  harmonicTemperature: number;
   synthType: MelodySynthType;
   random: () => number;
   style: StyleId;
@@ -61,6 +62,7 @@ function createContext(
   const preset = STYLES[options.style] ?? STYLES["trap-br"];
   const root = KEYS[options.key || "C"] ?? 60;
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
+  const harmonicTemperature = Math.min(1.0, Math.max(0.1, (comp - 0.5) / 4.5));
   const synthType = options.synthType ?? "lead";
 
   const scaleIntervals =
@@ -74,6 +76,7 @@ function createContext(
     scaleSize: scaleIntervals.length,
     profile: GENRE_MELODY_PROFILES[options.style] ?? GENRE_MELODY_PROFILES["trap-br"],
     complexity: comp,
+    harmonicTemperature,
     synthType,
     random,
     style: options.style,
@@ -195,9 +198,10 @@ function developPhrases(
         }
       }
 
-      // Strong beats (step 0, 4, 8, 12) should prefer chord tones
+      // Strong beats (step 0, 4, 8, 12) should prefer chord tones based on harmonic temperature
       const isStrongBeat = step % 4 === 0;
-      if (isStrongBeat && ctx.random() > 0.3) {
+      const snapThreshold = 0.2 + (1.0 - ctx.harmonicTemperature) * 0.6;
+      if (isStrongBeat && ctx.random() < snapThreshold) {
         // Snap to nearest chord tone
         degree = findNearestChordTone(degree, chord.tones, ctx.scaleSize);
       }
@@ -223,8 +227,8 @@ function developPhrases(
       });
     }
 
-    // Add a passing tone on weak beats for higher complexity
-    if (ctx.complexity >= 4 && ctx.random() > 0.5) {
+    // Add a passing tone on weak beats scaled by harmonic temperature
+    if (ctx.harmonicTemperature > 0.4 && ctx.random() < ctx.harmonicTemperature * 0.7) {
       const weakStep = beatStart + (ctx.random() > 0.5 ? 1 : 3);
       if (weakStep < 16 && !notes.some((n) => n.step === weakStep)) {
         // Passing tone: use a non-chord scale degree

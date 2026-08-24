@@ -30,6 +30,7 @@ export function generateBass(options: GenerateOptions): BassResult {
   }
 
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
+  const harmonicTemperature = Math.min(1.0, Math.max(0.1, (comp - 0.5) / 4.5));
   const notes: BassNote[] = [];
 
   for (let bar = 0; bar < plan.timeline.bars; bar++) {
@@ -45,13 +46,13 @@ export function generateBass(options: GenerateOptions): BassResult {
       const chordRootDegree = region.chordDegrees[0] ?? 0;
       const baseBassNote = getHarmonicBassNote(chordRootDegree, false);
 
-      // Bass anchors itself to strong beats
+      // Bass anchors itself firmly to strong beats
       const anchor = plan.rhythmicAnchors.find(a => a.step === beatStart);
       const isStrongAnchor = anchor && anchor.type === "downbeat";
 
       if (isStrongAnchor || (anchor && random() < anchor.weight * (comp / 3))) {
-        const isSlide = comp >= 3 && random() > 0.7;
-        const duration = isSlide ? 1 : (comp >= 3 && random() > 0.5 ? 3 : 2);
+        const isSlide = harmonicTemperature >= 0.5 && random() > 0.7;
+        const duration = isSlide ? 1 : (harmonicTemperature >= 0.4 && random() > 0.5 ? 3 : 2);
 
         notes.push({
           step: beatStart,
@@ -63,12 +64,12 @@ export function generateBass(options: GenerateOptions): BassResult {
       }
 
       // Syncopations / Ghost notes
-      if (comp >= 3) {
+      if (harmonicTemperature >= 0.35) {
         // Find syncopation anchors in this beat
         const syncAnchors = plan.rhythmicAnchors.filter(a => a.step > beatStart && a.step < beatStart + 4 && a.type === "syncopation");
         
         for (const sa of syncAnchors) {
-          if (!notes.some(n => n.step === sa.step) && random() < sa.weight * (comp / 5)) {
+          if (!notes.some(n => n.step === sa.step) && random() < sa.weight * harmonicTemperature) {
             // Octave jumps or 5th jumps for syncopated accents
             const useFifth = random() > 0.6;
             const fifthDegree = (chordRootDegree + 4) % scaleIntervals.length;
