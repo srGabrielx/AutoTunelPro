@@ -7,6 +7,7 @@ import {
 } from "./canonical-timeline.ts";
 import {
   BASS_808_CONFIGS,
+  DRUM_KIT_SYNTH_CONFIGS,
   getMelodySynthConfig,
 } from "./synthesis-presets.ts";
 import type {
@@ -93,6 +94,8 @@ export class SampleAccurateAudioEngine {
   // Per-track persistent GainNodes and Stereo Panners
   private trackGainNodes: Map<string, GainNode> = new Map();
   private trackPannerNodes: Map<string, StereoPannerNode> = new Map();
+  private lastOpenHatGain: GainNode | null = null;
+  private currentDrumKit: DrumKitMode = "trap-808";
   private trackVolumes: Map<string, number> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
@@ -228,8 +231,20 @@ export class SampleAccurateAudioEngine {
     const sData = this.snareNoiseBuffer.getChannelData(0);
     for (let i = 0; i < snareSamples; i++) sData[i] = nextNoise();
 
-    // Inharmonic Metallic Hat Buffer (Analogue Roland TR-808/909 Modeling)
-    const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
+    // Build hat buffers using kit-specific frequencies
+    this.rebuildHatBuffers(ctx, sampleRate, nextNoise, this.currentDrumKit);
+  }
+
+  private rebuildHatBuffers(
+    ctx: AudioContext | BaseAudioContext,
+    sampleRate: number,
+    nextNoise: () => number,
+    kit: DrumKitMode
+  ) {
+    const kitConfig = DRUM_KIT_SYNTH_CONFIGS[kit];
+    const inharmonicFreqs = kitConfig.hatInharmonicFreqs;
+    const metalRatio = kitConfig.hatMetalRatio;
+    const noiseRatio = kitConfig.hatNoiseRatio;
 
     // Closed Hat noise buffer (0.05s)
     const hatSamples = Math.ceil(sampleRate * 0.05);
@@ -242,7 +257,7 @@ export class SampleAccurateAudioEngine {
         metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
       }
       const noise = nextNoise();
-      hData[i] = metal * 0.65 + noise * 0.35;
+      hData[i] = metal * metalRatio + noise * noiseRatio;
     }
 
     // Open-hat noise buffer (0.25s)
@@ -256,18 +271,19 @@ export class SampleAccurateAudioEngine {
         metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
       }
       const noise = nextNoise();
-      ohData[i] = metal * 0.55 + noise * 0.45;
+      ohData[i] = metal * (metalRatio * 0.85) + noise * (noiseRatio * 1.3);
     }
   }
 
   private initDistortionCurves() {
     const kWarm = 2;
     const kOverdrive = 8;
-    this.distWarmCurve = new Float32Array(128);
-    this.distOverdriveCurve = new Float32Array(128);
+    const CURVE_SIZE = 8192;
+    this.distWarmCurve = new Float32Array(CURVE_SIZE);
+    this.distOverdriveCurve = new Float32Array(CURVE_SIZE);
 
-    for (let i = 0; i < 128; i++) {
-      const x = (i * 2) / 128 - 1;
+    for (let i = 0; i < CURVE_SIZE; i++) {
+      const x = (i * 2) / CURVE_SIZE - 1;
       this.distWarmCurve[i] = ((Math.PI + kWarm) * x) / (Math.PI + kWarm * Math.abs(x));
       this.distOverdriveCurve[i] = ((Math.PI + kOverdrive) * x) / (Math.PI + kOverdrive * Math.abs(x));
     }
@@ -491,6 +507,17 @@ export class SampleAccurateAudioEngine {
       drumKit,
       blocks,
     };
+
+    // Rebuild hat noise buffers when drum kit changes
+    if (drumKit !== this.currentDrumKit && this.ctx) {
+      this.currentDrumKit = drumKit;
+      let noiseSeed = 42;
+      const nextNoise = (): number => {
+        noiseSeed = (1664525 * noiseSeed + 1013904223) % 4294967296;
+        return (noiseSeed / 4294967296) * 2.0 - 1.0;
+      };
+      this.rebuildHatBuffers(this.ctx, this.ctx.sampleRate, nextNoise, drumKit);
+    }
 
     const style = bass?.style ?? drums?.style ?? melodyLayers[0]?.style ?? "trap-br";
     const activeBlock: CanonicalArrangementBlockInput = {
@@ -854,11 +881,12 @@ export class SampleAccurateAudioEngine {
 
   private playKick(when: number, velocity = 90, kit: DrumKitMode = "trap-808") {
     if (!this.ctx) return;
+    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[kit];
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const vol = (velocity / 127) * (kit === "funk-tamborzao" ? 0.55 : 0.45);
-    const startFreq = kit === "drill-punch" ? 180 : kit === "funk-tamborzao" ? 140 : 155;
-    const endFreq = kit === "funk-tamborzao" ? 52 : 44;
+    const startFreq = kitCfg.kickTransientFreq;
+    const endFreq = kitCfg.kickSubFreq;
 
     osc.type = kit === "funk-tamborzao" ? "triangle" : "sine";
     osc.frequency.setValueAtTime(startFreq, when);
@@ -871,8 +899,24 @@ export class SampleAccurateAudioEngine {
     osc.connect(gain).connect(trackGain);
     osc.start(when);
     osc.stop(when + 0.33);
-
     this.trackNode(osc);
+
+    // Transient click layer: short noise burst for punch/presence
+    if (this.snareNoiseBuffer) {
+      const clickNoise = this.ctx.createBufferSource();
+      clickNoise.buffer = this.snareNoiseBuffer;
+      const clickFilter = this.ctx.createBiquadFilter();
+      clickFilter.type = "bandpass";
+      clickFilter.frequency.value = kit === "drill-punch" ? 3500 : 2200;
+      clickFilter.Q.value = 2.0;
+      const clickGain = this.ctx.createGain();
+      clickGain.gain.setValueAtTime(vol * 0.35, when);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, when + 0.004);
+      clickNoise.connect(clickFilter).connect(clickGain).connect(trackGain);
+      clickNoise.start(when);
+      clickNoise.stop(when + 0.005);
+      this.trackNode(clickNoise);
+    }
   }
 
   private playClap(when: number, velocity = 92) {
@@ -927,11 +971,12 @@ export class SampleAccurateAudioEngine {
       this.trackNode(noise);
     }
 
-    // Body tone
+    // Body tone using kit-specific frequency
+    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[kit];
     const osc = this.ctx.createOscillator();
     const tGain = this.ctx.createGain();
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(190, when);
+    osc.frequency.setValueAtTime(kitCfg.snareBodyFreq, when);
     osc.frequency.exponentialRampToValueAtTime(85, when + 0.07);
 
     const trackGain = this.getOrCreateTrackGain("drums");
@@ -951,6 +996,14 @@ export class SampleAccurateAudioEngine {
     filterCurve?: { startHz: number; endHz: number; durationMs: number }
   ) {
     if (!this.ctx || !this.hatNoiseBuffer) return;
+
+    // Open-hat choke: closed hat cuts off any sustaining open hat
+    if (this.lastOpenHatGain) {
+      this.lastOpenHatGain.gain.cancelScheduledValues(when);
+      this.lastOpenHatGain.gain.setValueAtTime(0.001, when);
+      this.lastOpenHatGain = null;
+    }
+
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.hatNoiseBuffer;
 
@@ -990,9 +1043,10 @@ export class SampleAccurateAudioEngine {
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.openHatNoiseBuffer;
 
+    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[this.currentDrumKit];
     const filter = this.ctx.createBiquadFilter();
     filter.type = "highpass";
-    filter.frequency.value = 6200;
+    filter.frequency.value = kitCfg.openHatCutoff;
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
@@ -1003,6 +1057,9 @@ export class SampleAccurateAudioEngine {
     noise.start(when);
     noise.stop(when + dur);
     this.trackNode(noise);
+
+    // Store for open-hat choke
+    this.lastOpenHatGain = gain;
   }
 
   private play808Bass(
@@ -1015,10 +1072,17 @@ export class SampleAccurateAudioEngine {
   ) {
     if (!this.ctx) return;
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * 0.75; // Increased volume for massive sub presence
+    const vol = (velocity / 127) * 0.75;
     const cfg = BASS_808_CONFIGS[drive] || BASS_808_CONFIGS.warm;
 
     const trackGain = this.getOrCreateTrackGain("bass");
+
+    // Lowpass filter envelope: bright attack that closes over time
+    const bassFilter = this.ctx.createBiquadFilter();
+    bassFilter.type = "lowpass";
+    bassFilter.frequency.setValueAtTime(1200, when);
+    bassFilter.frequency.exponentialRampToValueAtTime(180, when + durationSec * 0.6);
+    bassFilter.Q.value = 1.2;
 
     // 1. Clean Sub Oscillator (Preserves pure fundamental for physical subwoofers)
     const cleanOsc = this.ctx.createOscillator();
@@ -1049,7 +1113,7 @@ export class SampleAccurateAudioEngine {
     }
 
     // Parallel Gain Envelopes (Added sustain to prevent 'choco'/weak bass)
-    const sustainHold = Math.min(0.25, durationSec * 0.4); // Hold peak for up to 250ms
+    const sustainHold = Math.min(0.25, durationSec * 0.4);
     
     cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when);
     cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when + sustainHold);
@@ -1059,8 +1123,12 @@ export class SampleAccurateAudioEngine {
     satGain.gain.setValueAtTime(vol * cfg.parallelSatGain, when + sustainHold);
     satGain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
-    cleanOsc.connect(cleanGain).connect(trackGain);
-    satOsc.connect(satDist).connect(satGain).connect(trackGain);
+    // Route: cleanOsc → filter → cleanGain → trackGain
+    //        satOsc → satDist → filter → satGain → trackGain
+    cleanOsc.connect(bassFilter);
+    satOsc.connect(satDist).connect(bassFilter);
+    bassFilter.connect(cleanGain).connect(trackGain);
+    bassFilter.connect(satGain).connect(trackGain);
 
     cleanOsc.start(when);
     satOsc.start(when);
@@ -1084,7 +1152,9 @@ export class SampleAccurateAudioEngine {
     const trackGain = this.getOrCreateTrackGain(layerId);
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
     const cfg = getMelodySynthConfig(synthType);
-    const vol = (velocity / 127) * cfg.baseVol * cfg.gainCompensation * volScale;
+    // Exponential velocity curve for more natural dynamics
+    const velCurve = Math.pow(velocity / 127, 1.5);
+    const vol = velCurve * cfg.baseVol * cfg.gainCompensation * volScale;
 
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
@@ -1102,7 +1172,25 @@ export class SampleAccurateAudioEngine {
     filter.frequency.exponentialRampToValueAtTime(cfg.filterEndCutoff, when + durationSec * 0.92);
     filter.Q.value = cfg.filterQ;
 
-    gain.gain.setValueAtTime(vol, when);
+    // ADSR Envelope: Attack → Decay → Sustain → Release
+    const isPercussive = synthType === "pluck" || synthType === "arp";
+    const attackTime = isPercussive ? 0.003 : 0.012;
+    const decayTime = isPercussive ? 0.06 : 0.1;
+    const sustainLevel = isPercussive ? 0.4 : 0.7;
+    const releaseTime = Math.min(0.15, durationSec * 0.15);
+
+    gain.gain.setValueAtTime(0.001, when);
+    gain.gain.linearRampToValueAtTime(vol, when + attackTime);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.001, vol * sustainLevel),
+      when + attackTime + decayTime
+    );
+    if (durationSec > attackTime + decayTime + releaseTime) {
+      gain.gain.setValueAtTime(
+        Math.max(0.001, vol * sustainLevel),
+        when + durationSec - releaseTime
+      );
+    }
     gain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
     osc1.connect(filter);
