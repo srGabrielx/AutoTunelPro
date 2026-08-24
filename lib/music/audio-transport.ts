@@ -1077,12 +1077,12 @@ export class SampleAccurateAudioEngine {
 
     const trackGain = this.getOrCreateTrackGain("bass");
 
-    // Lowpass filter envelope: bright attack that closes over time
+    // Lowpass filter envelope: bright attack that closes over time (muffled)
     const bassFilter = this.ctx.createBiquadFilter();
     bassFilter.type = "lowpass";
-    bassFilter.frequency.setValueAtTime(1200, when);
-    bassFilter.frequency.exponentialRampToValueAtTime(180, when + durationSec * 0.6);
-    bassFilter.Q.value = 1.2;
+    bassFilter.frequency.setValueAtTime(550, when);
+    bassFilter.frequency.exponentialRampToValueAtTime(110, when + durationSec * 0.6);
+    bassFilter.Q.value = 1.0;
 
     // 1. Clean Sub Oscillator (Preserves pure fundamental for physical subwoofers)
     const cleanOsc = this.ctx.createOscillator();

@@ -460,11 +460,11 @@ export function renderDspAudio({
             }
           }
 
-          // Lowpass filter envelope: bright attack that closes over time
+          // Lowpass filter envelope: bright attack that closes over time (muffled)
           const filterProg = Math.min(1.0, timeSec / (durationSec * 0.6));
-          const currentCutoff = 1200 * Math.pow(180 / 1200, filterProg);
+          const currentCutoff = 550 * Math.pow(110 / 550, filterProg);
           if (n % 16 === 0) {
-            bassFilter.setLowpass(currentCutoff, 1.2, sampleRate);
+            bassFilter.setLowpass(currentCutoff, 1.0, sampleRate);
           }
 
           // Parallel Saturation: Clean Sub + Saturated Upper Harmonics
