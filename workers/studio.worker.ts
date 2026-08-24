@@ -17,6 +17,9 @@ import {
   generateFullComposition,
   regenerateCompositionTrack,
 } from "../lib/music/full-composition.ts";
+import { generateMelody } from "../lib/engines/melody.ts";
+import { generateBass } from "../lib/engines/bass.ts";
+import { generateDrums } from "../lib/engines/drums.ts";
 import { deriveSeed } from "../lib/music/random.ts";
 
 interface DedicatedWorkerScope {
@@ -83,6 +86,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+
         const res = await fetch("/api/melody", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -135,6 +139,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+
         const res = await fetch("/api/bass", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -186,6 +191,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           workerScope.postMessage(successRes);
           break;
         }
+
         const res = await fetch("/api/drums", {
           method: "POST",
           headers: { "content-type": "application/json" },

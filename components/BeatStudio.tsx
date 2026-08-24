@@ -993,12 +993,8 @@ export default function BeatStudio() {
         stopPlayback();
         const mutationEpoch = ++mutationEpochRef.current;
         const requestEpoch = ++generationEpochRef.current;
-        const seed = stateRef.current.seedLocked
-          ? stateRef.current.compositionSeed
-          : createUnlockedSeed();
-        const nextVariation = stateRef.current.seedLocked
-          ? stateRef.current.variationIndex + 1
-          : 0;
+        const seed = createUnlockedSeed();
+        const nextVariation = 0;
         setCompositionSeed(seed);
         setBusy("all");
         setError("");
@@ -1234,10 +1230,7 @@ export default function BeatStudio() {
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = (selectiveEpochRef.current[operationKey] ?? 0) + 1;
       selectiveEpochRef.current[operationKey] = requestEpoch;
-      const seed = customSeed ?? deriveSeed(
-        String(stateRef.current.compositionSeed),
-        `${stateRef.current.variationIndex}:${targetBlock.id}:${operationKey}:${requestEpoch}`,
-      );
+      const seed = customSeed ?? createUnlockedSeed();
       stopPlayback();
       setBusy(layerId);
       setError("");
@@ -1283,10 +1276,7 @@ export default function BeatStudio() {
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = (selectiveEpochRef.current[engine] ?? 0) + 1;
       selectiveEpochRef.current[engine] = requestEpoch;
-      const seed = customSeed ?? deriveSeed(
-        String(stateRef.current.compositionSeed),
-        `${stateRef.current.variationIndex}:${targetBlock.id}:${engine}:${requestEpoch}`,
-      );
+      const seed = customSeed ?? createUnlockedSeed();
       stopPlayback();
       setBusy(engine);
       setError("");
@@ -1355,12 +1345,8 @@ export default function BeatStudio() {
     stopPlayback();
     const mutationEpoch = ++mutationEpochRef.current;
     const requestEpoch = ++generationEpochRef.current;
-    const seed = stateRef.current.seedLocked
-      ? stateRef.current.compositionSeed
-      : createUnlockedSeed();
-    const nextVariation = stateRef.current.seedLocked
-      ? stateRef.current.variationIndex + 1
-      : 0;
+    const seed = createUnlockedSeed();
+    const nextVariation = 0;
     setCompositionSeed(seed);
     setBusy("all");
     setError("");
@@ -1562,9 +1548,14 @@ export default function BeatStudio() {
     const workerClient = new StudioWorkerClient();
     workerClientRef.current = workerClient;
 
-    const restored = deserializeCompositionSnapshot(
-      localStorage.getItem(COMPOSITION_STORAGE_KEY) ?? "",
-    );
+    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const requestedStyle = urlParams?.get("style") as StyleId | null;
+    const requestedPreset = urlParams?.get("preset") as ArtistPresetId | null;
+
+    const restored = !requestedStyle && !requestedPreset
+      ? deserializeCompositionSnapshot(localStorage.getItem(COMPOSITION_STORAGE_KEY) ?? "")
+      : null;
+
     if (restored) {
       const controls = restored.controls;
       const restoredBlockIndex = Math.max(
@@ -1608,12 +1599,23 @@ export default function BeatStudio() {
       })));
       sessionHydratedRef.current = true;
     } else {
+      const activeStyle = requestedStyle || stateRef.current.bassStyle;
+      const activePreset = requestedPreset || stateRef.current.artistPreset;
       const seed = createUnlockedSeed();
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = ++generationEpochRef.current;
       setCompositionSeed(seed);
       setBusy("all");
       sessionHydratedRef.current = true;
+
+      if (requestedStyle) {
+        setBassStyle(requestedStyle);
+        setDrumStyle(requestedStyle);
+        setMelodyLayers((prev) => prev.map((l) => ({ ...l, style: requestedStyle })));
+      }
+      if (requestedPreset) {
+        setArtistPreset(requestedPreset);
+      }
 
       workerClient.generateAll({
         presetId: stateRef.current.artistPreset,
