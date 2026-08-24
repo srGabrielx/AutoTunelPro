@@ -1157,6 +1157,7 @@ export default function BeatStudio() {
         try {
           const result = await workerClientRef.current.generateMelody({
             layerId: newLayerId,
+            synthType: newLayer.synthType,
             style: newLayer.style,
             bpm,
             key: newLayer.key,
@@ -1243,6 +1244,7 @@ export default function BeatStudio() {
       try {
         const result = await workerClientRef.current.generateMelody({
           layerId,
+          synthType: layer.synthType,
           style: layer.style,
           bpm,
           key: layer.key,

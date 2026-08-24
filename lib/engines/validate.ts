@@ -14,6 +14,7 @@ export function parseOptions(body: unknown): GenerateOptions {
   const swing = typeof value.swing === "number" ? Math.max(0, Math.min(100, value.swing)) : undefined;
   const rollDensity = typeof value.rollDensity === "number" ? Math.max(0, Math.min(100, value.rollDensity)) : undefined;
   const humanize = typeof value.humanize === "number" ? Math.max(0, Math.min(100, value.humanize)) : undefined;
+  const synthType = typeof value.synthType === "string" ? (value.synthType as any) : undefined;
 
   return {
     style,
@@ -22,6 +23,7 @@ export function parseOptions(body: unknown): GenerateOptions {
     seed,
     key,
     scale,
+    synthType,
     bassOctave,
     drumPattern,
     swing,

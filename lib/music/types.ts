@@ -46,6 +46,7 @@ export interface GenerateOptions {
   scale?: ScaleId;
   complexity: number;
   seed?: number;
+  synthType?: MelodySynthType;
   bassOctave?: BassOctave;
   drumPattern?: DrumPatternMode;
   swing?: number;       // 0 to 100 %

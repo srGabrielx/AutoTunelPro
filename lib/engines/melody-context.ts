@@ -50,21 +50,27 @@ export interface GenreMelodyProfile {
 
 // Scale degree chord definitions (relative to scale intervals array)
 // For a 7-note scale: i=0, ii=1, III=2, iv=3, v=4, VI=5, VII=6
-// For pentatonic (5 notes): adjusted accordingly
-const CHORD_i:   ChordDegrees = { tones: [0, 2, 4], label: "i" };
-const CHORD_ii:  ChordDegrees = { tones: [1, 3, 5], label: "ii" };
-const CHORD_III: ChordDegrees = { tones: [2, 4, 6], label: "III" };
-const CHORD_iv:  ChordDegrees = { tones: [3, 5, 0], label: "iv" };
-const CHORD_v:   ChordDegrees = { tones: [4, 6, 1], label: "v" };
-const CHORD_VI:  ChordDegrees = { tones: [5, 0, 2], label: "VI" };
-const CHORD_VII: ChordDegrees = { tones: [6, 1, 3], label: "VII" };
+export const CHORD_i:   ChordDegrees = { tones: [0, 2, 4], label: "i" };
+export const CHORD_ii:  ChordDegrees = { tones: [1, 3, 5], label: "ii" };
+export const CHORD_III: ChordDegrees = { tones: [2, 4, 6], label: "III" };
+export const CHORD_iv:  ChordDegrees = { tones: [3, 5, 0], label: "iv" };
+export const CHORD_v:   ChordDegrees = { tones: [4, 6, 1], label: "v" };
+export const CHORD_VI:  ChordDegrees = { tones: [5, 0, 2], label: "VI" };
+export const CHORD_VII: ChordDegrees = { tones: [6, 1, 3], label: "VII" };
+
+// 7th chords for deeper harmonic warmth and modern production
+export const CHORD_i7:   ChordDegrees = { tones: [0, 2, 4, 6], label: "i7" };
+export const CHORD_III7: ChordDegrees = { tones: [2, 4, 6, 1], label: "IIImaj7" };
+export const CHORD_iv7:  ChordDegrees = { tones: [3, 5, 0, 2], label: "iv7" };
+export const CHORD_VI7:  ChordDegrees = { tones: [5, 0, 2, 4], label: "VImaj7" };
+export const CHORD_VII7: ChordDegrees = { tones: [6, 1, 3, 5], label: "VII7" };
 
 // Pentatonic chords (5-note scales — degrees wrap at 5)
-const PENTA_i:   ChordDegrees = { tones: [0, 2, 4], label: "i" };
-const PENTA_ii:  ChordDegrees = { tones: [1, 3, 0], label: "ii" };
-const PENTA_III: ChordDegrees = { tones: [2, 4, 1], label: "III" };
-const PENTA_iv:  ChordDegrees = { tones: [3, 0, 2], label: "iv" };
-const PENTA_v:   ChordDegrees = { tones: [4, 1, 3], label: "v" };
+export const PENTA_i:   ChordDegrees = { tones: [0, 2, 4], label: "i" };
+export const PENTA_ii:  ChordDegrees = { tones: [1, 3, 0], label: "ii" };
+export const PENTA_III: ChordDegrees = { tones: [2, 4, 1], label: "III" };
+export const PENTA_iv:  ChordDegrees = { tones: [3, 0, 2], label: "iv" };
+export const PENTA_v:   ChordDegrees = { tones: [4, 1, 3], label: "v" };
 
 /**
  * Returns whether a scale is pentatonic (5 notes) or heptatonic (7 notes).
@@ -77,26 +83,28 @@ export function getScaleSize(scaleId: ScaleId): number {
 export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   "trap-br": {
     progressions: [
-      [CHORD_i, CHORD_VI, CHORD_III, CHORD_VII],   // i - VI - III - VII (classic trap)
-      [CHORD_i, CHORD_iv, CHORD_VII, CHORD_III],    // i - iv - VII - III (dark)
-      [CHORD_i, CHORD_v, CHORD_VI, CHORD_iv],       // i - v - VI - iv (emotional)
+      [CHORD_i, CHORD_VI, CHORD_III, CHORD_VII],   // i - VI - III - VII (classic commercial trap)
+      [CHORD_i, CHORD_iv, CHORD_VI, CHORD_v],      // i - iv - VI - v (emotional dark trap)
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],      // i - VI - iv - v (Matuê / Teto style)
+      [CHORD_i, CHORD_VII, CHORD_VI, CHORD_VII],   // i - VII - VI - VII (tension loop)
     ],
     motifLengths: [3, 4],
-    restProbability: 0.25,
+    restProbability: 0.2,
     maxJump: 7,
     registerRange: [-12, 12],
     syncopation: 0.35,
     durations: [1, 2],
-    longNoteProbability: 0.3,
+    longNoteProbability: 0.35,
   },
   "trap-uk": {
     progressions: [
-      [CHORD_i, CHORD_iv, CHORD_v, CHORD_iv],       // Dark drill progression
-      [CHORD_i, CHORD_VII, CHORD_VI, CHORD_VII],    // Tension loop
-      [CHORD_i, CHORD_III, CHORD_VII, CHORD_iv],    // Minor pull
+      [CHORD_i, CHORD_VI, CHORD_v, CHORD_i],       // UK Drill dark loop
+      [CHORD_i, CHORD_iv, CHORD_v, CHORD_i],       // Dark drill progression
+      [CHORD_i, CHORD_VII, CHORD_VI, CHORD_v],     // Descending tension loop
+      [CHORD_i, CHORD_III, CHORD_VII, CHORD_iv],   // Minor pull
     ],
     motifLengths: [2, 3],
-    restProbability: 0.3,
+    restProbability: 0.25,
     maxJump: 5,
     registerRange: [-12, 12],
     syncopation: 0.45,
@@ -105,9 +113,10 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   },
   "trap-usa": {
     progressions: [
-      [CHORD_i, CHORD_VI, CHORD_III, CHORD_VII],
-      [CHORD_i, CHORD_iv, CHORD_VI, CHORD_v],
-      [CHORD_i, CHORD_VII, CHORD_iv, CHORD_VI],
+      [CHORD_i, CHORD_VI, CHORD_III, CHORD_VII],   // Metro Boomin / Travis Scott
+      [CHORD_i, CHORD_iv, CHORD_III, CHORD_VI],    // Lil Baby / Gunna
+      [CHORD_VI, CHORD_VII, CHORD_i, CHORD_i],     // Epic build up
+      [CHORD_i, CHORD_iv, CHORD_VI, CHORD_v],      // Emotional Trap
     ],
     motifLengths: [3, 4],
     restProbability: 0.2,
@@ -119,12 +128,12 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   },
   "hip-hop": {
     progressions: [
-      [CHORD_i, CHORD_iv, CHORD_i, CHORD_v],        // Classic boom bap
-      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],       // Soulful
-      [CHORD_ii, CHORD_v, CHORD_i, CHORD_iv],       // Jazz influence
+      [CHORD_i, CHORD_iv, CHORD_VII, CHORD_III],   // Circle of 5ths classic boom bap
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],      // Soulful 90s
+      [CHORD_ii, CHORD_v, CHORD_i, CHORD_VI],      // Jazz 2-5-1 minor
     ],
     motifLengths: [4, 3],
-    restProbability: 0.35,
+    restProbability: 0.3,
     maxJump: 5,
     registerRange: [-12, 12],
     syncopation: 0.5,
@@ -134,7 +143,7 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   "funk": {
     progressions: [
       [CHORD_i, CHORD_iv, CHORD_i, CHORD_iv],       // Funk repetitive groove
-      [CHORD_i, CHORD_VII, CHORD_iv, CHORD_i],      // Funk br
+      [CHORD_i, CHORD_VII, CHORD_iv, CHORD_i],      // Funk BR
       [CHORD_i, CHORD_v, CHORD_iv, CHORD_i],        // Tamborzão funk
     ],
     motifLengths: [2, 3],
@@ -147,12 +156,12 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   },
   "amapiano": {
     progressions: [
-      [CHORD_i, CHORD_iv, CHORD_v, CHORD_i],        // Circular groove
+      [CHORD_i, CHORD_iv, CHORD_v, CHORD_iv],       // Circular groove
       [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],       // Uplifting
       [CHORD_i, CHORD_III, CHORD_iv, CHORD_v],      // Jazz amapiano
     ],
     motifLengths: [3, 4],
-    restProbability: 0.3,
+    restProbability: 0.25,
     maxJump: 7,
     registerRange: [0, 12],
     syncopation: 0.4,
@@ -161,12 +170,12 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   },
   "reggae-default": {
     progressions: [
-      [CHORD_i, CHORD_iv, CHORD_i, CHORD_iv],
-      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],
-      [CHORD_i, CHORD_v, CHORD_iv, CHORD_v],
+      [CHORD_i, CHORD_iv, CHORD_i, CHORD_iv],       // Reggae one drop
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],       // Roots
+      [CHORD_i, CHORD_v, CHORD_iv, CHORD_v],        // Dub
     ],
     motifLengths: [2, 4],
-    restProbability: 0.4,
+    restProbability: 0.35,
     maxJump: 5,
     registerRange: [0, 12],
     syncopation: 0.8,
@@ -175,9 +184,9 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
   },
   "boombap-default": {
     progressions: [
-      [CHORD_i, CHORD_iv, CHORD_i, CHORD_v],
-      [CHORD_ii, CHORD_v, CHORD_i, CHORD_VI],
-      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],
+      [CHORD_i, CHORD_iv, CHORD_VII, CHORD_III],   // Jazzy circle of fifths
+      [CHORD_ii, CHORD_v, CHORD_i, CHORD_VI],      // 2-5-1
+      [CHORD_i, CHORD_VI, CHORD_iv, CHORD_v],      // Golden era
     ],
     motifLengths: [4, 3],
     restProbability: 0.3,
@@ -216,9 +225,6 @@ export const GENRE_MELODY_PROFILES: Record<StyleId, GenreMelodyProfile> = {
     longNoteProbability: 0.6,
   },
 };
-
-// Fix reference: CHORD_IV doesn't exist, use CHORD_iv
-// The amapiano profile references it - it's actually the same as iv in minor context
 
 /**
  * Resolves chord degree indices to actual semitone intervals from the root,

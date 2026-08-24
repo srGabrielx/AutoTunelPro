@@ -735,6 +735,7 @@ function buildCandidate(
       layer,
       result: generateMelody({
         style: layer.style,
+        synthType: layer.synthType,
         bpm: input.bpm,
         key: input.key,
         scale: input.globalScale,
@@ -932,6 +933,7 @@ export function regenerateCompositionTrack(
     const { melodyProfile } = extractProfiles(resolved.input);
     const dna = generateMelody({
       style: layer.style,
+      synthType: layer.synthType,
       bpm: resolved.input.bpm,
       key: resolved.input.key,
       scale: resolved.input.globalScale,

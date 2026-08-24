@@ -1,5 +1,5 @@
 import { makeSeed, rng } from "../music/random.ts";
-import { KEYS } from "../music/styles.ts";
+import { KEYS, SCALES } from "../music/styles.ts";
 import type { BassNote, BassResult, GenerateOptions } from "../music/types.ts";
 import { buildCompositionPlan, type CompositionPlan } from "../music/composition-plan.ts";
 
@@ -11,7 +11,23 @@ export function generateBass(options: GenerateOptions): BassResult {
 
   const rootMidi = KEYS[plan.key] ?? 60;
   const octaveOffset = options.bassOctave ?? -24;
-  const bassRoot = rootMidi + octaveOffset;
+
+  const scaleDef = (options.scale && SCALES[options.scale]) 
+    ? SCALES[options.scale] 
+    : (plan.scale && SCALES[plan.scale]) 
+    ? SCALES[plan.scale] 
+    : SCALES["natural-minor"];
+  const scaleIntervals = scaleDef.intervals;
+
+  function getHarmonicBassNote(degree: number, addOctave = false): number {
+    const wrappedDegree = ((degree % scaleIntervals.length) + scaleIntervals.length) % scaleIntervals.length;
+    const interval = scaleIntervals[wrappedDegree];
+    let midi = rootMidi + octaveOffset + interval + (addOctave ? 12 : 0);
+    // Ideal 808 sub register: MIDI 33 (A0) to 50 (D2)
+    while (midi < 33) midi += 12;
+    while (midi > 50) midi -= 12;
+    return midi;
+  }
 
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
   const notes: BassNote[] = [];
@@ -25,8 +41,9 @@ export function generateBass(options: GenerateOptions): BassResult {
       const region = plan.harmonicGrid.find(r => r.startStep <= beatStart && r.endStep > beatStart) 
                      ?? plan.harmonicGrid[0];
                      
-      // The exact root of the current chord
-      const chordRootTone = region.chordDegrees[0];
+      // The exact root degree of the current chord
+      const chordRootDegree = region.chordDegrees[0] ?? 0;
+      const baseBassNote = getHarmonicBassNote(chordRootDegree, false);
 
       // Bass anchors itself to strong beats
       const anchor = plan.rhythmicAnchors.find(a => a.step === beatStart);
@@ -38,7 +55,7 @@ export function generateBass(options: GenerateOptions): BassResult {
 
         notes.push({
           step: beatStart,
-          note: bassRoot + chordRootTone,
+          note: baseBassNote,
           velocity: Math.round(90 + (anchor ? anchor.weight * 30 : 10) + (random() * 10 - 5)),
           duration,
           slide: isSlide,
@@ -52,15 +69,17 @@ export function generateBass(options: GenerateOptions): BassResult {
         
         for (const sa of syncAnchors) {
           if (!notes.some(n => n.step === sa.step) && random() < sa.weight * (comp / 5)) {
-            // Octave jumps for syncopated accents
-            const octaveJump = random() > 0.6 ? 12 : 0;
+            // Octave jumps or 5th jumps for syncopated accents
+            const useFifth = random() > 0.6;
+            const fifthDegree = (chordRootDegree + 4) % scaleIntervals.length;
+            const accentNote = useFifth ? getHarmonicBassNote(fifthDegree, false) : getHarmonicBassNote(chordRootDegree, true);
             
             notes.push({
               step: sa.step,
-              note: bassRoot + chordRootTone + octaveJump,
+              note: accentNote,
               velocity: Math.round(75 + (sa.weight * 20)),
               duration: 1,
-              slide: random() > 0.7,
+              slide: random() > 0.65,
             });
           }
         }
@@ -71,9 +90,10 @@ export function generateBass(options: GenerateOptions): BassResult {
   // Ensure at least step 0 has a strong root if empty
   if (!notes.some((n) => n.step === 0)) {
     const firstRegion = plan.harmonicGrid[0];
+    const firstDegree = firstRegion?.chordDegrees[0] ?? 0;
     notes.unshift({
       step: 0,
-      note: bassRoot + firstRegion.chordDegrees[0],
+      note: getHarmonicBassNote(firstDegree, false),
       velocity: 110,
       duration: 3,
     });

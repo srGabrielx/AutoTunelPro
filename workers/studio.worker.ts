@@ -89,6 +89,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           signal: controller.signal,
           body: JSON.stringify({
             style: p.style,
+            synthType: p.synthType,
             bpm: p.bpm,
             key: p.key,
             scale: p.scale,

@@ -1,5 +1,5 @@
-import BeatStudio from "../components/BeatStudio";
+import LandingPage from "../components/LandingPage";
 
 export default function Home() {
-  return <BeatStudio />;
+  return <LandingPage />;
 }
