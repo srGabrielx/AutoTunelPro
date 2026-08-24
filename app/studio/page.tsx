@@ -1,10 +1,10 @@
-import BeatStudio from "../../components/BeatStudio";
+import StudioClientWrapper from "./StudioClientWrapper";
 
 export const metadata = {
-  title: "AutoTunel Studio — DAW Procedural",
-  description: "Crie melodias, baterias e baixos 808 com processamento procedural 100% local.",
+  title: "AutoTunel Studio — App Local",
+  description: "DAW e Engine Procedural de Áudio com Execução 100% Local no seu dispositivo.",
 };
 
 export default function StudioPage() {
-  return <BeatStudio />;
+  return <StudioClientWrapper />;
 }

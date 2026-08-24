@@ -3,8 +3,7 @@
 import React, { useState } from "react";
 
 export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState<"desktop" | "mobile" | "web">("desktop");
-  const [playingGenre, setPlayingGenre] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"desktop" | "mobile">("desktop");
 
   const genres = [
     {
@@ -51,8 +50,20 @@ export default function LandingPage() {
         window.deferredPWAInstallPrompt = undefined;
       });
     } else {
-      alert("Para instalar no celular: toque no menu do seu navegador (três pontinhos ou botão de compartilhar) e selecione 'Adicionar à tela inicial'!");
+      alert("Para instalar no celular: toque no menu do seu navegador (três pontinhos no Android ou botão de compartilhar no iPhone) e selecione 'Adicionar à tela inicial'!");
     }
+  };
+
+  const scrollToMobile = () => {
+    setActiveTab("mobile");
+    const el = document.getElementById("downloads");
+    el?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToDesktop = () => {
+    setActiveTab("desktop");
+    const el = document.getElementById("downloads");
+    el?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -79,8 +90,8 @@ export default function LandingPage() {
           </nav>
 
           <div className="landing-nav-actions">
-            <a href="/studio" className="btn-landing-primary">
-              Abrir Studio Web ⚡
+            <a href="#downloads" className="btn-landing-primary">
+              Baixar Aplicativo 📥
             </a>
           </div>
         </div>
@@ -100,34 +111,34 @@ export default function LandingPage() {
           </h1>
 
           <p className="landing-hero-subtitle">
-            A primeira DAW procedural inteligente projetada para rodar localmente no seu computador e celular.
-            Sem assinaturas pesadas, sem fila na nuvem, com exportação instantânea em <strong>MIDI multitrack</strong> e <strong>WAV 24-bit</strong>.
+            A DAW procedural inteligente projetada para rodar exclusivamente no seu computador e celular.
+            Sem assinaturas pesadas, sem fila na nuvem, com exportação instantânea em <strong>MIDI multitrack</strong> e <strong>WAV 24-bit</strong> direto na sua máquina.
           </p>
 
           <div className="landing-hero-ctas">
-            <a href="#downloads" className="btn-hero-download">
-              <span className="btn-icon">📥</span>
+            <button onClick={scrollToDesktop} className="btn-hero-download">
+              <span className="btn-icon">💻</span>
               <div className="btn-text-group">
-                <span className="btn-main-text">Baixar App Grátis</span>
-                <span className="btn-sub-text">Windows • Mac • Celular</span>
+                <span className="btn-main-text">Baixar para Computador</span>
+                <span className="btn-sub-text">Windows • macOS • Linux</span>
               </div>
-            </a>
+            </button>
 
-            <a href="/studio" className="btn-hero-studio">
-              <span className="btn-icon">🚀</span>
+            <button onClick={scrollToMobile} className="btn-hero-studio">
+              <span className="btn-icon">📱</span>
               <div className="btn-text-group">
-                <span className="btn-main-text">Testar no Navegador</span>
-                <span className="btn-sub-text">Sem instalação imediata</span>
+                <span className="btn-main-text">Instalar no Celular</span>
+                <span className="btn-sub-text">Android • iOS (PWA / APK)</span>
               </div>
-            </a>
+            </button>
           </div>
 
           {/* PLATFORM PILLS */}
           <div className="landing-platforms">
-            <span className="platform-tag">🪟 Windows 10/11</span>
+            <span className="platform-tag">🪟 Windows 10/11 (.exe)</span>
             <span className="platform-tag">🍏 macOS (M1/M2/M3 & Intel)</span>
-            <span className="platform-tag">🐧 Linux</span>
-            <span className="platform-tag">📱 Android APK / PWA</span>
+            <span className="platform-tag">🐧 Linux (.AppImage)</span>
+            <span className="platform-tag">📱 Android APK & PWA</span>
             <span className="platform-tag">🍎 iOS Standalone</span>
           </div>
 
@@ -139,8 +150,8 @@ export default function LandingPage() {
                 <span className="dot dot-yellow" />
                 <span className="dot dot-green" />
               </div>
-              <span className="preview-title">AutoTunel Studio — Engine Melódico & DAW Local</span>
-              <span className="preview-status">🟢 Motor 100% Offline Ativo</span>
+              <span className="preview-title">AutoTunel Studio — DAW Procedural de Alta Performance</span>
+              <span className="preview-status">🟢 Execução 100% Local no Hardware</span>
             </div>
             <div className="preview-content">
               <div className="preview-grid">
@@ -176,7 +187,7 @@ export default function LandingPage() {
           <div className="section-header text-center">
             <h2 className="section-title">Ouça a Qualidade das Produções</h2>
             <p className="section-subtitle">
-              Padrões gerados com harmonia estrita, acidentes controlados e dinâmicas orgânicas por gênero.
+              Padrões gerados com harmonia estrita, acidentes controlados e dinâmicas orgânicas por gênero no aplicativo.
             </p>
           </div>
 
@@ -191,14 +202,14 @@ export default function LandingPage() {
                       <span className="meta-badge">{genre.scale}</span>
                     </div>
                   </div>
-                  <a href={`/studio?style=${genre.id}`} className="genre-play-btn" title="Abrir e Gerar no Studio">
-                    ▶
+                  <a href="#downloads" className="genre-play-btn" title="Baixar App para Produzir">
+                    📥
                   </a>
                 </div>
                 <p className="genre-desc">{genre.desc}</p>
                 <div className="genre-footer">
-                  <a href={`/studio?style=${genre.id}`} className="genre-link">
-                    Gerar neste Estilo no Studio →
+                  <a href="#downloads" className="genre-link">
+                    Disponível no Aplicativo Instalado →
                   </a>
                 </div>
               </div>
@@ -254,7 +265,7 @@ export default function LandingPage() {
               <div className="feature-icon">🛡️</div>
               <h3 className="feature-title">100% Local & Privado</h3>
               <p className="feature-text">
-                Todo o processamento acontece no seu hardware. Suas ideias, arranjos e composições nunca são enviadas para servidores externos.
+                Todo o processamento acontece no seu hardware. Suas ideias, arranjos e composições nunca saem do seu dispositivo nem passam por servidores.
               </p>
             </div>
 
@@ -276,7 +287,7 @@ export default function LandingPage() {
             <div className="landing-badge-pill">Central de Downloads</div>
             <h2 className="section-title">Baixe o AutoTunel para o Seu Sistema</h2>
             <p className="section-subtitle">
-              Escolha seu dispositivo abaixo para instalar a versão local ou use a versão web instantânea.
+              Escolha seu dispositivo abaixo para instalar o aplicativo e começar a produzir offline.
             </p>
           </div>
 
@@ -293,12 +304,6 @@ export default function LandingPage() {
               onClick={() => setActiveTab("mobile")}
             >
               📱 Celular (Mobile)
-            </button>
-            <button
-              className={`download-tab-btn ${activeTab === "web" ? "active" : ""}`}
-              onClick={() => setActiveTab("web")}
-            >
-              🌐 Versão Web
             </button>
           </div>
 
@@ -394,19 +399,6 @@ export default function LandingPage() {
                 </div>
               </div>
             )}
-
-            {activeTab === "web" && (
-              <div className="download-web-box text-center">
-                <div className="web-box-icon">⚡</div>
-                <h3>Usar o Studio Diretamente no Navegador</h3>
-                <p>
-                  Prefere usar agora sem instalar nada? Você pode abrir o <strong>AutoTunel Studio Web</strong> em qualquer navegador moderno (Chrome, Edge, Safari, Firefox).
-                </p>
-                <a href="/studio" className="btn-open-web-studio">
-                  Entrar no Studio Web 🚀
-                </a>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -416,7 +408,7 @@ export default function LandingPage() {
         <div className="landing-container">
           <div className="section-header text-center">
             <h2 className="section-title">Por que escolher o AutoTunel Pro?</h2>
-            <p className="section-subtitle">Veja como o processamento 100% local supera soluções antigas.</p>
+            <p className="section-subtitle">Veja como o aplicativo local supera serviços web e ferramentas em nuvem.</p>
           </div>
 
           <div className="comparison-table-wrapper">
@@ -424,8 +416,8 @@ export default function LandingPage() {
               <thead>
                 <tr>
                   <th>Recursos</th>
-                  <th className="highlight-col">AutoTunel Pro</th>
-                  <th>DAWs em Nuvem / IA</th>
+                  <th className="highlight-col">AutoTunel Pro (Local)</th>
+                  <th>Sites de IA em Nuvem</th>
                   <th>Plugins Tradicionais</th>
                 </tr>
               </thead>
@@ -433,13 +425,13 @@ export default function LandingPage() {
                 <tr>
                   <td><strong>Local & Offline</strong></td>
                   <td className="highlight-col">✅ 100% no seu hardware</td>
-                  <td>❌ Requer internet</td>
+                  <td>❌ Requer internet constante</td>
                   <td>✅ Local</td>
                 </tr>
                 <tr>
                   <td><strong>Latência de Geração</strong></td>
                   <td className="highlight-col">⚡ Instantânea (0ms)</td>
-                  <td>⏳ Lenta (filas de servidores)</td>
+                  <td>⏳ Lenta (filas em servidores)</td>
                   <td>⚡ Rápida</td>
                 </tr>
                 <tr>
@@ -450,15 +442,15 @@ export default function LandingPage() {
                 </tr>
                 <tr>
                   <td><strong>Exportação MIDI Multitrack</strong></td>
-                  <td className="highlight-col">✅ Ilimitada & Grátis</td>
-                  <td>⚠️ Paga por exportação</td>
+                  <td className="highlight-col">✅ Ilimitada & Direta</td>
+                  <td>⚠️ Paga por download</td>
                   <td>✅ Sim</td>
                 </tr>
                 <tr>
                   <td><strong>Consumo de Memória</strong></td>
                   <td className="highlight-col">🚀 Menos de 15 MB (Tauri)</td>
                   <td>⚠️ Pesado no navegador</td>
-                  <td>❌ Gigabytes de amostras</td>
+                  <td>❌ Gigabytes de bibliotecas</td>
                 </tr>
                 <tr>
                   <td><strong>Direitos Comerciais</strong></td>
@@ -477,35 +469,35 @@ export default function LandingPage() {
         <div className="landing-container">
           <div className="section-header text-center">
             <h2 className="section-title">Perguntas Frequentes</h2>
-            <p className="section-subtitle">Tire suas dúvidas sobre o funcionamento do AutoTunel.</p>
+            <p className="section-subtitle">Tire suas dúvidas sobre a instalação e funcionamento do AutoTunel.</p>
           </div>
 
           <div className="faq-grid">
             <div className="faq-item">
-              <h4 className="faq-question">O programa funciona sem internet?</h4>
+              <h4 className="faq-question">O aplicativo funciona sem internet?</h4>
               <p className="faq-answer">
-                Sim! Todos os motores procedurais, síntese DSP de bateria/baixo e geradores de melodia rodam 100% localmente no processador do seu computador ou celular.
+                Sim! Todos os motores procedurais, síntese DSP de bateria/baixo e geradores de melodia rodam 100% localmente no processador do seu computador ou celular após instalado.
               </p>
             </div>
 
             <div className="faq-item">
               <h4 className="faq-question">Posso usar os beats gerados comercialmente no Spotify e YouTube?</h4>
               <p className="faq-answer">
-                Sim! Todas as batidas, melodias e arquivos MIDI/WAV gerados são 100% seus e Royalty Free para lançamento em streaming, vendas de beat e monetização.
+                Sim! Todas as batidas, melodias e arquivos MIDI/WAV gerados são 100% seus e Royalty Free para lançamento em streaming, vendas de beat e monetização sem royalties adicionais.
               </p>
             </div>
 
             <div className="faq-item">
               <h4 className="faq-question">Como exporto para o FL Studio, Ableton ou Reaper?</h4>
               <p className="faq-answer">
-                Basta clicar nos botões de exportação dentro do Studio. O AutoTunel gera arquivos <code>.mid</code> (com canais separados para Lead, Pad, Bateria e 808) e arquivos <code>.wav</code> em 24-bit que você pode simplesmente arrastar para sua DAW.
+                Basta clicar nos botões de exportação dentro do aplicativo. O AutoTunel gera arquivos <code>.mid</code> (com canais separados para Lead, Pad, Bateria e 808) e arquivos <code>.wav</code> em 24-bit que você pode simplesmente arrastar para sua DAW favorita.
               </p>
             </div>
 
             <div className="faq-item">
               <h4 className="faq-question">Como funciona a instalação no celular?</h4>
               <p className="faq-answer">
-                O AutoTunel utiliza tecnologia PWA moderna. Basta acessar o site pelo navegador do celular e tocar em "Instalar no Celular". O aplicativo será adicionado à sua tela inicial como um app nativo.
+                O AutoTunel utiliza tecnologia PWA moderna. Basta acessar este site pelo navegador do celular e tocar em "Instalar no Celular". O aplicativo será adicionado à sua tela inicial como um app nativo, funcionando em tela cheia e offline.
               </p>
             </div>
           </div>
@@ -517,15 +509,15 @@ export default function LandingPage() {
         <div className="landing-container text-center">
           <h2 className="cta-banner-title">Pronto para Elevar Suas Produções?</h2>
           <p className="cta-banner-subtitle">
-            Crie seu próximo hit com arranjos harmônicos e bateria com resposta instantânea.
+            Baixe o aplicativo para seu dispositivo e produza beats profissionais com 0ms de latência.
           </p>
           <div className="cta-banner-actions">
-            <a href="/studio" className="btn-banner-studio">
-              Abrir Studio Web Agora ⚡
-            </a>
-            <a href="#downloads" className="btn-banner-download">
-              Baixar para Computador / Celular ↓
-            </a>
+            <button onClick={scrollToDesktop} className="btn-banner-studio">
+              Baixar para Computador (Windows / Mac) 💻
+            </button>
+            <button onClick={scrollToMobile} className="btn-banner-download">
+              Instalar no Celular (Android / iOS) 📱
+            </button>
           </div>
         </div>
       </section>
@@ -538,7 +530,6 @@ export default function LandingPage() {
             <p className="footer-text">DAW e Engine Procedural de Áudio com Execução 100% Local.</p>
           </div>
           <div className="footer-links">
-            <a href="/studio">Abrir Studio</a>
             <a href="#downloads">Downloads</a>
             <a href="#recursos">Recursos</a>
             <a href="#faq">FAQ</a>
