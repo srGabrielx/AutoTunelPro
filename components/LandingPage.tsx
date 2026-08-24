@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import UserProfileButton from "./UserProfileButton";
 import { SampleAccurateAudioEngine } from "../lib/music/audio-transport";
 import { generateMelody } from "../lib/engines/melody";
 import { generateBass } from "../lib/engines/bass";
@@ -303,6 +304,7 @@ export default function LandingPage() {
           </nav>
 
           <div className="landing-nav-actions">
+            <UserProfileButton />
             <a href="#downloads" className="btn-landing-primary">
               Baixar App Grátis 📥
             </a>

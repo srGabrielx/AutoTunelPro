@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import UserProfileButton from "./UserProfileButton";
 import type {
   ArtistPresetId,
   BassDrive,
@@ -1812,7 +1813,9 @@ export default function BeatStudio() {
           <span className="status-text">{key} {SCALES[globalScale]?.label.split(" ")[0]} · {bpm} BPM</span>
         </div>
 
-
+        <div className="topbar-actions">
+          <UserProfileButton />
+        </div>
       </nav>
 
       {/* ==========================================
