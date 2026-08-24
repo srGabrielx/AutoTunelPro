@@ -197,36 +197,15 @@ test("zero seed is distinct and the former hip-hop seed 8 loop terminates", () =
 
 test("studio worker preserves manual seeds and composes full snapshots without API fan-out", async (t) => {
   const previousSelf = globalThis.self;
-  const previousFetch = globalThis.fetch;
   const posted = [];
-  const requests = [];
   globalThis.self = {
     onmessage: null,
     postMessage(message) {
       posted.push(message);
     },
   };
-  globalThis.fetch = async (url, init) => {
-    requests.push({ url, body: JSON.parse(init.body) });
-    return {
-      ok: true,
-      status: 200,
-      async json() {
-        return {
-          engine: "melody",
-          seed: requests.at(-1).body.seed,
-          style: "trap-br",
-          bpm: 124,
-          key: "G#",
-          scale: "natural-minor",
-          notes: [],
-        };
-      },
-    };
-  };
   t.after(() => {
     globalThis.self = previousSelf;
-    globalThis.fetch = previousFetch;
   });
 
   await import("../workers/studio.worker.ts?full-composition-regression");
@@ -253,14 +232,14 @@ test("studio worker preserves manual seeds and composes full snapshots without A
     data: { type: "generate-melody", requestId: "auto-seed-2", payload: melodyPayload },
   });
 
-  assert.equal(requests[0].body.seed, 42);
-  assert.notEqual(requests[1].body.seed, requests[2].body.seed);
+  assert.equal(posted[0].data.seed, 42);
+  assert.notEqual(posted[1].data.seed, posted[2].data.seed);
 
-  const requestCountBeforeFull = requests.length;
+  const requestCountBeforeFull = posted.length;
   await dispatch({
     data: { type: "generate-all", requestId: "full-direct", payload },
   });
-  assert.equal(requests.length, requestCountBeforeFull, "generate-all must not fetch nine APIs");
+  assert.equal(posted.length, requestCountBeforeFull + 1, "generate-all must post a single message");
   const fullResponse = posted.find((message) => message.requestId === "full-direct");
   assert.equal(fullResponse.success, true);
   assert.equal(fullResponse.data.timeline.ppq, 960);
