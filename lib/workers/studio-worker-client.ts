@@ -20,7 +20,6 @@ interface PendingPromise {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
   timer: NodeJS.Timeout | number;
-<<<<<<< HEAD
   worker: Worker;
   operationKey?: string;
 }
@@ -57,18 +56,13 @@ export class StudioWorkerRequestError extends Error {
 
 export function isSupersededWorkerRequest(error: unknown): boolean {
   return error instanceof SupersededWorkerRequestError;
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }
 
 export class StudioWorkerClient {
   private studioWorker: Worker | null = null;
   private exportWorker: Worker | null = null;
   private pendingRequests = new Map<string, PendingPromise>();
-<<<<<<< HEAD
   private latestRequestByOperation = new Map<string, string>();
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   private requestCounter = 0;
   private isTerminated = false;
 
@@ -110,7 +104,6 @@ export class StudioWorkerClient {
 
   private nextRequestId(prefix: string): string {
     this.requestCounter += 1;
-<<<<<<< HEAD
     return `${prefix}-${this.requestCounter}`;
   }
 
@@ -134,9 +127,6 @@ export class StudioWorkerClient {
     this.pendingRequests.delete(previousRequestId);
     this.postCancellation(previous.worker, previousRequestId);
     previous.reject(new SupersededWorkerRequestError(previousRequestId));
-=======
-    return `${prefix}-${this.requestCounter}-${Date.now()}`;
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   private handleWorkerMessage(event: MessageEvent<WorkerResponse>) {
@@ -151,15 +141,12 @@ export class StudioWorkerClient {
 
     clearTimeout(pending.timer as NodeJS.Timeout);
     this.pendingRequests.delete(res.requestId);
-<<<<<<< HEAD
     if (
       pending.operationKey &&
       this.latestRequestByOperation.get(pending.operationKey) === res.requestId
     ) {
       this.latestRequestByOperation.delete(pending.operationKey);
     }
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     if (res.success) {
       if (res.type === "generate-melody") {
@@ -176,7 +163,6 @@ export class StudioWorkerClient {
         pending.resolve(res.data);
       }
     } else {
-<<<<<<< HEAD
       pending.reject(
         new StudioWorkerRequestError(
           res.error.message,
@@ -185,21 +171,14 @@ export class StudioWorkerClient {
           res.error.code,
         ),
       );
-=======
-      pending.reject(new Error(res.error.message));
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     }
   }
 
   private send<T>(
     worker: Worker | null,
     req: WorkerRequest,
-<<<<<<< HEAD
     timeoutMs = 30000,
     operationKey?: string,
-=======
-    timeoutMs = 30000
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   ): Promise<T> {
     if (this.isTerminated) {
       return Promise.reject(new Error("Worker client has been terminated"));
@@ -211,19 +190,15 @@ export class StudioWorkerClient {
       );
     }
 
-<<<<<<< HEAD
     if (operationKey) {
       this.supersede(operationKey);
       this.latestRequestByOperation.set(operationKey, req.requestId);
     }
 
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         if (this.pendingRequests.has(req.requestId)) {
           this.pendingRequests.delete(req.requestId);
-<<<<<<< HEAD
           if (
             operationKey &&
             this.latestRequestByOperation.get(operationKey) === req.requestId
@@ -239,9 +214,6 @@ export class StudioWorkerClient {
               "REQUEST_TIMEOUT",
             ),
           );
-=======
-          reject(new Error(`Timeout na requisição ${req.type} (${req.requestId})`));
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         }
       }, timeoutMs);
 
@@ -249,11 +221,8 @@ export class StudioWorkerClient {
         resolve: resolve as (value: unknown) => void,
         reject,
         timer,
-<<<<<<< HEAD
         worker,
         operationKey,
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       });
 
       worker.postMessage(req);
@@ -267,11 +236,7 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<MelodyResult>(this.studioWorker, req, 30000, `melody:${payload.layerId}`);
-=======
-    return this.send<MelodyResult>(this.studioWorker, req);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public generateBass(payload: GenerateBassPayload): Promise<BassResult> {
@@ -281,11 +246,7 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<BassResult>(this.studioWorker, req, 30000, "bass");
-=======
-    return this.send<BassResult>(this.studioWorker, req);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public generateDrums(payload: GenerateDrumsPayload): Promise<DrumResult> {
@@ -295,11 +256,7 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<DrumResult>(this.studioWorker, req, 30000, "drums");
-=======
-    return this.send<DrumResult>(this.studioWorker, req);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public generateAll(payload: GenerateAllPayload): Promise<GenerateAllResponseData> {
@@ -309,11 +266,7 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<GenerateAllResponseData>(this.studioWorker, req, 45000, "arrangement");
-=======
-    return this.send<GenerateAllResponseData>(this.studioWorker, req, 45000);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public exportMidi(payload: ExportMidiPayload): Promise<ExportFileResponseData> {
@@ -323,11 +276,7 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<ExportFileResponseData>(this.exportWorker, req, 30000, "export-midi");
-=======
-    return this.send<ExportFileResponseData>(this.exportWorker, req);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public exportWav(payload: ExportWavPayload): Promise<ExportFileResponseData> {
@@ -337,7 +286,6 @@ export class StudioWorkerClient {
       requestId,
       payload,
     };
-<<<<<<< HEAD
     return this.send<ExportFileResponseData>(this.exportWorker, req, 60000, "export-wav");
   }
 
@@ -356,20 +304,6 @@ export class StudioWorkerClient {
     }
     this.postCancellation(pending.worker, targetRequestId);
     pending.reject(new SupersededWorkerRequestError(targetRequestId));
-=======
-    return this.send<ExportFileResponseData>(this.exportWorker, req, 60000);
-  }
-
-  public cancel(targetRequestId: string) {
-    if (this.studioWorker && !this.isTerminated) {
-      const cancelReq: WorkerRequest = {
-        type: "cancel",
-        requestId: this.nextRequestId("cancel"),
-        payload: { targetRequestId },
-      };
-      this.studioWorker.postMessage(cancelReq);
-    }
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   public terminate() {
@@ -379,10 +313,7 @@ export class StudioWorkerClient {
       p.reject(new Error("Worker terminated"));
     });
     this.pendingRequests.clear();
-<<<<<<< HEAD
     this.latestRequestByOperation.clear();
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     if (this.studioWorker) {
       this.studioWorker.terminate();

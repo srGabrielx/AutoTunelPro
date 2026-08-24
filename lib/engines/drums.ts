@@ -117,10 +117,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   const dna = GENRE_GROOVE_DNA[options.style] ?? GENRE_GROOVE_DNA["trap-br"];
   const hits: DrumHit[] = [];
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
-<<<<<<< HEAD
   const profile = options.drumProfile;
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   
   // Create or reuse the composition plan
   const plan: CompositionPlan = options.compositionPlan ?? buildCompositionPlan(options, () => deterministicRng(seed, "plan", 0));
@@ -136,32 +133,22 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       return 0;
     }
     const swingMs = isOffbeat ? dna.swingOffsetMs * (effectiveSwing / 50) : 0;
-<<<<<<< HEAD
     
     // Add emphasis for reggae/amapiano if profile requests it
     const offbeatEmphasis = isOffbeat && profile?.offbeatEmphasis ? 10 : 0;
     
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     const jitterFactor = deterministicRng(seed, `${drum}-jitter`, step) * 2 - 1;
     const humanizeJitter = jitterFactor * (effectiveHumanize / 100) * 3.5;
     return Math.max(-15, Math.min(15, Math.round(swingMs + humanizeJitter)));
   };
 
   const getHumanizedVel = (drum: string, step: number, base: number) => {
-<<<<<<< HEAD
     const isOffbeat = step % 2 === 1;
     const velNoise = deterministicRng(seed, `${drum}-vel`, step) * 2 - 1;
     const range = (effectiveHumanize / 100) * 20;
     const offset = velNoise * range;
     const offbeatBoost = isOffbeat && profile?.offbeatEmphasis ? 15 : 0;
     return Math.max(35, Math.min(127, Math.round(base + offset + offbeatBoost)));
-=======
-    const velNoise = deterministicRng(seed, `${drum}-vel`, step) * 2 - 1;
-    const range = (effectiveHumanize / 100) * 20;
-    const offset = velNoise * range;
-    return Math.max(35, Math.min(127, Math.round(base + offset)));
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   };
 
   const add = (
@@ -182,7 +169,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
   for (let bar = 0; bar < plan.timeline.bars; bar++) {
     const barStart = bar * plan.timeline.stepsPerBar;
     
-<<<<<<< HEAD
     // 1. Snare / Clap Placement
     const mainSnareDrum: DrumHit["drum"] = deterministicRng(seed, "prefer-clap", 0) > 0.4 ? "clap" : "snare";
     
@@ -197,21 +183,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
         add(globalStep, "clap", 92);
       }
     });
-=======
-    // 1. Snare / Clap Placement (Backbeats)
-    const mainSnareDrum: DrumHit["drum"] = deterministicRng(seed, "prefer-clap", 0) > 0.4 ? "clap" : "snare";
-
-    plan.rhythmicAnchors
-      .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && a.type === "backbeat" && a.weight >= 0.9)
-      .forEach(anchor => {
-        add(anchor.step, mainSnareDrum, 104);
-        
-        // Layer snare + clap on strongest backbeats
-        if (anchor.weight >= 0.9 && comp >= 3 && deterministicRng(seed, "layer-clap", anchor.step) > 0.4) {
-          add(anchor.step, "clap", 92);
-        }
-      });
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       
     // 2. Kick Placement (Downbeats and Syncopations)
     plan.rhythmicAnchors
@@ -219,7 +190,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       .forEach(anchor => {
         if (anchor.type === "downbeat") {
           add(anchor.step, "kick", 108);
-<<<<<<< HEAD
         } else if (anchor.type === "syncopation") {
           const syncProb = profile?.kickSyncopation ?? 0.5;
           if (deterministicRng(seed, "kick-sync", anchor.step) < anchor.weight * (comp / 2) * syncProb * 2) {
@@ -239,13 +209,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
         });
     }
 
-=======
-        } else if (anchor.type === "syncopation" && deterministicRng(seed, "kick-sync", anchor.step) < anchor.weight * (comp / 2)) {
-          add(anchor.step, "kick", 85 + (anchor.weight * 10));
-        }
-      });
-
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     // 3. Hi-Hats with Rolls obeying Energy Curve
     const rollChanceThreshold = 1.0 - (effectiveRolls / 100) * 0.55;
 
@@ -265,7 +228,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       
       // Should we roll? Only if energy is high enough and not on a downbeat (usually)
       // The lower the energy, the lower the chance of rolling
-<<<<<<< HEAD
       const dynamicRollChance = (profile?.hatRollThreshold ?? rollChanceThreshold) + ( (0.8 - energy) * 0.5 ); 
       let roll: DrumRoll | undefined = undefined;
       let stepVel = isStrongBeat ? 95 : (isOffbeat ? 75 : 85);
@@ -274,16 +236,6 @@ export function generateDrums(options: GenerateOptions): DrumResult {
         if (deterministicRng(seed, "hat-roll", s) > dynamicRollChance) {
           const rollCount = deterministicRng(seed, "roll-count", s) > 0.4 ? (profile?.favoredRollCount ?? dna.favoredRollCount) : 2;
           const appliesPitchDrop = deterministicRng(seed, "pitch-drop", s) < (profile?.pitchDropProbability ?? dna.pitchDropProbability);
-=======
-      const dynamicRollChance = rollChanceThreshold + ( (0.8 - energy) * 0.5 ); 
-      let roll: DrumRoll | undefined = undefined;
-      let stepVel = isStrongBeat ? 95 : (isOffbeat ? 75 : 85);
-      
-      if (hatType === "hat" && !isStrongBeat && comp >= 3) {
-        if (deterministicRng(seed, "hat-roll", s) > dynamicRollChance) {
-          const rollCount = deterministicRng(seed, "roll-count", s) > 0.4 ? dna.favoredRollCount : 2;
-          const appliesPitchDrop = deterministicRng(seed, "pitch-drop", s) < dna.pitchDropProbability;
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
           
           let pitchCurve = undefined;
           if (appliesPitchDrop && rollCount >= 3) {

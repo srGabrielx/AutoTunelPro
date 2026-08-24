@@ -24,9 +24,5 @@ export function generateMasterSeed(): string {
     crypto.getRandomValues(array);
     return `${array[0].toString(16)}-${array[1].toString(16)}`;
   }
-<<<<<<< HEAD
   throw new Error("Web Crypto is required to create an unlocked master seed");
-=======
-  return `seed-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }

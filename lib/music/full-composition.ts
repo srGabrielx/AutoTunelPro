@@ -424,9 +424,9 @@ function shapeDrumsForSection(
 
   // Adições por seção para desenvolvimento musical
   if (section.type === "drop") {
-    // Adiciona crash no início do drop
-    if (!hits.some((h) => h.drum === "crash" && h.step === 0)) {
-      hits.push(makeProfileHit(input, sectionSeed, "crash", 0));
+    // Adiciona open-hat no início do drop para impacto
+    if (!hits.some((h) => h.drum === "open-hat" && h.step === 0)) {
+      hits.push(makeProfileHit(input, sectionSeed, "open-hat", 0));
     }
     // Aumenta densidade de kicks e hats
     if (!hits.some((h) => h.drum === "kick" && h.step === 14)) {

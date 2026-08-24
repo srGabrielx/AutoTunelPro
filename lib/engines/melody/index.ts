@@ -28,10 +28,6 @@ export function generateMelody(
   const densityMax = plan.melodyProfile?.densityRange?.[1] ?? 0.7;
   const effectiveDensity = Math.min(densityMax, Math.max(densityMin, rhythmDensity));
   const numNotes = Math.max(1, Math.floor(phraseLength * effectiveDensity * 8)); 
-<<<<<<< HEAD
-=======
-  console.log(`[Melody] Lote 4 Debug - numNotes: ${numNotes}, phraseLength: ${phraseLength}, density: ${effectiveDensity}, startTick: ${startTick}, endTick: ${startTick + durationTicks}`);
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   let currentTick = startTick;
   const endSectionTick = startTick + durationTicks;

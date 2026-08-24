@@ -52,12 +52,9 @@ export interface GenerateOptions {
   rollDensity?: number; // 0 to 100 %
   humanize?: number;    // 0 to 100 %
   compositionPlan?: CompositionPlan; // Injected shared plan for Lote 3+
-<<<<<<< HEAD
   melodyProfile?: MelodyProfile; // Injected from preset
   drumProfile?: DrumProfile; // Injected from preset
   bassProfile?: BassProfile; // Injected from preset
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 }
 
 export interface MelodyNote {

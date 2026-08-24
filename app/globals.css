@@ -949,6 +949,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
+  align-items: stretch;
 }
 
 .engine {
@@ -959,7 +960,22 @@ h1 {
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
+  height: 100%;
   transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.engine .sequence {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.engine.bass .sequence {
+  min-height: 180px;
+}
+
+.engine .actions {
+  margin-top: auto;
 }
 
 .engine.muted-track {
@@ -1552,7 +1568,6 @@ h1 {
   100% { box-shadow: 0 0 0 0 rgba(200, 255, 61, 0); }
 }
 
-/* Transport Drawer Container (Bottom Left with 20px Margin) */
 .transport-drawer-container {
   position: fixed;
   bottom: 100px;
@@ -1561,7 +1576,7 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: calc(100vw - 40px);
+  max-width: min(720px, calc(100vw - 40px));
   animation: fadeScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1581,27 +1596,36 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  width: 340px;
-  max-width: calc(100vw - 40px);
+  width: 100%;
+  max-width: 380px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 .transport-popup {
-  background: rgba(8, 8, 10, 0.92);
+  background: rgba(8, 8, 10, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line-strong);
-  border-radius: 50px;
-  padding: 8px 12px;
+  border-radius: 24px;
+  padding: 8px 14px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  max-width: calc(100vw - 40px);
+  gap: 10px;
+  width: auto;
+  max-width: 100%;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.btn-transport-close {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 6px 14px;
 }
 
 .transport-popup .master-btn {
   margin: 0;
+  flex-shrink: 0;
 }
 
 .transport-divider {
@@ -1903,7 +1927,7 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   padding: 10px 14px;
-  margin-bottom: 12px;
+  margin: 0 18px 12px 18px;
 }
 
 .groove-control-item {

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { PPQ, ticksToSeconds, type Tick } from "../../core/time/tick.ts";
 import type { GrooveEvent } from "./groove-plan.ts";
 import {
@@ -9,15 +8,6 @@ import {
 import {
   BASS_808_CONFIGS,
   getMelodySynthConfig,
-=======
-import { PPQ, ticksToSeconds, type Tick } from "../../core/time/tick";
-import { buildGrooveEventPlan, type GrooveEvent } from "./groove-plan.ts";
-import {
-  BASS_808_CONFIGS,
-  DRUM_KIT_SYNTH_CONFIGS,
-  getMelodySynthConfig,
-  MASTER_BUS_CONFIG,
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 } from "./synthesis-presets.ts";
 import type {
   BassDrive,
@@ -27,10 +17,7 @@ import type {
   MelodyLayer,
   MelodySynthType,
 } from "./types.ts";
-<<<<<<< HEAD
 import type { ArrangementBlockData } from "../workers/protocol.ts";
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
 export { PPQ, ticksToSeconds, type Tick };
 
@@ -63,7 +50,6 @@ export interface TransportEvent {
 
 export type PlaybackMode = "all" | "melody" | "bass" | "drums";
 
-<<<<<<< HEAD
 export interface TransportPlayheadPosition {
   absoluteStep: number;
   localStep: number;
@@ -76,8 +62,6 @@ type TransportArrangementBlock = ArrangementBlockData & {
   durationSteps?: number;
 };
 
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 export interface ScheduledStepEvent {
   step: number;
   melodyNotes: Array<{
@@ -106,8 +90,9 @@ export class SampleAccurateAudioEngine {
   private masterGain: GainNode | null = null;
   private bassSidechainGain: GainNode | null = null;
 
-  // Per-track persistent GainNodes
+  // Per-track persistent GainNodes and Stereo Panners
   private trackGainNodes: Map<string, GainNode> = new Map();
+  private trackPannerNodes: Map<string, StereoPannerNode> = new Map();
   private trackVolumes: Map<string, number> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
@@ -132,19 +117,14 @@ export class SampleAccurateAudioEngine {
   private playbackScope: PlaybackScope = { mode: "all" };
   private sections: TransportSectionBoundary[] = [];
   private totalTicks: Tick = 0;
-<<<<<<< HEAD
   private patternLengthSteps = 16;
   private preparedTimelineHash = "empty";
   private wakeTimer: NodeJS.Timeout | number | null = null;
   private boundaryStopTimer: NodeJS.Timeout | number | null = null;
-=======
-  private wakeTimer: NodeJS.Timeout | number | null = null;
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
   // Pre-indexed step event map (steps 0..15)
   private indexedEvents: ScheduledStepEvent[] = [];
 
-<<<<<<< HEAD
   public getPreparedTimelineSummary() {
     return {
       totalSteps: this.patternLengthSteps,
@@ -156,8 +136,6 @@ export class SampleAccurateAudioEngine {
     };
   }
 
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   // Callbacks
   private onStopCallback?: () => void;
   private onLoopCompleteCallback?: () => void;
@@ -301,6 +279,7 @@ export class SampleAccurateAudioEngine {
 
   /**
    * Get or create a persistent GainNode for a specific track ID.
+   * Also wires a persistent StereoPannerNode for high fidelity spatial positioning.
    */
   public getOrCreateTrackGain(trackId: string): GainNode {
     const existing = this.trackGainNodes.get(trackId);
@@ -310,15 +289,42 @@ export class SampleAccurateAudioEngine {
     const gain = ctx.createGain();
     gain.gain.value = 0.8; // default 80%
 
-    // 808 Bass connects through bassSidechainGain; others connect to masterGain
+    // 808 Bass connects through bassSidechainGain (centered mono); others connect via StereoPanner
     if (trackId === "bass" && this.bassSidechainGain) {
       gain.connect(this.bassSidechainGain);
     } else {
-      gain.connect(this.masterGain || ctx.destination);
+      if (typeof ctx.createStereoPanner === "function") {
+        const panner = ctx.createStereoPanner();
+        // Calculate default spatial stereo spread
+        let defaultPan = 0;
+        if (trackId.startsWith("layer-")) {
+          const index = parseInt(trackId.replace("layer-", ""), 10);
+          if (!isNaN(index)) {
+            // Alternating stereo separation: Layer 0 -> center, Layer 1 -> left (-0.28), Layer 2 -> right (+0.28), Layer 3 -> left (-0.45)...
+            defaultPan = index === 0 ? 0 : (index % 2 === 1 ? -1 : 1) * Math.min(0.55, 0.22 + Math.floor((index - 1) / 2) * 0.15);
+          }
+        }
+        panner.pan.value = defaultPan;
+        this.trackPannerNodes.set(trackId, panner);
+        gain.connect(panner);
+        panner.connect(this.masterGain || ctx.destination);
+      } else {
+        gain.connect(this.masterGain || ctx.destination);
+      }
     }
 
     this.trackGainNodes.set(trackId, gain);
     return gain;
+  }
+
+  /**
+   * Set stereo pan (-1.0 full left to +1.0 full right) for a track.
+   */
+  public setTrackPan(trackId: string, pan: number) {
+    const panner = this.trackPannerNodes.get(trackId);
+    if (!panner || !this.ctx) return;
+    const safePan = Math.max(-1, Math.min(1, pan));
+    panner.pan.setTargetAtTime(safePan, this.ctx.currentTime, 0.015);
   }
 
   /**
@@ -402,7 +408,6 @@ export class SampleAccurateAudioEngine {
     return this.isPlaying;
   }
 
-<<<<<<< HEAD
   public getPlayheadPosition(): TransportPlayheadPosition {
     if (!this.ctx || this.patternLengthSteps <= 0) {
       return { absoluteStep: 0, localStep: 0, sectionIndex: 0 };
@@ -429,8 +434,6 @@ export class SampleAccurateAudioEngine {
     };
   }
 
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   // Last passed parameters for instant dynamic live updates
   private lastParams: {
     melodyLayers: MelodyLayer[];
@@ -440,10 +443,7 @@ export class SampleAccurateAudioEngine {
     muteDrums: boolean;
     bassDrive: BassDrive;
     drumKit: DrumKitMode;
-<<<<<<< HEAD
     blocks?: TransportArrangementBlock[];
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   } = {
     melodyLayers: [],
     bass: null,
@@ -452,7 +452,6 @@ export class SampleAccurateAudioEngine {
     muteDrums: false,
     bassDrive: "warm",
     drumKit: "trap-808",
-<<<<<<< HEAD
     blocks: undefined,
   };
 
@@ -462,15 +461,6 @@ export class SampleAccurateAudioEngine {
    */
   public prepareStepEvents({
     bpm,
-=======
-  };
-
-  /**
-   * Pre-indexes all musical events for 16 steps into dense array structures.
-   * This ensures ZERO .find() or .filter() allocations during audio scheduler ticks.
-   */
-  public prepareStepEvents({
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     melodyLayers,
     bass,
     drums,
@@ -478,13 +468,9 @@ export class SampleAccurateAudioEngine {
     muteDrums,
     bassDrive,
     drumKit,
-<<<<<<< HEAD
     blocks,
   }: {
     bpm?: number;
-=======
-  }: {
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     melodyLayers: MelodyLayer[];
     bass: BassResult | null;
     drums: DrumResult | null;
@@ -492,13 +478,9 @@ export class SampleAccurateAudioEngine {
     muteDrums: boolean;
     bassDrive: BassDrive;
     drumKit: DrumKitMode;
-<<<<<<< HEAD
     blocks?: TransportArrangementBlock[];
   }) {
     if (bpm !== undefined) this.bpm = Math.max(40, Math.min(300, bpm || 140));
-=======
-  }) {
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     this.lastParams = {
       melodyLayers,
       bass,
@@ -507,7 +489,6 @@ export class SampleAccurateAudioEngine {
       muteDrums,
       bassDrive,
       drumKit,
-<<<<<<< HEAD
       blocks,
     };
 
@@ -557,18 +538,12 @@ export class SampleAccurateAudioEngine {
     }));
 
     const events: ScheduledStepEvent[] = Array.from({ length: this.patternLengthSteps }, (_, step) => ({
-=======
-    };
-
-    const events: ScheduledStepEvent[] = Array.from({ length: 16 }, (_, step) => ({
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       step,
       melodyNotes: [],
       grooveEvents: [],
       drumKit,
     }));
 
-<<<<<<< HEAD
     const melodyTrackCount = Math.max(
       1,
       timeline.tracks.filter((track) => track.role === "melody").length,
@@ -611,65 +586,11 @@ export class SampleAccurateAudioEngine {
           pitchCents: canonicalEvent.pitchCents,
           filterCurve: canonicalEvent.filterCurve,
         });
-=======
-    // Index Melody Layers
-    const activeLayers = (melodyLayers ?? []).filter(
-      (l) => !l.muted && l.result && l.result.notes.length > 0
-    );
-    const volScale = activeLayers.length > 1 ? 0.75 / activeLayers.length : 1.0;
-
-    activeLayers.forEach((layer) => {
-      layer.result!.notes.forEach((n) => {
-        if (n.step >= 0 && n.step < 16) {
-          events[n.step].melodyNotes.push({
-            layerId: layer.id,
-            note: n.note,
-            duration: n.duration || 1,
-            velocity: n.velocity,
-            synthType: layer.synthType,
-            volScale,
-          });
-        }
-      });
-    });
-
-    // Index 808 Bass
-    if (bass && !muteBass) {
-      bass.notes.forEach((bNote) => {
-        if (bNote.step >= 0 && bNote.step < 16) {
-          events[bNote.step].bassNote = {
-            note: bNote.note,
-            duration: bNote.duration || 2,
-            velocity: bNote.velocity,
-            slide: bNote.slide,
-            drive: bassDrive,
-          };
-        }
-      });
-    }
-
-    // Index Drums via Single Source of Truth Groove Plan
-    if (drums && !muteDrums && drums.hits.length > 0) {
-      const plan = buildGrooveEventPlan({
-        hits: drums.hits,
-        bpm: this.bpm,
-        patternDurationSteps: 16,
-      });
-
-      for (let i = 0; i < plan.length; i++) {
-        const ev = plan[i];
-        if (ev.step >= 0 && ev.step < 16) {
-          events[ev.step].grooveEvents.push(ev);
-        }
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       }
     }
 
     this.indexedEvents = events;
-<<<<<<< HEAD
     this.preparedTimelineHash = timeline.timelineHash;
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   /**
@@ -685,10 +606,7 @@ export class SampleAccurateAudioEngine {
     muteDrums,
     bassDrive,
     drumKit,
-<<<<<<< HEAD
     blocks,
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }: {
     bpm?: number;
     melodyLayers?: MelodyLayer[];
@@ -698,10 +616,7 @@ export class SampleAccurateAudioEngine {
     muteDrums?: boolean;
     bassDrive?: BassDrive;
     drumKit?: DrumKitMode;
-<<<<<<< HEAD
     blocks?: TransportArrangementBlock[];
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }) {
     let bpmChanged = false;
     if (bpm !== undefined) {
@@ -736,10 +651,7 @@ export class SampleAccurateAudioEngine {
       muteDrums !== undefined ||
       bassDrive !== undefined ||
       drumKit !== undefined
-<<<<<<< HEAD
       || blocks !== undefined
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     ) {
       this.prepareStepEvents({
         melodyLayers: melodyLayers ?? this.lastParams.melodyLayers,
@@ -749,10 +661,7 @@ export class SampleAccurateAudioEngine {
         muteDrums: muteDrums ?? this.lastParams.muteDrums,
         bassDrive: bassDrive ?? this.lastParams.bassDrive,
         drumKit: drumKit ?? this.lastParams.drumKit,
-<<<<<<< HEAD
         blocks: blocks ?? this.lastParams.blocks,
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
       });
     }
   }
@@ -771,10 +680,7 @@ export class SampleAccurateAudioEngine {
     muteDrums,
     bassDrive,
     drumKit,
-<<<<<<< HEAD
     blocks,
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     onStop,
     onLoopComplete,
   }: {
@@ -788,10 +694,7 @@ export class SampleAccurateAudioEngine {
     muteDrums: boolean;
     bassDrive: BassDrive;
     drumKit: DrumKitMode;
-<<<<<<< HEAD
     blocks?: TransportArrangementBlock[];
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     onStop?: () => void;
     onLoopComplete?: () => void;
   }) {
@@ -812,10 +715,7 @@ export class SampleAccurateAudioEngine {
       muteDrums,
       bassDrive,
       drumKit,
-<<<<<<< HEAD
       blocks,
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     });
 
     // Schedule slightly ahead of currentTime to ensure perfect start
@@ -823,23 +723,14 @@ export class SampleAccurateAudioEngine {
     this.nextAbsoluteStep = 0;
     this.isPlaying = true;
 
-<<<<<<< HEAD
-=======
-    // Run initial scheduler tick immediately
-    this.scheduleTick();
-
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
     // Wake-up interval: 25ms
     this.wakeTimer = setInterval(() => {
       this.scheduleTick();
     }, 25);
-<<<<<<< HEAD
 
     // Run the first scheduler pass only after the wake timer exists, so a
     // very short arrangement can cancel it when its exact boundary is armed.
     this.scheduleTick();
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   }
 
   /**
@@ -867,22 +758,11 @@ export class SampleAccurateAudioEngine {
         break; // Beyond lookahead window
       }
 
-<<<<<<< HEAD
       const patternStep = this.nextAbsoluteStep % this.patternLengthSteps;
 
       // Stop at the exact end of the prepared canonical arrangement.
       if (this.nextAbsoluteStep >= this.patternLengthSteps && !this.isLooping) {
         this.scheduleBoundaryStop(scheduledTime);
-=======
-      const patternStep = this.nextAbsoluteStep % 16;
-
-      // Stop condition if looping is false and reached step 16
-      if (this.nextAbsoluteStep >= 16 && !this.isLooping) {
-        this.stop();
-        if (this.onStopCallback) {
-          this.onStopCallback();
-        }
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
         return;
       }
 
@@ -898,7 +778,6 @@ export class SampleAccurateAudioEngine {
     }
   }
 
-<<<<<<< HEAD
   private scheduleBoundaryStop(boundaryTime: number) {
     if (!this.ctx || this.boundaryStopTimer !== null) return;
     if (this.wakeTimer) {
@@ -915,8 +794,6 @@ export class SampleAccurateAudioEngine {
     }, delayMs);
   }
 
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
   private scheduleStepEvents(patternStep: number, when: number, stepDuration: number) {
     const event = this.indexedEvents[patternStep];
     if (!event) return;
@@ -1260,13 +1137,10 @@ export class SampleAccurateAudioEngine {
       clearInterval(this.wakeTimer);
       this.wakeTimer = null;
     }
-<<<<<<< HEAD
     if (this.boundaryStopTimer) {
       clearTimeout(this.boundaryStopTimer);
       this.boundaryStopTimer = null;
     }
-=======
->>>>>>> 2b08c721b5d612fb29cab029c2a26726dee222e2
 
     if (this.ctx && this.ctx.state !== "closed") {
       const now = this.ctx.currentTime;
