@@ -2319,9 +2319,21 @@ h1 {
   gap: 10px;
 }
 
+.track-header-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.track-vol {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
 .track-tag {
   display: inline-block;
-  align-self: flex-start;
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 11px;
@@ -2350,6 +2362,36 @@ h1 {
   font-size: 12px;
   color: #64748b;
   font-weight: 500;
+}
+
+/* TRUST BADGES BAR */
+.trust-badges-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.trust-badge-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.platform-highlight {
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
 }
 
 /* SECTIONS COMMON */
@@ -2398,12 +2440,17 @@ h1 {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .genre-card:hover {
   transform: translateY(-4px);
   border-color: rgba(168, 85, 247, 0.5);
+}
+
+.genre-card-playing {
+  border-color: #06b6d4 !important;
+  transform: translateY(-2px);
 }
 
 .genre-card-header {
@@ -2433,18 +2480,19 @@ h1 {
 }
 
 .genre-play-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  border: none;
   background: linear-gradient(135deg, #a855f7, #06b6d4);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
   font-size: 14px;
+  cursor: pointer;
   box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .genre-play-btn:hover {
@@ -2455,17 +2503,58 @@ h1 {
   font-size: 14px;
   color: #94a3b8;
   line-height: 1.5;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
-.genre-link {
+/* EQ BARS */
+.genre-eq-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 20px;
+  margin-bottom: 16px;
+  opacity: 0.2;
+  transition: opacity 0.2s ease;
+}
+
+.genre-eq-bars.active {
+  opacity: 1;
+}
+
+.eq-bar {
+  flex: 1;
+  background: linear-gradient(180deg, #a855f7, #06b6d4);
+  border-radius: 2px;
+  height: 3px;
+}
+
+.genre-eq-bars.active .eq-1 { animation: eqBounce 0.6s ease infinite alternate; }
+.genre-eq-bars.active .eq-2 { animation: eqBounce 0.45s ease infinite alternate 0.1s; }
+.genre-eq-bars.active .eq-3 { animation: eqBounce 0.7s ease infinite alternate 0.2s; }
+.genre-eq-bars.active .eq-4 { animation: eqBounce 0.5s ease infinite alternate 0.05s; }
+.genre-eq-bars.active .eq-5 { animation: eqBounce 0.65s ease infinite alternate 0.15s; }
+.genre-eq-bars.active .eq-6 { animation: eqBounce 0.4s ease infinite alternate 0.25s; }
+.genre-eq-bars.active .eq-7 { animation: eqBounce 0.55s ease infinite alternate 0.1s; }
+.genre-eq-bars.active .eq-8 { animation: eqBounce 0.6s ease infinite alternate 0.3s; }
+
+@keyframes eqBounce {
+  0% { height: 3px; }
+  100% { height: 20px; }
+}
+
+.genre-download-hint {
+  background: transparent;
+  border: none;
   color: #38bdf8;
-  text-decoration: none;
   font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
 }
 
-.genre-link:hover {
+.genre-download-hint:hover {
+  color: #fff;
   text-decoration: underline;
 }
 
@@ -2549,6 +2638,34 @@ h1 {
   display: flex;
   flex-direction: column;
   text-align: center;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.download-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.recommended-card {
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  background: linear-gradient(180deg, #141824 0%, #101016 100%) !important;
+  box-shadow: 0 10px 40px rgba(56, 189, 248, 0.15) !important;
+}
+
+.card-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
 }
 
 .download-card-icon {
@@ -2581,7 +2698,10 @@ h1 {
 }
 
 .btn-download-action {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 14px 20px;
   background: linear-gradient(135deg, #a855f7, #06b6d4);
   color: #fff;
@@ -2591,11 +2711,21 @@ h1 {
   box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   margin-bottom: 12px;
+  font-size: 15px;
 }
 
 .btn-download-action:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 24px rgba(6, 182, 212, 0.4);
+}
+
+.btn-arrow {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+
+.btn-download-action:hover .btn-arrow {
+  transform: translateY(2px);
 }
 
 .download-meta {
@@ -2710,46 +2840,6 @@ h1 {
   margin: 0;
 }
 
-/* WEB BOX */
-.download-web-box {
-  background: #101016;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 50px 24px;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.web-box-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.download-web-box h3 {
-  font-size: 24px;
-  font-weight: 800;
-  margin-bottom: 12px;
-}
-
-.download-web-box p {
-  font-size: 15px;
-  color: #94a3b8;
-  line-height: 1.6;
-  margin-bottom: 28px;
-}
-
-.btn-open-web-studio {
-  display: inline-block;
-  padding: 14px 32px;
-  background: linear-gradient(135deg, #a855f7, #06b6d4);
-  color: #fff;
-  text-decoration: none;
-  font-weight: 800;
-  font-size: 16px;
-  border-radius: 12px;
-  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.35);
-}
-
 /* COMPARISON TABLE */
 .comparison-table-wrapper {
   overflow-x: auto;
@@ -2851,9 +2941,16 @@ h1 {
   color: #060608;
   font-weight: 800;
   border-radius: 12px;
-  text-decoration: none;
+  border: none;
   font-size: 15px;
+  cursor: pointer;
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-banner-studio:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
 }
 
 .btn-banner-download {
@@ -2863,8 +2960,13 @@ h1 {
   color: #fff;
   font-weight: 800;
   border-radius: 12px;
-  text-decoration: none;
   font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-banner-download:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* FOOTER */
