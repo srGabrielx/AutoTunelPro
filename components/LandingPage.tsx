@@ -1,13 +1,45 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { SampleAccurateAudioEngine } from "../lib/music/audio-transport";
+import { generateMelody } from "../lib/engines/melody";
+import { generateBass } from "../lib/engines/bass";
+import { generateDrums } from "../lib/engines/drums";
+import type {
+  BassDrive,
+  DrumKitMode,
+  DrumPatternMode,
+  MelodyLayer,
+  MelodySynthType,
+  ScaleId,
+  StyleId,
+} from "../lib/music/types";
+
+interface GenreConfig {
+  id: string;
+  title: string;
+  bpm: number;
+  bpmDisplay: string;
+  key: string;
+  scale: ScaleId;
+  scaleDisplay: string;
+  style: StyleId;
+  desc: string;
+  accent: string;
+  bgGlow: string;
+  drumKit: DrumKitMode;
+  drumPattern: DrumPatternMode;
+  bassDrive: BassDrive;
+  layer0Synth: MelodySynthType;
+  layer1Synth: MelodySynthType;
+  seed: number;
+}
 
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<"desktop" | "mobile">("desktop");
   const [playingGenre, setPlayingGenre] = useState<string | null>(null);
   const [detectedOS, setDetectedOS] = useState<"windows" | "mac" | "linux" | "mobile">("windows");
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const activeNodesRef = useRef<{ stop: () => void }[]>([]);
+  const audioEngineRef = useRef<SampleAccurateAudioEngine | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -22,62 +54,101 @@ export default function LandingPage() {
         setDetectedOS("windows");
       }
     }
+
+    return () => {
+      if (audioEngineRef.current) {
+        try {
+          audioEngineRef.current.stop();
+        } catch {}
+      }
+    };
   }, []);
 
-  const genres = [
+  const genres: GenreConfig[] = [
     {
       id: "trap-br",
       title: "Trap Brasileiro",
-      bpm: "140 BPM",
-      scale: "C Menor Natural",
-      desc: "Subgraves 808 pesados e afinados na tônica, hi-hat rolls em 1/32 e ambiência rica de Pads harmônicos.",
+      bpm: 140,
+      bpmDisplay: "140 BPM",
+      key: "C",
+      scale: "natural-minor",
+      scaleDisplay: "C Menor Natural",
+      style: "trap-br",
+      desc: "Subgraves 808 pesados e afinados na tônica, hi-hat rolls em 1/32, ducking de sidechain dinâmico e ambiência rica de Pads harmônicos.",
       accent: "#06b6d4",
-      bgGlow: "rgba(6, 182, 212, 0.15)",
-      notes: [60, 63, 67, 70, 72, 67, 63, 60],
-      bassFreq: 48,
+      bgGlow: "rgba(6, 182, 212, 0.18)",
+      drumKit: "trap-808",
+      drumPattern: "standard",
+      bassDrive: "warm",
+      layer0Synth: "lead",
+      layer1Synth: "pad",
+      seed: 8812,
     },
     {
       id: "trap-usa",
       title: "Trap USA / Dark",
-      bpm: "130 BPM",
-      scale: "F# Menor Harmônica",
-      desc: "Progressões sombrias com Leads expressivos, caixa punchy, 7ª maior e slides agressivos de 808.",
+      bpm: 130,
+      bpmDisplay: "130 BPM",
+      key: "F#",
+      scale: "harmonic-minor",
+      scaleDisplay: "F# Menor Harmônica",
+      style: "trap-usa",
+      desc: "Progressões sombrias com Plucks expressivos, caixa punchy, 7ª sensível e saturação analógica com slides agressivos de 808.",
       accent: "#a855f7",
-      bgGlow: "rgba(168, 85, 247, 0.15)",
-      notes: [66, 69, 73, 77, 73, 69, 66, 65],
-      bassFreq: 46,
+      bgGlow: "rgba(168, 85, 247, 0.18)",
+      drumKit: "trap-808",
+      drumPattern: "standard",
+      bassDrive: "overdrive",
+      layer0Synth: "pluck",
+      layer1Synth: "lead",
+      seed: 5543,
     },
     {
       id: "uk-drill",
       title: "UK / NY Drill",
-      bpm: "142 BPM",
-      scale: "A Menor",
-      desc: "Hi-hats sincopados em tercinas, slides de 808 em oitavas altas e clima tenso cinematográfico.",
+      bpm: 142,
+      bpmDisplay: "142 BPM",
+      key: "A",
+      scale: "natural-minor",
+      scaleDisplay: "A Menor",
+      style: "trap-uk",
+      desc: "Hi-hats sincopados em tercinas, slides de 808 em oitavas altas (-12) e clima tenso cinematográfico com arpejos precisos.",
       accent: "#38bdf8",
-      bgGlow: "rgba(56, 189, 248, 0.15)",
-      notes: [69, 72, 76, 79, 76, 72, 69, 71],
-      bassFreq: 55,
+      bgGlow: "rgba(56, 189, 248, 0.18)",
+      drumKit: "drill-punch",
+      drumPattern: "half-time",
+      bassDrive: "warm",
+      layer0Synth: "arp",
+      layer1Synth: "pluck",
+      seed: 9231,
     },
     {
       id: "boom-bap",
       title: "Boom Bap / Hip-Hop",
-      bpm: "90 BPM",
-      scale: "E Menor Dórico",
-      desc: "Bateria orgânica com microtiming humanizado, linha de baixo melódica e acordes quentes com 7ª.",
+      bpm: 90,
+      bpmDisplay: "90 BPM",
+      key: "E",
+      scale: "dorian",
+      scaleDisplay: "E Menor Dórico",
+      style: "hip-hop",
+      desc: "Bateria orgânica com swing e microtiming humanizado (±12ms), linha de baixo melódica e acordes quentes com condução de vozes.",
       accent: "#f59e0b",
-      bgGlow: "rgba(245, 158, 11, 0.15)",
-      notes: [64, 67, 71, 74, 71, 67, 64, 62],
-      bassFreq: 60,
+      bgGlow: "rgba(245, 158, 11, 0.18)",
+      drumKit: "boom-bap",
+      drumPattern: "standard",
+      bassDrive: "clean",
+      layer0Synth: "pad",
+      layer1Synth: "pluck",
+      seed: 4120,
     },
   ];
 
   const stopAudioPreview = () => {
-    activeNodesRef.current.forEach((node) => {
+    if (audioEngineRef.current) {
       try {
-        node.stop();
+        audioEngineRef.current.stop();
       } catch {}
-    });
-    activeNodesRef.current = [];
+    }
     setPlayingGenre(null);
   };
 
@@ -89,120 +160,97 @@ export default function LandingPage() {
 
     stopAudioPreview();
 
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-        audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") {
-        ctx.resume();
-      }
+    const config = genres.find((g) => g.id === genreId);
+    if (!config) return;
 
-      const selected = genres.find((g) => g.id === genreId);
-      if (!selected) return;
+    try {
+      if (!audioEngineRef.current) {
+        audioEngineRef.current = new SampleAccurateAudioEngine();
+      }
+      const engine = audioEngineRef.current;
+      const ctx = engine.getContext();
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
 
       setPlayingGenre(genreId);
-      const now = ctx.currentTime;
-      const bpm = parseInt(selected.bpm) || 130;
-      const stepDuration = 60 / bpm / 4;
-      const totalSteps = 32;
 
-      // Master Gain
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0.35, now);
-      master.connect(ctx.destination);
-
-      // Play 808 Sub-Bass
-      const bassOsc = ctx.createOscillator();
-      const bassGain = ctx.createGain();
-      bassOsc.type = "sine";
-      bassOsc.frequency.setValueAtTime(selected.bassFreq, now);
-
-      // Bass envelope
-      bassGain.gain.setValueAtTime(0.001, now);
-      for (let bar = 0; bar < 2; bar++) {
-        const barStart = now + bar * 16 * stepDuration;
-        bassGain.gain.setValueAtTime(0.7, barStart);
-        bassGain.gain.exponentialRampToValueAtTime(0.2, barStart + 6 * stepDuration);
-        bassGain.gain.setValueAtTime(0.6, barStart + 8 * stepDuration);
-        bassGain.gain.exponentialRampToValueAtTime(0.001, barStart + 15 * stepDuration);
-      }
-      bassOsc.connect(bassGain);
-      bassGain.connect(master);
-      bassOsc.start(now);
-      bassOsc.stop(now + totalSteps * stepDuration);
-      activeNodesRef.current.push(bassOsc);
-
-      // Play Drums (Kick & Snare pulses)
-      for (let s = 0; s < totalSteps; s++) {
-        const time = now + s * stepDuration;
-        // Kick on 0, 8, 14
-        if (s % 16 === 0 || s % 16 === 8 || s % 16 === 14) {
-          const kickOsc = ctx.createOscillator();
-          const kickGain = ctx.createGain();
-          kickOsc.frequency.setValueAtTime(140, time);
-          kickOsc.frequency.exponentialRampToValueAtTime(45, time + 0.08);
-          kickGain.gain.setValueAtTime(0.8, time);
-          kickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
-          kickOsc.connect(kickGain);
-          kickGain.connect(master);
-          kickOsc.start(time);
-          kickOsc.stop(time + 0.14);
-          activeNodesRef.current.push(kickOsc);
-        }
-        // Snare/Clap on 4, 12
-        if (s % 16 === 4 || s % 16 === 12) {
-          const noiseOsc = ctx.createOscillator();
-          const noiseGain = ctx.createGain();
-          noiseOsc.type = "triangle";
-          noiseOsc.frequency.setValueAtTime(220, time);
-          noiseGain.gain.setValueAtTime(0.5, time);
-          noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-          noiseOsc.connect(noiseGain);
-          noiseGain.connect(master);
-          noiseOsc.start(time);
-          noiseOsc.stop(time + 0.12);
-          activeNodesRef.current.push(noiseOsc);
-        }
-        // Hi-Hats on even steps + rolls
-        if (s % 2 === 0 || (s >= 12 && s < 16)) {
-          const hatOsc = ctx.createOscillator();
-          const hatGain = ctx.createGain();
-          hatOsc.type = "square";
-          hatOsc.frequency.setValueAtTime(8000, time);
-          hatGain.gain.setValueAtTime(0.08, time);
-          hatGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
-          hatOsc.connect(hatGain);
-          hatGain.connect(master);
-          hatOsc.start(time);
-          hatOsc.stop(time + 0.04);
-          activeNodesRef.current.push(hatOsc);
-        }
-      }
-
-      // Play Melodic Line
-      selected.notes.forEach((midi, idx) => {
-        const time = now + idx * 4 * stepDuration;
-        const freq = 440 * Math.pow(2, (midi - 69) / 12);
-        const melOsc = ctx.createOscillator();
-        const melGain = ctx.createGain();
-        melOsc.type = "sawtooth";
-        melOsc.frequency.setValueAtTime(freq, time);
-        melGain.gain.setValueAtTime(0.001, time);
-        melGain.gain.linearRampToValueAtTime(0.22, time + 0.02);
-        melGain.gain.exponentialRampToValueAtTime(0.001, time + 3.8 * stepDuration);
-        melOsc.connect(melGain);
-        melGain.connect(master);
-        melOsc.start(time);
-        melOsc.stop(time + 4 * stepDuration);
-        activeNodesRef.current.push(melOsc);
+      // Gerar áudio procedural real em 2 camadas melódicas + baixo 808 + baterias
+      const leadResult = generateMelody({
+        style: config.style,
+        bpm: config.bpm,
+        key: config.key,
+        scale: config.scale,
+        complexity: 3,
+        synthType: config.layer0Synth,
+        seed: config.seed + 101,
       });
 
-      // Auto stop after sample completes
-      setTimeout(() => {
-        setPlayingGenre((current) => (current === genreId ? null : current));
-      }, totalSteps * stepDuration * 1000);
+      const padResult = generateMelody({
+        style: config.style,
+        bpm: config.bpm,
+        key: config.key,
+        scale: config.scale,
+        complexity: 2,
+        synthType: config.layer1Synth,
+        seed: config.seed + 202,
+      });
+
+      const bassResult = generateBass({
+        style: config.style,
+        bpm: config.bpm,
+        key: config.key,
+        scale: config.scale,
+        complexity: 3,
+        seed: config.seed + 303,
+      });
+
+      const drumResult = generateDrums({
+        style: config.style,
+        bpm: config.bpm,
+        complexity: 3,
+        drumPattern: config.drumPattern,
+        seed: config.seed + 404,
+      });
+
+      const melodyLayers: MelodyLayer[] = [
+        {
+          id: "layer-0",
+          label: "Lead Melódico",
+          style: config.style,
+          key: config.key,
+          scale: config.scale,
+          synthType: config.layer0Synth,
+          muted: false,
+          result: leadResult,
+        },
+        {
+          id: "layer-1",
+          label: "Harmonia & Pad",
+          style: config.style,
+          key: config.key,
+          scale: config.scale,
+          synthType: config.layer1Synth,
+          muted: false,
+          result: padResult,
+        },
+      ];
+
+      engine.start({
+        bpm: config.bpm,
+        isLooping: true,
+        playbackMode: "all",
+        melodyLayers,
+        bass: bassResult,
+        drums: drumResult,
+        muteBass: false,
+        muteDrums: false,
+        bassDrive: config.bassDrive,
+        drumKit: config.drumKit,
+        onStop: () => {
+          setPlayingGenre(null);
+        },
+      });
     } catch {
       setPlayingGenre(null);
     }
@@ -388,14 +436,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* AUDIO SHOWCASE / DEMONSTRAÇÃO INTERATIVA */}
+      {/* AUDIO SHOWCASE / DEMONSTRAÇÃO INTERATIVA COM MOTOR REAL */}
       <section id="demonstracao" className="landing-section">
         <div className="landing-container">
           <div className="section-header text-center">
-            <div className="landing-badge-pill">Demonstração Interativa</div>
-            <h2 className="section-title">Ouça a Qualidade Gerada Pelo Motor</h2>
+            <div className="landing-badge-pill">Demonstração com Motor DSP Real</div>
+            <h2 className="section-title">Ouça o Motor Procedural em Ação</h2>
             <p className="section-subtitle">
-              Clique para ouvir prévias geradas em tempo real com afinação harmônica e síntese analógica.
+              Clique no botão de reprodução de cada gênero para escutar o motor procedural sintetizando em tempo real com afinação harmônica, ducking de sidechain e microtiming humanizado.
             </p>
           </div>
 
@@ -415,15 +463,15 @@ export default function LandingPage() {
                     <div className="genre-title-box">
                       <h3 className="genre-name">{genre.title}</h3>
                       <div className="genre-meta">
-                        <span className="meta-badge">{genre.bpm}</span>
-                        <span className="meta-badge">{genre.scale}</span>
+                        <span className="meta-badge">{genre.bpmDisplay}</span>
+                        <span className="meta-badge">{genre.scaleDisplay}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => playGenrePreview(genre.id)}
                       className={`genre-play-btn ${isPlaying ? "playing" : ""}`}
                       style={{ background: isPlaying ? "#ef4444" : undefined }}
-                      title={isPlaying ? "Parar prévia" : `Ouvir ${genre.title}`}
+                      title={isPlaying ? "Parar reprodução" : `Ouvir motor ${genre.title}`}
                     >
                       {isPlaying ? "⏹" : "▶"}
                     </button>
@@ -445,7 +493,7 @@ export default function LandingPage() {
 
                   <div className="genre-footer">
                     <button onClick={scrollToDesktop} className="genre-download-hint">
-                      {isPlaying ? "Tocando prévia... Baixar App ↓" : "Disponível no App Instalado →"}
+                      {isPlaying ? "Tocando motor real... Baixar App ↓" : "Disponível no App Instalado →"}
                     </button>
                   </div>
                 </div>
@@ -468,9 +516,9 @@ export default function LandingPage() {
           <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon">🔊</div>
-              <h3 className="feature-title">808 Sub-Bass Sempre no Tom</h3>
+              <h3 className="feature-title">808 Sub-Bass Sempre no Tom &amp; Sidechain Ducking</h3>
               <p className="feature-text">
-                O motor converte graus harmônicos diretamente na escala da música, garantindo que o subgrave (33-50 MIDI) nunca desafine e converse perfeitamente com a tônica e o kick.
+                O motor converte graus harmônicos diretamente na escala da música. O nó de ducking dedicado atenua o subgrave exatamente no impacto do kick, garantindo punch limpo e sem embolar em fones ou caixas de som.
               </p>
             </div>
 
@@ -478,15 +526,15 @@ export default function LandingPage() {
               <div className="feature-icon">🥁</div>
               <h3 className="feature-title">Hi-Hat Rolls &amp; Grooves Humanizados</h3>
               <p className="feature-text">
-                Subdivisões expressivas de $1/32$, tercinas e microtiming orgânico ($\pm 15$ms) para ritmos vivos que não soam como loops estáticos e repetitivos.
+                Subdivisões expressivas de $1/32$, tercinas e microtiming orgânico ($\pm 15$ms) com curvas de velocidade em decrescendo para ritmos com swing autêntico.
               </p>
             </div>
 
             <div className="feature-card">
               <div className="feature-icon">🎹</div>
-              <h3 className="feature-title">4 Camadas Melódicas Independentes</h3>
+              <h3 className="feature-title">4 Camadas Melódicas com Posicionamento Estéreo</h3>
               <p className="feature-text">
-                Timbragem diferenciada para <strong>Pads</strong> (acordes ricos), <strong>Arps</strong> (arpejos em semicolcheias), <strong>Plucks</strong> (sinos sincopados) e <strong>Leads</strong> principais com condução de vozes.
+                Timbragem diferenciada para <strong>Pads</strong> (acordes ricos), <strong>Arps</strong> (arpejos em semicolcheias), <strong>Plucks</strong> (sinos sincopados) e <strong>Leads</strong> principais distribuídos no campo estéreo.
               </p>
             </div>
 
