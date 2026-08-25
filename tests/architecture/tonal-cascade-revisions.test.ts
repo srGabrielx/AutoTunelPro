@@ -24,7 +24,7 @@ function createMockState(): CompositionState {
   };
 }
 
-test('Lote 6: Tonal Authority & Cascade', async () => {
+test('Tonal Cascade: Tonal Authority & Cascade', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   
@@ -54,7 +54,7 @@ test('Lote 6: Tonal Authority & Cascade', async () => {
   assert.strictEqual(out2.state.layers.bass.variationIndex, out1.state.layers.bass.variationIndex + 1, 'Bass variationIndex increments');
 });
 
-test('Lote 6: Revision Bug Fix (Administrative commands do NOT mutate music)', async () => {
+test('Tonal Cascade: Revision Bug Fix (Administrative commands do NOT mutate music)', async () => {
   const bus = new CommandBus();
   let state = createMockState();
   

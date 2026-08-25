@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { generateMelody } from '../../lib/engines/melody/index.ts';
 import type { StrictGenerationPlan } from '../../lib/director/planner/index.ts';
 
-test('Lote 3: Melody Determinism', () => {
+test('Melody Engine: Determinism & Parameter Sensitivity', () => {
   const plan = {
     bpm: 120, scale: 'minor', key: 'C', complexity: 0.5, energy: 0.8, density: 0.8, mood: 'DARK', sectionType: 'VERSE',
     constraints: {

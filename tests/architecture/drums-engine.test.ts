@@ -10,7 +10,7 @@ const mockPlan = {
   constraints: { rhythmDensity: 0.8 }
 } as StrictGenerationPlan;
 
-test('Lote 5: Drums Determinism', () => {
+test('Drums Engine: Determinism', () => {
   const seed = 'master-drums-seed';
   
   const drumsA = generateDrums(mockPlan, {} as any, seed, 0, 38400);
@@ -20,7 +20,7 @@ test('Lote 5: Drums Determinism', () => {
   assert.ok(drumsA.length > 10, 'Should generate a significant number of events');
 });
 
-test('Lote 5: Seed Isolation (Layer & Component)', () => {
+test('Drums Engine: Seed Isolation (Layer & Component)', () => {
   // If we change the hat seed logic intentionally via namespace override or master seed change, kicks should theoretically change if they share a master seed.
   // Wait, isolation means: the kick sequence derives purely from `drums:kick`. 
   // Let's test that manually deriving a kick seed behaves consistently.
@@ -38,7 +38,7 @@ test('Lote 5: Seed Isolation (Layer & Component)', () => {
   assert.ok(firstEvent.id.includes('drums'), 'EventId MUST be deterministic and namespaced');
 });
 
-test('Lote 5: Stress Compositional Test', () => {
+test('Drums Engine: Stress Compositional Test', () => {
   const densePlan = {
     bpm: 180,
     energy: 1.0,

@@ -22,7 +22,7 @@ const createInitialState = (): CompositionState => ({
   revision: 1
 });
 
-test('Lote 8: Metrics + Validator + Repair', async (t) => {
+test('Validator & Repair: Self-Healing & Quality Guardrails', async (t) => {
 
   await t.test('1. Surgical Repair (Detect, Fix, Preserve IDs)', async () => {
     const state = createInitialState();

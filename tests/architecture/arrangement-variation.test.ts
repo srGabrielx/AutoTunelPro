@@ -22,7 +22,7 @@ const createInitialState = (): CompositionState => ({
   revision: 1
 });
 
-test('Lote 7: Arrangement + Memory + Variation', async (t) => {
+test('Arrangement & Variation: Memory & Section Evolution', async (t) => {
 
   await t.test('1. Arrangement Determinism & Timeline Limits', async () => {
     const initialState = createInitialState();

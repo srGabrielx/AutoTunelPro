@@ -33,7 +33,7 @@ function generatePipeline(presetId: string, customPreset?: any) {
   return { plan, drums, melody, bass, context };
 }
 
-test('Lote 10: Determinism and Identity (Same preset + identity = same output)', () => {
+test('Style Profile: Determinism and Identity (Same preset + identity = same output)', () => {
   const run1 = generatePipeline('trap-br');
   const run2 = generatePipeline('trap-br');
 
@@ -42,7 +42,7 @@ test('Lote 10: Determinism and Identity (Same preset + identity = same output)',
   assert.deepStrictEqual(run1.bass, run2.bass, 'Bass must be identical');
 });
 
-test('Lote 10: Profile Isolation - Changing DrumProfile changes Drums, but leaves Melody/Harmony untouched', () => {
+test('Style Profile: Profile Isolation - Changing DrumProfile changes Drums, but leaves Melody/Harmony untouched', () => {
   const baseRun = generatePipeline('trap-br');
   
   // Clone the preset and modify only DrumProfile
@@ -60,7 +60,7 @@ test('Lote 10: Profile Isolation - Changing DrumProfile changes Drums, but leave
   assert.notDeepStrictEqual(newRun.drums, baseRun.drums, 'Drums MUST change when DrumProfile changes');
 });
 
-test('Lote 10: Profile Isolation - Changing MelodyProfile changes Melody, but leaves Drums untouched', () => {
+test('Style Profile: Profile Isolation - Changing MelodyProfile changes Melody, but leaves Drums untouched', () => {
   const baseRun = generatePipeline('trap-br');
   
   const modifiedPreset = JSON.parse(JSON.stringify(baseRun.context.preset));

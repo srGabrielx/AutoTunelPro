@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 
-test('Lote 0: Audio Baseline Registration', () => {
+test('Audio Baseline: Metric Registration Baseline', () => {
   // This test merely records the legacy baseline. It does not validate DSP correctness,
   // but establishes the numbers to compare against in Lote 9.
   const baseline = {

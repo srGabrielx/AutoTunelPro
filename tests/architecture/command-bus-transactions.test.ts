@@ -19,7 +19,7 @@ function createMockState(): CompositionState {
   };
 }
 
-test('Lote 4: CommandBus Routing and Rejection', async () => {
+test('Command Bus: Routing and Rejection', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   
@@ -39,7 +39,7 @@ test('Lote 4: CommandBus Routing and Rejection', async () => {
   assert.strictEqual(out2.state.context.bpm, 140, 'Next state must contain the mutation');
 });
 
-test('Lote 4: Transaction Atomicity (Failure -> Intact State)', async () => {
+test('Command Bus: Transaction Atomicity (Failure -> Intact State)', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   
@@ -49,7 +49,7 @@ test('Lote 4: Transaction Atomicity (Failure -> Intact State)', async () => {
   assert.strictEqual(JSON.stringify(state), cloneStr, 'Atomicity guaranteed: original state pointer is completely pristine');
 });
 
-test('Lote 4: Revision Safety & Stale Result Discard', async () => {
+test('Command Bus: Revision Safety & Stale Result Discard', async () => {
   const bus = new CommandBus();
   const state = createMockState(); // rev = 10
   
@@ -70,7 +70,7 @@ test('Lote 4: Revision Safety & Stale Result Discard', async () => {
   assert.strictEqual(outA.state.context.key, 'E', 'State remains intact from B');
 });
 
-test('Lote 4: Determinism within Transactions', async () => {
+test('Command Bus: Determinism within Transactions', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   
@@ -84,7 +84,7 @@ test('Lote 4: Determinism within Transactions', async () => {
   assert.ok(out1.state.layers.melody.events.length > 0, 'Should have generated events');
 });
 
-test('Lote 4: Locks (Melody Locked -> Ignored)', async () => {
+test('Command Bus: Locks (Melody Locked -> Ignored)', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   state.locks.melody = true; // explicitly locked
@@ -100,7 +100,7 @@ test('Lote 4: Locks (Melody Locked -> Ignored)', async () => {
   assert.strictEqual(out.state.layers.melody.events[0].id, 'mock', 'Hash must remain completely unchanged due to lock');
 });
 
-test('Lote 4: Dependency Isolation', async () => {
+test('Command Bus: Dependency Isolation', async () => {
   const bus = new CommandBus();
   const state = createMockState();
   

@@ -4,7 +4,7 @@ import { resolveContext } from '../../lib/director/context/resolver.ts';
 import { createGenerationPlan } from '../../lib/director/planner/index.ts';
 import { getAffectedDomains } from '../../lib/director/dependency-graph/index.ts';
 
-test('Lote 2: Context Resolution and Section Multipliers', () => {
+test('Director & Planner: Context Resolution and Section Multipliers', () => {
   const preset = {
     id: 'test', version: 1,
     defaults: { energy: 0.8, darkness: 0.9, complexity: 0.5, density: 0.6 },
@@ -24,7 +24,7 @@ test('Lote 2: Context Resolution and Section Multipliers', () => {
   assert.strictEqual(context.density, 0.48, 'Should apply section density multiplier (0.6 * 0.8)');
 });
 
-test('Lote 2: Generation Plan Authority', () => {
+test('Director & Planner: Generation Plan Authority', () => {
   const context = { preset: {} as any,
     bpm: 140, key: 'D', scale: 'minor', energy: 0.9, darkness: 0.8, complexity: 0.5, density: 0.8,
     section: { id: 's1', type: 'HOOK' as const, energyMultiplier: 1.0, densityMultiplier: 1.0 }
@@ -37,7 +37,7 @@ test('Lote 2: Generation Plan Authority', () => {
   assert.strictEqual(plan.constraints.rhythmDensity, 0.8, 'Plan must set explicit constraints for engines');
 });
 
-test('Lote 2: Dependency Graph Contracts', () => {
+test('Director & Planner: Dependency Graph Contracts', () => {
   const instrumentDomains = getAffectedDomains('SET_INSTRUMENT');
   assert.deepStrictEqual(instrumentDomains, ['RENDERER_ONLY'], 'Changing instrument should not invalidate generation');
 

@@ -4,7 +4,7 @@ import { deriveSeed } from '../../lib/core/seeds/namespace.ts';
 import { migrateToCurrentSchema } from '../../lib/core/migrations/schema.ts';
 import type { CompositionState } from '../../lib/core/state/composition.ts';
 
-test('Lote 1: Seed Derivation Determinism and Isolation', () => {
+test('State & Schema: Seed Derivation Determinism and Isolation', () => {
   const master = 'autotunel-master-seed-2026';
   
   const drumsHat1 = deriveSeed(master, 'drums:hats:hook:phrase-02');
@@ -21,7 +21,7 @@ test('Lote 1: Seed Derivation Determinism and Isolation', () => {
   assert.notStrictEqual(drumsHat1, drumsHatV2, 'New master seed MUST yield new derived seeds');
 });
 
-test('Lote 1: Schema Migration Persistence Rule', () => {
+test('State & Schema: Schema Migration Persistence Rule', () => {
   // Simulate loading from a database at schema v1
   const persistedStateV1 = {
     identity: { schemaVersion: 1, generationId: 'legacy-123' },
@@ -56,7 +56,7 @@ test('Lote 1: Schema Migration Persistence Rule', () => {
   assert.ok(currentState.layers.melody, 'Must initialize new schema structures');
 });
 
-test('Lote 1: CompositionState Serializability', () => {
+test('State & Schema: CompositionState Serializability', () => {
   // Prove that a state containing the baseline fields can be serialized
   // If someone adds an AudioNode or function here, JSON.stringify would strip it, but TypeScript would fail 
   // to allow it in the interface. Here we test that a valid state is purely POJO.
