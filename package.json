@@ -1,6 +1,6 @@
 {
-  "name": "beatforge-studio",
-  "version": "0.1.0",
+  "name": "autotunel-pro",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
