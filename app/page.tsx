@@ -1,10 +1,5 @@
-import LandingPage from "../components/LandingPage";
-import TauriRedirect from "../components/TauriRedirect";
+import BeatStudio from "../components/BeatStudio";
 
 export default function Home() {
-  return (
-    <TauriRedirect>
-      <LandingPage />
-    </TauriRedirect>
-  );
+  return <BeatStudio />;
 }

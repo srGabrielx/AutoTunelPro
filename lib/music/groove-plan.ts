@@ -9,6 +9,7 @@ export interface GrooveEvent {
   timeSeconds: number;
   velocity: number;
   microTimingMs: number;
+  durationSec?: number;
   pitchCents?: number;
   pitchCurve?: {
     startCents: number;
@@ -67,14 +68,19 @@ export function buildGrooveEventPlan(input: BuildGroovePlanInput): GrooveEvent[]
       );
       const timeSeconds = loopOffsetSec + clampedPatternTime;
 
-      // Calculate dynamic velocity
+      // Calculate dynamic velocity with density damping for rapid rolls to avoid clipping
       let velScale = 1.0;
       if (roll.velocityCurve === "crescendo" && rollCount > 1) {
         velScale = 0.55 + 0.45 * (subIndex / (rollCount - 1));
       } else if (roll.velocityCurve === "decrescendo" && rollCount > 1) {
         velScale = 1.0 - 0.45 * (subIndex / (rollCount - 1));
       }
-      const velocity = Math.max(25, Math.min(127, Math.round(hit.velocity * velScale)));
+      // Damping factor: scales down velocity when multiple sub-hits occur within a single step
+      const rollDamping = rollCount > 1 ? Math.pow(1 / rollCount, 0.35) : 1.0;
+      const velocity = Math.max(20, Math.min(115, Math.round(hit.velocity * velScale * rollDamping)));
+
+      // Calculate safe hit duration so overlapping sub-hits decay before the next onset
+      const durationSec = Math.min(0.035, Math.max(0.012, rollInterval * 0.88));
 
       // Calculate interpolated pitch cents
       let pitchCents: number | undefined;
@@ -95,6 +101,7 @@ export function buildGrooveEventPlan(input: BuildGroovePlanInput): GrooveEvent[]
         timeSeconds,
         velocity,
         microTimingMs,
+        durationSec,
         pitchCents,
         pitchCurve: roll.pitchCurve,
         filterCurve: roll.filterCurve,

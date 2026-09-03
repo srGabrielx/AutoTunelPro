@@ -62,7 +62,6 @@ export interface CompositionTimelineMetadata {
 
 export interface GenerateMelodyPayload {
   layerId: string;
-  synthType?: MelodySynthType;
   style: StyleId;
   bpm: number;
   key: string;

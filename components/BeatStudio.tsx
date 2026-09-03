@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
-import UserProfileButton from "./UserProfileButton";
 import type {
   ArtistPresetId,
   BassDrive,
@@ -256,12 +255,12 @@ function deterministicIndex(
   return deriveSeed(String(seed), `${variation}:${namespace}`) % length;
 }
 
-let layerCounter = 0;
 function createLayerId(existingIds: readonly string[] = []): string {
+  let counter = existingIds.length + 1;
   let candidate: string;
   do {
-    layerCounter += 1;
-    candidate = `layer-${layerCounter}`;
+    candidate = `layer-${counter}`;
+    counter += 1;
   } while (existingIds.includes(candidate));
   return candidate;
 }
@@ -291,6 +290,20 @@ function createDefaultLayer(
   };
 }
 
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+function midiToNoteName(midi: number): string {
+  const name = NOTE_NAMES[((midi % 12) + 12) % 12];
+  const octave = Math.floor(midi / 12) - 1;
+  return `${name}${octave}`;
+}
+
+function formatPan(pan: number): string {
+  const rounded = Math.round(pan * 100);
+  if (Math.abs(rounded) <= 2) return "C";
+  if (rounded < 0) return `L ${Math.abs(rounded)}%`;
+  return `R ${rounded}%`;
+}
+
 // ==========================================
 // ISOLATED SEQUENCER GRID (Zero React Re-renders on Playback)
 // ==========================================
@@ -301,6 +314,7 @@ interface InteractiveSequencerProps {
   labels?: Record<number, string>;
   colorTheme: "acid" | "cyan" | "violet";
   onStepClick: (stepIndex: number) => void;
+  onStepRightClick?: (stepIndex: number) => void;
   muted?: boolean;
   registerContainer?: (id: string, el: HTMLElement | null) => void;
   registerPlayhead?: (id: string, el: HTMLElement | null) => void;
@@ -313,6 +327,7 @@ const InteractiveSequencer = memo(function InteractiveSequencer({
   labels,
   colorTheme,
   onStepClick,
+  onStepRightClick,
   muted = false,
   registerContainer,
   registerPlayhead,
@@ -342,7 +357,13 @@ const InteractiveSequencer = memo(function InteractiveSequencer({
               data-step-index={step}
               className={`step-col ${isHit ? "has-hit" : ""}`}
               onClick={() => onStepClick(step)}
-              title={`Passo ${step + 1}${label ? `: ${label}` : ""} (Clique para editar)`}
+              onContextMenu={(e) => {
+                if (onStepRightClick) {
+                  e.preventDefault();
+                  onStepRightClick(step);
+                }
+              }}
+              title={`Passo ${step + 1}${label ? `: ${label}` : ""} (Clique para alternar intensidade, clique direito para limpar)`}
             >
               <div className="step-bar-wrap">
                 <span className={`step ${isHit ? "on" : ""}`} style={{ height: `${height}px` }} />
@@ -368,8 +389,10 @@ interface MelodyLayerCardProps {
   onGenerate: (layerId: string, customSeed?: number) => void;
   onRemove: (id: string) => void;
   onToggleStep: (layerId: string, step: number) => void;
+  onClearStep?: (layerId: string, step: number) => void;
   trackSettings: TrackSettings | undefined;
   onVolumeChange: (id: string, vol: number) => void;
+  onPanChange: (id: string, pan: number) => void;
   registerContainer?: (id: string, el: HTMLElement | null) => void;
   registerPlayhead?: (id: string, el: HTMLElement | null) => void;
 }
@@ -383,8 +406,10 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   onGenerate,
   onRemove,
   onToggleStep,
+  onClearStep,
   trackSettings,
   onVolumeChange,
+  onPanChange,
   registerContainer,
   registerPlayhead,
 }: MelodyLayerCardProps) {
@@ -392,8 +417,11 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
   const heights: Record<number, number> = {};
   const labels: Record<number, string> = {};
   layer.result?.notes.forEach((n) => {
-    heights[n.step] = Math.max(22, Math.min(84, 28 + (n.note - 48) * 2.2));
-    labels[n.step] = `Nota ${n.note}`;
+    const velTier = n.velocity >= 95 ? 76 : n.velocity >= 70 ? 52 : 32;
+    const pitchOffset = Math.max(-6, Math.min(6, ((n.note - 60) / 12) * 4));
+    heights[n.step] = Math.round(Math.max(24, Math.min(84, velTier + pitchOffset)));
+    const velLabel = n.velocity >= 95 ? "Forte" : n.velocity >= 70 ? "Média" : "Suave";
+    labels[n.step] = `Nota ${midiToNoteName(n.note)} · ${velLabel} (Vel ${n.velocity})`;
   });
 
   const layerNum = String(index + 1).padStart(2, "0");
@@ -433,17 +461,62 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
         </div>
       </div>
 
-      <div className="track-volume-row">
-        <IconVolume className="vol-icon" />
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={trackSettings?.volume ?? 0.8}
-          onChange={(e) => onVolumeChange(layer.id, Number(e.target.value))}
-        />
-        <span className="vol-pct">{Math.round((trackSettings?.volume ?? 0.8) * 100)}%</span>
+      <div className="track-mixer-strip">
+        <div className="track-mixer-col">
+          <span className="mixer-tag">
+            <IconVolume size={13} className="vol-icon" /> VOL
+          </span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={trackSettings?.volume ?? 0.8}
+            onChange={(e) => onVolumeChange(layer.id, Number(e.target.value))}
+            title={`Volume: ${Math.round((trackSettings?.volume ?? 0.8) * 100)}%`}
+          />
+          <span className="mixer-val-badge">
+            {Math.round((trackSettings?.volume ?? 0.8) * 100)}%
+          </span>
+        </div>
+
+        <div className="track-mixer-col">
+          <span className="mixer-tag">PAN</span>
+          <button
+            type="button"
+            className={`pan-btn pan-l ${(trackSettings?.pan ?? 0) <= -0.85 ? "active" : ""}`}
+            onClick={() => onPanChange(layer.id, Math.max(-1, (trackSettings?.pan ?? 0) - 0.25))}
+            title="Pan Esquerda (L) - Mover melodia para o canal esquerdo"
+          >
+            L
+          </button>
+          <input
+            type="range"
+            min="-1"
+            max="1"
+            step="0.02"
+            value={trackSettings?.pan ?? 0}
+            onChange={(e) => onPanChange(layer.id, Number(e.target.value))}
+            onDoubleClick={() => onPanChange(layer.id, 0)}
+            title={`Pan: ${formatPan(trackSettings?.pan ?? 0)} (Duplo clique para C)`}
+          />
+          <button
+            type="button"
+            className={`pan-btn pan-r ${(trackSettings?.pan ?? 0) >= 0.85 ? "active" : ""}`}
+            onClick={() => onPanChange(layer.id, Math.min(1, (trackSettings?.pan ?? 0) + 0.25))}
+            title="Pan Direita (R) - Mover melodia para o canal direito"
+          >
+            R
+          </button>
+          <button
+            type="button"
+            className={`pan-val-badge ${(trackSettings?.pan ?? 0) === 0 ? "pan-center" : ""}`}
+            onClick={() => onPanChange(layer.id, 0)}
+            title="Clique para centralizar (C)"
+          >
+            {formatPan(trackSettings?.pan ?? 0)}
+          </button>
+        </div>
       </div>
 
       <div className="controls controls-4col">
@@ -508,10 +581,20 @@ const MelodyLayerCard = memo(function MelodyLayerCard({
         labels={labels}
         colorTheme="acid"
         onStepClick={(step) => onToggleStep(layer.id, step)}
+        onStepRightClick={onClearStep ? (step) => onClearStep(layer.id, step) : undefined}
         muted={layer.muted}
         registerContainer={registerContainer}
         registerPlayhead={registerPlayhead}
       />
+
+      <div className="sequencer-intensity-bar">
+        <div className="sequencer-intensity-legend">
+          <span className="intensity-pill forte">Forte (105)</span>
+          <span className="intensity-pill medio">Média (80)</span>
+          <span className="intensity-pill suave">Suave (55)</span>
+        </div>
+        <span>Clique: Alternar intensidade · Dir: Limpar</span>
+      </div>
 
       <div className="actions">
         <button className="primary" disabled={busy !== null} onClick={() => onGenerate(layer.id)}>
@@ -580,17 +663,16 @@ export default function BeatStudio() {
   // Preset Browser Modal State
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetCategory, setPresetCategory] = useState<string>("Trap");
-  const [userPresets, setUserPresets] = useState<Record<string, ArtistPresetConfig>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("autotunel_user_presets");
-        return saved ? JSON.parse(saved) : {};
-      } catch {
-        return {};
+  const [userPresets, setUserPresets] = useState<Record<string, ArtistPresetConfig>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("autotunel_user_presets");
+      if (saved) {
+        setUserPresets(JSON.parse(saved));
       }
-    }
-    return {};
-  });
+    } catch {}
+  }, []);
 
   // Draggable FAB state
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
@@ -862,9 +944,18 @@ export default function BeatStudio() {
   const handleVolumeChange = useCallback((id: string, vol: number) => {
     setTrackSettings((prev) => ({
       ...prev,
-      [id]: { volume: vol, muted: prev[id]?.muted ?? false },
+      [id]: { volume: vol, muted: prev[id]?.muted ?? false, pan: prev[id]?.pan ?? 0 },
     }));
     audioEngineRef.current.setTrackVolume(id, vol);
+  }, []);
+
+  const handlePanChange = useCallback((id: string, pan: number) => {
+    const clamped = Math.max(-1, Math.min(1, Math.round(pan * 100) / 100));
+    setTrackSettings((prev) => ({
+      ...prev,
+      [id]: { volume: prev[id]?.volume ?? 0.8, muted: prev[id]?.muted ?? false, pan: clamped },
+    }));
+    audioEngineRef.current.setTrackPan(id, clamped);
   }, []);
 
   // Start playback helper with sample-accurate lookahead
@@ -874,10 +965,13 @@ export default function BeatStudio() {
     if (mode === "all") setIsAutoArrangement(true);
 
     const s = stateRef.current;
-    // Apply current track volumes before playback start
+    // Apply current track volumes and pans before playback start
     if (s.trackSettings) {
       Object.entries(s.trackSettings).forEach(([id, cfg]) => {
         audioEngineRef.current.setTrackVolume(id, cfg.volume);
+        if (cfg.pan !== undefined) {
+          audioEngineRef.current.setTrackPan(id, cfg.pan);
+        }
       });
     }
 
@@ -994,8 +1088,12 @@ export default function BeatStudio() {
         stopPlayback();
         const mutationEpoch = ++mutationEpochRef.current;
         const requestEpoch = ++generationEpochRef.current;
-        const seed = createUnlockedSeed();
-        const nextVariation = 0;
+        const seed = stateRef.current.seedLocked
+          ? stateRef.current.compositionSeed
+          : createUnlockedSeed();
+        const nextVariation = stateRef.current.seedLocked
+          ? stateRef.current.variationIndex + 1
+          : 0;
         setCompositionSeed(seed);
         setBusy("all");
         setError("");
@@ -1154,7 +1252,6 @@ export default function BeatStudio() {
         try {
           const result = await workerClientRef.current.generateMelody({
             layerId: newLayerId,
-            synthType: newLayer.synthType,
             style: newLayer.style,
             bpm,
             key: newLayer.key,
@@ -1208,11 +1305,41 @@ export default function BeatStudio() {
         );
         const randomDegree = scaleIntervals[degreeIndex] || 0;
 
-        const updatedNotes = exists
-          ? layer.result.notes.filter((n) => n.step !== stepIdx)
-          : [...layer.result.notes, { step: stepIdx, note: root + randomDegree, velocity: 90, duration: 1 }].sort(
-              (a, b) => a.step - b.step
-            );
+        let updatedNotes: typeof layer.result.notes;
+        if (!exists) {
+          // 1º toque: FORTE (105)
+          updatedNotes = [
+            ...layer.result.notes,
+            { step: stepIdx, note: root + randomDegree, velocity: 105, duration: 1 },
+          ];
+        } else if (exists.velocity >= 95) {
+          // 2º toque: MÉDIO (80)
+          updatedNotes = layer.result.notes.map((n) =>
+            n.step === stepIdx ? { ...n, velocity: 80 } : n
+          );
+        } else if (exists.velocity >= 70) {
+          // 3º toque: SUAVE (55)
+          updatedNotes = layer.result.notes.map((n) =>
+            n.step === stepIdx ? { ...n, velocity: 55 } : n
+          );
+        } else {
+          // 4º toque: desliga / remove
+          updatedNotes = layer.result.notes.filter((n) => n.step !== stepIdx);
+        }
+
+        return { ...layer, result: { ...layer.result, notes: updatedNotes.sort((a, b) => a.step - b.step) } };
+      });
+      const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
+      patchActiveBlock({ melodyResults });
+      return next;
+    });
+  }, [patchActiveBlock]);
+
+  const clearMelodyStep = useCallback((layerId: string, stepIdx: number) => {
+    setMelodyLayers((prev) => {
+      const next = prev.map((layer) => {
+        if (layer.id !== layerId || !layer.result) return layer;
+        const updatedNotes = layer.result.notes.filter((n) => n.step !== stepIdx);
         return { ...layer, result: { ...layer.result, notes: updatedNotes } };
       });
       const melodyResults = next.map(l => ({ layerId: l.id, result: l.result! })).filter(m => !!m.result);
@@ -1231,14 +1358,16 @@ export default function BeatStudio() {
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = (selectiveEpochRef.current[operationKey] ?? 0) + 1;
       selectiveEpochRef.current[operationKey] = requestEpoch;
-      const seed = customSeed ?? createUnlockedSeed();
+      const seed = customSeed ?? deriveSeed(
+        String(stateRef.current.compositionSeed),
+        `${stateRef.current.variationIndex}:${targetBlock.id}:${operationKey}:${requestEpoch}`,
+      );
       stopPlayback();
       setBusy(layerId);
       setError("");
       try {
         const result = await workerClientRef.current.generateMelody({
           layerId,
-          synthType: layer.synthType,
           style: layer.style,
           bpm,
           key: layer.key,
@@ -1277,7 +1406,10 @@ export default function BeatStudio() {
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = (selectiveEpochRef.current[engine] ?? 0) + 1;
       selectiveEpochRef.current[engine] = requestEpoch;
-      const seed = customSeed ?? createUnlockedSeed();
+      const seed = customSeed ?? deriveSeed(
+        String(stateRef.current.compositionSeed),
+        `${stateRef.current.variationIndex}:${targetBlock.id}:${engine}:${requestEpoch}`,
+      );
       stopPlayback();
       setBusy(engine);
       setError("");
@@ -1346,8 +1478,12 @@ export default function BeatStudio() {
     stopPlayback();
     const mutationEpoch = ++mutationEpochRef.current;
     const requestEpoch = ++generationEpochRef.current;
-    const seed = createUnlockedSeed();
-    const nextVariation = 0;
+    const seed = stateRef.current.seedLocked
+      ? stateRef.current.compositionSeed
+      : createUnlockedSeed();
+    const nextVariation = stateRef.current.seedLocked
+      ? stateRef.current.variationIndex + 1
+      : 0;
     setCompositionSeed(seed);
     setBusy("all");
     setError("");
@@ -1429,7 +1565,7 @@ export default function BeatStudio() {
     }
   }, [artistPreset, bassStyle, drumStyle, bpm, key, globalScale, bassOctave, drumPattern, complexity, drumSwing, drumRollDensity, drumHumanize, stopPlayback, selectArrangementBlock]);
 
-  // Bass step edit
+  // Bass step edit (intensity cycle: Forte 110 -> Médio 82 -> Suave 58 -> Off)
   const toggleBassStep = (stepIdx: number) => {
     if (!bass) return;
     const exists = bass.notes.find((n) => n.step === stepIdx);
@@ -1444,25 +1580,54 @@ export default function BeatStudio() {
     );
     const degree = scaleIntervals[degreeIndex] || 0;
 
-    const updatedNotes = exists
-      ? bass.notes.filter((n) => n.step !== stepIdx)
-      : [...bass.notes, { step: stepIdx, note: root + degree, velocity: 105, duration: 2 }].sort(
-          (a, b) => a.step - b.step
-        );
-    const newBass = { ...bass, notes: updatedNotes };
+    let updatedNotes: typeof bass.notes;
+    if (!exists) {
+      // 1º toque: FORTE (110)
+      updatedNotes = [...bass.notes, { step: stepIdx, note: root + degree, velocity: 110, duration: 2 }];
+    } else if (exists.velocity >= 95) {
+      // 2º toque: MÉDIO (82)
+      updatedNotes = bass.notes.map((n) =>
+        n.step === stepIdx ? { ...n, velocity: 82 } : n
+      );
+    } else if (exists.velocity >= 70) {
+      // 3º toque: SUAVE (58)
+      updatedNotes = bass.notes.map((n) =>
+        n.step === stepIdx ? { ...n, velocity: 58 } : n
+      );
+    } else {
+      // 4º toque: desliga / remove
+      updatedNotes = bass.notes.filter((n) => n.step !== stepIdx);
+    }
+
+    const newBass = { ...bass, notes: updatedNotes.sort((a, b) => a.step - b.step) };
     setBass(newBass);
     patchActiveBlock({ bass: newBass });
   };
 
-  // Drum step edit
+  const clearBassStep = (stepIdx: number) => {
+    if (!bass) return;
+    const newBass = { ...bass, notes: bass.notes.filter((n) => n.step !== stepIdx) };
+    setBass(newBass);
+    patchActiveBlock({ bass: newBass });
+  };
+
+  // Drum step edit (Kick 96 -> Snare 90 -> Hat 72 -> Open-Hat 65 -> Off)
   const toggleDrumStep = (stepIdx: number) => {
     if (!drums) return;
     const currentHits = drums.hits.filter((h) => h.step === stepIdx);
     const updatedHits = drums.hits.filter((h) => h.step !== stepIdx);
-    if (currentHits.length === 0) updatedHits.push({ step: stepIdx, drum: "kick", velocity: 95 });
-    else if (currentHits.some((h) => h.drum === "kick")) updatedHits.push({ step: stepIdx, drum: "snare", velocity: 95 });
-    else if (currentHits.some((h) => h.drum === "snare")) updatedHits.push({ step: stepIdx, drum: "hat", velocity: 75 });
+    if (currentHits.length === 0) updatedHits.push({ step: stepIdx, drum: "kick", velocity: 96 });
+    else if (currentHits.some((h) => h.drum === "kick")) updatedHits.push({ step: stepIdx, drum: "snare", velocity: 90 });
+    else if (currentHits.some((h) => h.drum === "snare")) updatedHits.push({ step: stepIdx, drum: "hat", velocity: 72 });
+    else if (currentHits.some((h) => h.drum === "hat")) updatedHits.push({ step: stepIdx, drum: "open-hat", velocity: 65 });
     const newDrums = { ...drums, hits: updatedHits.sort((a, b) => a.step - b.step) };
+    setDrums(newDrums);
+    patchActiveBlock({ drums: newDrums });
+  };
+
+  const clearDrumStep = (stepIdx: number) => {
+    if (!drums) return;
+    const newDrums = { ...drums, hits: drums.hits.filter((h) => h.step !== stepIdx) };
     setDrums(newDrums);
     patchActiveBlock({ drums: newDrums });
   };
@@ -1549,14 +1714,9 @@ export default function BeatStudio() {
     const workerClient = new StudioWorkerClient();
     workerClientRef.current = workerClient;
 
-    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const requestedStyle = urlParams?.get("style") as StyleId | null;
-    const requestedPreset = urlParams?.get("preset") as ArtistPresetId | null;
-
-    const restored = !requestedStyle && !requestedPreset
-      ? deserializeCompositionSnapshot(localStorage.getItem(COMPOSITION_STORAGE_KEY) ?? "")
-      : null;
-
+    const restored = deserializeCompositionSnapshot(
+      localStorage.getItem(COMPOSITION_STORAGE_KEY) ?? "",
+    );
     if (restored) {
       const controls = restored.controls;
       const restoredBlockIndex = Math.max(
@@ -1600,23 +1760,12 @@ export default function BeatStudio() {
       })));
       sessionHydratedRef.current = true;
     } else {
-      const activeStyle = requestedStyle || stateRef.current.bassStyle;
-      const activePreset = requestedPreset || stateRef.current.artistPreset;
       const seed = createUnlockedSeed();
       const mutationEpoch = ++mutationEpochRef.current;
       const requestEpoch = ++generationEpochRef.current;
       setCompositionSeed(seed);
       setBusy("all");
       sessionHydratedRef.current = true;
-
-      if (requestedStyle) {
-        setBassStyle(requestedStyle);
-        setDrumStyle(requestedStyle);
-        setMelodyLayers((prev) => prev.map((l) => ({ ...l, style: requestedStyle })));
-      }
-      if (requestedPreset) {
-        setArtistPreset(requestedPreset);
-      }
 
       workerClient.generateAll({
         presetId: stateRef.current.artistPreset,
@@ -1782,8 +1931,11 @@ export default function BeatStudio() {
   const bassHeights: Record<number, number> = {};
   const bassLabels: Record<number, string> = {};
   bass?.notes.forEach((n) => {
-    bassHeights[n.step] = Math.max(26, Math.min(84, 34 + (n.note - 24) * 2.5));
-    bassLabels[n.step] = `808 (${n.note})${n.slide ? " [Slide]" : ""}`;
+    const velTier = n.velocity >= 95 ? 78 : n.velocity >= 70 ? 54 : 34;
+    const pitchOffset = Math.max(-6, Math.min(6, (n.note - 36) * 1.5));
+    bassHeights[n.step] = Math.round(Math.max(24, Math.min(84, velTier + pitchOffset)));
+    const velLabel = n.velocity >= 95 ? "Forte" : n.velocity >= 70 ? "Médio" : "Suave";
+    bassLabels[n.step] = `808 ${midiToNoteName(n.note)} · ${velLabel} (Vel ${n.velocity})${n.slide ? " [Slide]" : ""}`;
   });
 
   const drumSteps = new Set(drums?.hits.map((h) => h.step) ?? []);
@@ -1791,7 +1943,7 @@ export default function BeatStudio() {
   const drumLabels: Record<number, string> = {};
   drums?.hits.forEach((h) => {
     drumHeights[h.step] = h.drum === "kick" ? 78 : h.drum === "snare" ? 64 : h.drum === "clap" ? 68 : h.drum === "open-hat" ? 52 : 40;
-    drumLabels[h.step] = h.drum.toUpperCase();
+    drumLabels[h.step] = `${h.drum.toUpperCase()} (Vel ${h.velocity})`;
   });
 
   const hasAnyData = melodyLayers.some((l) => l.result) || bass !== null || drums !== null;
@@ -1813,9 +1965,7 @@ export default function BeatStudio() {
           <span className="status-text">{key} {SCALES[globalScale]?.label.split(" ")[0]} · {bpm} BPM</span>
         </div>
 
-        <div className="topbar-actions">
-          <UserProfileButton />
-        </div>
+
       </nav>
 
       {/* ==========================================
@@ -1987,10 +2137,12 @@ export default function BeatStudio() {
               onGenerate={generateMelodyLayer}
               onRemove={removeMelodyLayer}
               onToggleStep={toggleMelodyStep}
+              onClearStep={clearMelodyStep}
               registerContainer={registerContainer}
               registerPlayhead={registerPlayhead}
               trackSettings={trackSettings[layer.id]}
               onVolumeChange={handleVolumeChange}
+              onPanChange={handlePanChange}
             />
           ))}
         </div>
@@ -2025,17 +2177,62 @@ export default function BeatStudio() {
             </div>
           </header>
 
-          <div className="track-volume-row" style={{ padding: "0 16px 12px 16px" }}>
-            <IconVolume className="vol-icon" />
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={trackSettings["bass"]?.volume ?? 0.8}
-              onChange={(e) => handleVolumeChange("bass", Number(e.target.value))}
-            />
-            <span className="vol-pct">{Math.round((trackSettings["bass"]?.volume ?? 0.8) * 100)}%</span>
+          <div className="track-mixer-strip">
+            <div className="track-mixer-col">
+              <span className="mixer-tag">
+                <IconVolume size={13} className="vol-icon" /> VOL
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={trackSettings["bass"]?.volume ?? 0.8}
+                onChange={(e) => handleVolumeChange("bass", Number(e.target.value))}
+                title={`Volume 808: ${Math.round((trackSettings["bass"]?.volume ?? 0.8) * 100)}%`}
+              />
+              <span className="mixer-val-badge">
+                {Math.round((trackSettings["bass"]?.volume ?? 0.8) * 100)}%
+              </span>
+            </div>
+
+            <div className="track-mixer-col">
+              <span className="mixer-tag">PAN</span>
+              <button
+                type="button"
+                className={`pan-btn pan-l ${(trackSettings["bass"]?.pan ?? 0) <= -0.85 ? "active" : ""}`}
+                onClick={() => handlePanChange("bass", Math.max(-1, (trackSettings["bass"]?.pan ?? 0) - 0.25))}
+                title="Pan Esquerda (L) - Mover 808 para o canal esquerdo"
+              >
+                L
+              </button>
+              <input
+                type="range"
+                min="-1"
+                max="1"
+                step="0.02"
+                value={trackSettings["bass"]?.pan ?? 0}
+                onChange={(e) => handlePanChange("bass", Number(e.target.value))}
+                onDoubleClick={() => handlePanChange("bass", 0)}
+                title={`Pan 808: ${formatPan(trackSettings["bass"]?.pan ?? 0)} (Duplo clique para C)`}
+              />
+              <button
+                type="button"
+                className={`pan-btn pan-r ${(trackSettings["bass"]?.pan ?? 0) >= 0.85 ? "active" : ""}`}
+                onClick={() => handlePanChange("bass", Math.min(1, (trackSettings["bass"]?.pan ?? 0) + 0.25))}
+                title="Pan Direita (R) - Mover 808 para o canal direito"
+              >
+                R
+              </button>
+              <button
+                type="button"
+                className={`pan-val-badge ${(trackSettings["bass"]?.pan ?? 0) === 0 ? "pan-center" : ""}`}
+                onClick={() => handlePanChange("bass", 0)}
+                title="Clique para centralizar (C)"
+              >
+                {formatPan(trackSettings["bass"]?.pan ?? 0)}
+              </button>
+            </div>
           </div>
 
           <div className="controls controls-3col">
@@ -2074,10 +2271,20 @@ export default function BeatStudio() {
             labels={bassLabels}
             colorTheme="cyan"
             onStepClick={toggleBassStep}
+            onStepRightClick={clearBassStep}
             muted={muteBass}
             registerContainer={registerContainer}
             registerPlayhead={registerPlayhead}
           />
+
+          <div className="sequencer-intensity-bar">
+            <div className="sequencer-intensity-legend">
+              <span className="intensity-pill forte">Forte (110)</span>
+              <span className="intensity-pill medio">Médio (82)</span>
+              <span className="intensity-pill suave">Suave (58)</span>
+            </div>
+            <span>Clique: Alternar intensidade · Dir: Limpar</span>
+          </div>
 
           <div className="actions">
             <button className="primary" disabled={busy !== null} onClick={() => generateEngine("bass")}>
@@ -2126,17 +2333,62 @@ export default function BeatStudio() {
             </div>
           </header>
 
-          <div className="track-volume-row" style={{ padding: "0 16px 12px 16px" }}>
-            <IconVolume className="vol-icon" />
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={trackSettings["drums"]?.volume ?? 0.8}
-              onChange={(e) => handleVolumeChange("drums", Number(e.target.value))}
-            />
-            <span className="vol-pct">{Math.round((trackSettings["drums"]?.volume ?? 0.8) * 100)}%</span>
+          <div className="track-mixer-strip">
+            <div className="track-mixer-col">
+              <span className="mixer-tag">
+                <IconVolume size={13} className="vol-icon" /> VOL
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={trackSettings["drums"]?.volume ?? 0.8}
+                onChange={(e) => handleVolumeChange("drums", Number(e.target.value))}
+                title={`Volume Drums: ${Math.round((trackSettings["drums"]?.volume ?? 0.8) * 100)}%`}
+              />
+              <span className="mixer-val-badge">
+                {Math.round((trackSettings["drums"]?.volume ?? 0.8) * 100)}%
+              </span>
+            </div>
+
+            <div className="track-mixer-col">
+              <span className="mixer-tag">PAN</span>
+              <button
+                type="button"
+                className={`pan-btn pan-l ${(trackSettings["drums"]?.pan ?? 0) <= -0.85 ? "active" : ""}`}
+                onClick={() => handlePanChange("drums", Math.max(-1, (trackSettings["drums"]?.pan ?? 0) - 0.25))}
+                title="Pan Esquerda (L) - Mover Drums para o canal esquerdo"
+              >
+                L
+              </button>
+              <input
+                type="range"
+                min="-1"
+                max="1"
+                step="0.02"
+                value={trackSettings["drums"]?.pan ?? 0}
+                onChange={(e) => handlePanChange("drums", Number(e.target.value))}
+                onDoubleClick={() => handlePanChange("drums", 0)}
+                title={`Pan Drums: ${formatPan(trackSettings["drums"]?.pan ?? 0)} (Duplo clique para C)`}
+              />
+              <button
+                type="button"
+                className={`pan-btn pan-r ${(trackSettings["drums"]?.pan ?? 0) >= 0.85 ? "active" : ""}`}
+                onClick={() => handlePanChange("drums", Math.min(1, (trackSettings["drums"]?.pan ?? 0) + 0.25))}
+                title="Pan Direita (R) - Mover Drums para o canal direito"
+              >
+                R
+              </button>
+              <button
+                type="button"
+                className={`pan-val-badge ${(trackSettings["drums"]?.pan ?? 0) === 0 ? "pan-center" : ""}`}
+                onClick={() => handlePanChange("drums", 0)}
+                title="Clique para centralizar (C)"
+              >
+                {formatPan(trackSettings["drums"]?.pan ?? 0)}
+              </button>
+            </div>
           </div>
 
           <div className="controls controls-3col">
@@ -2223,10 +2475,21 @@ export default function BeatStudio() {
             labels={drumLabels}
             colorTheme="violet"
             onStepClick={toggleDrumStep}
+            onStepRightClick={clearDrumStep}
             muted={muteDrums}
             registerContainer={registerContainer}
             registerPlayhead={registerPlayhead}
           />
+
+          <div className="sequencer-intensity-bar">
+            <div className="sequencer-intensity-legend">
+              <span className="intensity-pill forte">Kick (96)</span>
+              <span className="intensity-pill forte" style={{ background: "rgba(168, 85, 247, 0.22)", borderColor: "rgba(168, 85, 247, 0.4)", color: "#c084fc" }}>Snare (90)</span>
+              <span className="intensity-pill medio">Hat (72)</span>
+              <span className="intensity-pill suave">Open-Hat (65)</span>
+            </div>
+            <span>Clique: Alternar peça/intensidade · Dir: Limpar</span>
+          </div>
 
           <div className="actions">
             <button className="primary" disabled={busy !== null} onClick={() => generateEngine("drums")}>

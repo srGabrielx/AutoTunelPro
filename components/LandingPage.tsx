@@ -183,7 +183,6 @@ export default function LandingPage() {
         key: config.key,
         scale: config.scale,
         complexity: 3,
-        synthType: config.layer0Synth,
         seed: config.seed + 101,
       });
 
@@ -193,7 +192,6 @@ export default function LandingPage() {
         key: config.key,
         scale: config.scale,
         complexity: 2,
-        synthType: config.layer1Synth,
         seed: config.seed + 202,
       });
 

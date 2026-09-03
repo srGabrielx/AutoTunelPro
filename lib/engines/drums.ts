@@ -176,11 +176,11 @@ export function generateDrums(options: GenerateOptions): DrumResult {
 
     snareSteps.forEach(snareStep => {
       const globalStep = barStart + snareStep;
-      add(globalStep, mainSnareDrum, 104);
+      add(globalStep, mainSnareDrum, 92);
       
       // Layer snare + clap on strongest backbeats
       if (comp >= 3 && deterministicRng(seed, "layer-clap", globalStep) > 0.4) {
-        add(globalStep, "clap", 92);
+        add(globalStep, "clap", 84);
       }
     });
       
@@ -189,11 +189,11 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       .filter(a => a.step >= barStart && a.step < barStart + plan.timeline.stepsPerBar && (a.type === "downbeat" || a.type === "syncopation"))
       .forEach(anchor => {
         if (anchor.type === "downbeat") {
-          add(anchor.step, "kick", 108);
+          add(anchor.step, "kick", 96);
         } else if (anchor.type === "syncopation") {
           const syncProb = profile?.kickSyncopation ?? 0.5;
           if (deterministicRng(seed, "kick-sync", anchor.step) < anchor.weight * (comp / 2) * syncProb * 2) {
-            add(anchor.step, "kick", 85 + (anchor.weight * 10));
+            add(anchor.step, "kick", 80 + (anchor.weight * 8));
           }
         }
       });
@@ -230,7 +230,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
       // The lower the energy, the lower the chance of rolling
       const dynamicRollChance = (profile?.hatRollThreshold ?? rollChanceThreshold) + ( (0.8 - energy) * 0.5 ); 
       let roll: DrumRoll | undefined = undefined;
-      let stepVel = isStrongBeat ? 95 : (isOffbeat ? 75 : 85);
+      let stepVel = isStrongBeat ? 86 : (isOffbeat ? 68 : 78);
       
       if (hatType === "hat" && !isStrongBeat && comp >= 3 && (profile?.hatRolls ?? true)) {
         if (deterministicRng(seed, "hat-roll", s) > dynamicRollChance) {
@@ -251,7 +251,7 @@ export function generateDrums(options: GenerateOptions): DrumResult {
             pitchCurve,
             velocityCurve: "flat"
           };
-          stepVel = Math.min(127, stepVel + 10); // Accent the start of a roll without clipping
+          stepVel = Math.min(100, stepVel + 4); // Smooth roll accent without clipping
         }
       }
       

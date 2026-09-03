@@ -8,7 +8,6 @@ import {
 } from "../music/canonical-timeline.ts";
 import {
   BASS_808_CONFIGS,
-  DRUM_KIT_SYNTH_CONFIGS,
   getMelodySynthConfig,
   MASTER_BUS_CONFIG,
 } from "../music/synthesis-presets.ts";
@@ -291,8 +290,9 @@ export function renderDspAudio({
         const notes = blockEvents.filter((event) => event.trackId === track.id);
 
         // Calculate stereo pan: Layer 0 -> Center (0.0), Layer 1 -> Left (-0.28), Layer 2 -> Right (+0.28)...
-        let layerPan = 0;
-        if (trackIdx > 0) {
+        const customPan = trackSettings[track.id]?.pan;
+        let layerPan = customPan !== undefined ? customPan : 0;
+        if (customPan === undefined && trackIdx > 0) {
           layerPan = (trackIdx % 2 === 1 ? -1 : 1) * Math.min(0.55, 0.22 + Math.floor((trackIdx - 1) / 2) * 0.15);
         }
         const panL = Math.cos(((layerPan + 1) * Math.PI) / 4); // Constant-power panning
@@ -325,28 +325,8 @@ export function renderDspAudio({
           if (sampleIdx >= totalSamples) break;
 
           const progress = n / durSamples;
-          // ADSR Envelope: Attack → Decay → Sustain → Release
-          const isPercussive = synthType === "pluck" || synthType === "arp";
-          const attackTime = isPercussive ? 0.003 : 0.012;
-          const decayTime = isPercussive ? 0.06 : 0.1;
-          const sustainLevel = isPercussive ? 0.4 : 0.7;
-          const durationSec = durSamples / sampleRate;
-          const releaseTime = Math.min(0.15, durationSec * 0.15);
-          const timeSec = n / sampleRate;
-          
-          let env = 0.001;
-          if (timeSec < attackTime) {
-            env = 0.001 + (vel - 0.001) * (timeSec / attackTime);
-          } else if (timeSec < attackTime + decayTime) {
-            const decayProg = (timeSec - attackTime) / decayTime;
-            env = vel * Math.exp(-decayProg * 2.0); // simple exponential decay approximation
-            env = Math.max(vel * sustainLevel, env);
-          } else if (timeSec < durationSec - releaseTime) {
-            env = Math.max(0.001, vel * sustainLevel);
-          } else {
-            const releaseProg = (timeSec - (durationSec - releaseTime)) / releaseTime;
-            env = (vel * sustainLevel) * Math.exp(-releaseProg * 4.0);
-          }
+          // Exponential decay amplitude
+          const env = vel * Math.exp(-progress * 4.5);
 
           // Dynamic cutoff sweep
           const currentCutoff = startCutoff * Math.pow(endCutoff / startCutoff, progress);
@@ -404,6 +384,14 @@ export function renderDspAudio({
     const effectiveBassVol = trackSettings["bass"]?.volume ?? bassVolume;
     const effectiveDrumsVol = trackSettings["drums"]?.volume ?? drumsVolume;
 
+    const bassPan = trackSettings["bass"]?.pan ?? 0;
+    const bassPanL = Math.cos(((bassPan + 1) * Math.PI) / 4);
+    const bassPanR = Math.sin(((bassPan + 1) * Math.PI) / 4);
+
+    const drumsPan = trackSettings["drums"]?.pan ?? 0;
+    const drumsPanL = Math.cos(((drumsPan + 1) * Math.PI) / 4);
+    const drumsPanR = Math.sin(((drumsPan + 1) * Math.PI) / 4);
+
     // --- 2. SINTETIZAR 808 SUB-BASS (Parallel Clean Sub + Saturated Harmonics) ---
     const bassEvents = blockEvents.filter((event) => event.role === "bass");
     if (!muteBass && bassEvents.length > 0 && !trackSettings["bass"]?.muted) {
@@ -420,9 +408,10 @@ export function renderDspAudio({
         const rootFreq = 440 * Math.pow(2, (bNote.pitch - 69) / 12);
         const baseVel = (bNote.velocity / 127) * 0.52 * effectiveBassVol;
 
+        const satLpFilter = new BiquadFilter();
+        satLpFilter.setLowpass(cfg.harmonicCutoffHz || 420, 0.707, sampleRate);
+
         let phase = 0;
-        const durationSec = durSamples / sampleRate;
-        const bassFilter = new BiquadFilter();
 
         for (let n = 0; n < durSamples; n++) {
           const sampleIdx = startSample + n;
@@ -460,25 +449,14 @@ export function renderDspAudio({
             }
           }
 
-          // Lowpass filter envelope: bright attack that closes over time (muffled)
-          const filterProg = Math.min(1.0, timeSec / (durationSec * 0.6));
-          const currentCutoff = 550 * Math.pow(110 / 550, filterProg);
-          if (n % 16 === 0) {
-            bassFilter.setLowpass(currentCutoff, 1.0, sampleRate);
-          }
+          // Parallel Saturation: Clean Sub + Lowpassed Saturated Harmonics
+          const cleanSub = rawSine * cfg.cleanSubGain * duckFactor;
+          const rawSat = applyWaveshaper(rawSine * duckFactor, bassDrive);
+          const saturatedMid = satLpFilter.process(rawSat) * cfg.parallelSatGain;
+          const satSample = cleanSub + saturatedMid;
 
-          // Parallel Saturation: Clean Sub + Saturated Upper Harmonics
-          const cleanSub = rawSine * cfg.cleanSubGain;
-          const saturatedMid = applyWaveshaper(rawSine, bassDrive) * cfg.parallelSatGain;
-          
-          // Apply lowpass filter
-          const filteredMix = bassFilter.process(cleanSub + saturatedMid);
-          
-          // Apply ducking after filtering for clean sub bass
-          const satSample = filteredMix * duckFactor;
-
-          left[sampleIdx] += satSample;
-          right[sampleIdx] += satSample;
+          left[sampleIdx] += satSample * bassPanL;
+          right[sampleIdx] += satSample * bassPanR;
         }
       });
     }
@@ -493,14 +471,9 @@ export function renderDspAudio({
         if (ev.instrument === "kick") {
           const durSec = 0.34;
           const durSamples = Math.floor(durSec * sampleRate);
-          const kitCfg = DRUM_KIT_SYNTH_CONFIGS[drumKit];
-          const startF = kitCfg.kickTransientFreq;
-          const endF = kitCfg.kickSubFreq;
+          const startF = drumKit === "drill-punch" ? 180 : drumKit === "funk-tamborzao" ? 140 : 155;
+          const endF = drumKit === "funk-tamborzao" ? 52 : 44;
           const vel = (currentVel / 127) * (drumKit === "funk-tamborzao" ? 0.56 : 0.48) * effectiveDrumsVol;
-
-          // Transient click layer filter
-          const clickFilter = new BiquadFilter();
-          clickFilter.setBandpass(drumKit === "drill-punch" ? 3500 : 2200, 2.0, sampleRate);
 
           let phase = 0;
           for (let n = 0; n < durSamples; n++) {
@@ -517,17 +490,9 @@ export function renderDspAudio({
             if (drumKit === "funk-tamborzao") {
               s = 2.0 * Math.abs(2.0 * (phase - Math.floor(phase + 0.5))) - 1.0; // triangle body
             }
-            let out = s * env;
-
-            // Transient click layer (4ms noise burst)
-            if (t < 0.004) {
-              const clickNoise = rng.nextNoise();
-              const clickEnv = (vel * 0.35) * (1.0 - t / 0.004);
-              out += clickFilter.process(clickNoise) * clickEnv;
-            }
-
-            left[sampleIdx] += out;
-            right[sampleIdx] += out;
+            const out = s * env;
+            left[sampleIdx] += out * drumsPanL;
+            right[sampleIdx] += out * drumsPanR;
           }
         } else if (ev.instrument === "snare") {
           const durSec = drumKit === "funk-tamborzao" ? 0.1 : 0.14;
@@ -550,8 +515,7 @@ export function renderDspAudio({
             const filteredNoise = bpFilter.process(noise) * vel * Math.exp(-progress * 7.5);
 
             // Body tone
-            const kitCfg = DRUM_KIT_SYNTH_CONFIGS[drumKit];
-            const toneFreq = t < 0.07 ? kitCfg.snareBodyFreq - (kitCfg.snareBodyFreq - 85) * (t / 0.07) : 85;
+            const toneFreq = t < 0.07 ? 190 - (190 - 85) * (t / 0.07) : 85;
             tPhase = (tPhase + toneFreq / sampleRate) % 1.0;
             const triangleTone =
               (2.0 * Math.abs(2.0 * (tPhase - Math.floor(tPhase + 0.5))) - 1.0) *
@@ -559,8 +523,8 @@ export function renderDspAudio({
               Math.exp(-progress * 10.0);
 
             const out = filteredNoise + triangleTone;
-            left[sampleIdx] += out;
-            right[sampleIdx] += out;
+            left[sampleIdx] += out * drumsPanL;
+            right[sampleIdx] += out * drumsPanR;
           }
         } else if (ev.instrument === "clap") {
           const vel = (currentVel / 127) * 0.38 * effectiveDrumsVol;
@@ -581,30 +545,20 @@ export function renderDspAudio({
               const progress = n / burstDurSamples;
               const noise = rng.nextNoise();
               const out = bpFilter.process(noise) * burstVel * Math.exp(-progress * (isMain ? 8.5 : 20.0));
-              left[sampleIdx] += out;
-              right[sampleIdx] += out;
+              left[sampleIdx] += out * drumsPanL;
+              right[sampleIdx] += out * drumsPanR;
             }
           });
         } else if (ev.instrument === "open-hat") {
-          // Find next closed hat to truncate duration for choke effect
-          let nextClosedHatTick = Infinity;
-          for (const ev2 of drumEvents) {
-            if (ev2.instrument === "hat" && ev2.startTick > ev.startTick) {
-              nextClosedHatTick = Math.min(nextClosedHatTick, ev2.startTick);
-            }
-          }
-          const chokeSamples = nextClosedHatTick !== Infinity ? 
-            ticksToSamples(nextClosedHatTick - ev.startTick, safeBpm, sampleRate) : Infinity;
-
-          const durSec = 0.22;
-          const durSamples = Math.min(Math.floor(durSec * sampleRate), chokeSamples);
-          const vel = (currentVel / 127) * 0.24 * effectiveDrumsVol;
-          
-          const kitCfg = DRUM_KIT_SYNTH_CONFIGS[drumKit];
-          const inharmonicFreqs = kitCfg.hatInharmonicFreqs;
+          const durSec = 0.20;
+          const durSamples = Math.floor(durSec * sampleRate);
+          const vel = (currentVel / 127) * 0.16 * effectiveDrumsVol;
+          const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
 
           const hpFilter = new BiquadFilter();
-          hpFilter.setHighpass(kitCfg.openHatCutoff, 1.2, sampleRate);
+          hpFilter.setHighpass(5800, 1.0, sampleRate);
+          const lpFilter = new BiquadFilter();
+          lpFilter.setLowpass(14000, 0.707, sampleRate);
 
           for (let n = 0; n < durSamples; n++) {
             const sampleIdx = startSample + n;
@@ -614,29 +568,30 @@ export function renderDspAudio({
             const t = n / sampleRate;
             let metal = 0;
             for (let f = 0; f < inharmonicFreqs.length; f++) {
-              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.08 : -0.08;
             }
-            const rawSig = metal * (kitCfg.hatMetalRatio * 0.85) + rng.nextNoise() * (kitCfg.hatNoiseRatio * 1.3);
-            const out = hpFilter.process(rawSig) * vel * Math.exp(-progress * 4.2);
-            // Apply quick fade out if choked
-            const chokeEnv = chokeSamples !== Infinity && n > durSamples - 200 ? (durSamples - n) / 200 : 1.0;
-            left[sampleIdx] += out * chokeEnv;
-            right[sampleIdx] += out * chokeEnv;
+            const rawSig = metal * 0.45 + rng.nextNoise() * 0.55 * 0.7;
+            const filtered = lpFilter.process(hpFilter.process(rawSig));
+            const out = filtered * vel * Math.exp(-progress * 4.2);
+            left[sampleIdx] += out * drumsPanL;
+            right[sampleIdx] += out * drumsPanR;
           }
         } else {
-          // Closed Hat with Pitch Cents and Inharmonic Metallic Synthesis
-          const durSec = 0.038;
+          // Closed Hat with Pitch Cents, Inharmonic Metallic Synthesis and Roll Duration Control
+          const durSec = ev.durationSec ? Math.max(0.012, Math.min(0.028, ev.durationSec)) : 0.025;
           const durSamples = Math.floor(durSec * sampleRate);
-          const vel = (currentVel / 127) * 0.2 * effectiveDrumsVol;
-          const kitCfg = DRUM_KIT_SYNTH_CONFIGS[drumKit];
-          const inharmonicFreqs = kitCfg.hatInharmonicFreqs;
+          const vel = (currentVel / 127) * 0.11 * effectiveDrumsVol;
+          const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
 
           const hpFilter = new BiquadFilter();
-          let cutoff = 7500;
+          let cutoff = 6800;
           if (ev.filterCurve) {
             cutoff = ev.filterCurve.startHz;
           }
-          hpFilter.setHighpass(Math.max(1000, cutoff), 1.2, sampleRate);
+          hpFilter.setHighpass(Math.max(1000, cutoff), 1.0, sampleRate);
+
+          const lpFilter = new BiquadFilter();
+          lpFilter.setLowpass(13500, 0.707, sampleRate);
 
           // Pitch Rate Shift
           const pitchRate = ev.pitchCents ? Math.pow(2, ev.pitchCents / 1200) : 1.0;
@@ -649,12 +604,13 @@ export function renderDspAudio({
             const t = n / sampleRate;
             let metal = 0;
             for (let f = 0; f < inharmonicFreqs.length; f++) {
-              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t * pitchRate) > 0 ? 0.12 : -0.12;
+              metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t * pitchRate) > 0 ? 0.08 : -0.08;
             }
-            const rawSig = metal * kitCfg.hatMetalRatio + rng.nextNoise() * kitCfg.hatNoiseRatio;
-            const out = hpFilter.process(rawSig) * vel * Math.exp(-progress * 14.0);
-            left[sampleIdx] += out;
-            right[sampleIdx] += out;
+            const rawSig = metal * 0.48 + rng.nextNoise() * 0.52 * 0.7;
+            const filtered = lpFilter.process(hpFilter.process(rawSig));
+            const out = filtered * vel * Math.exp(-progress * 14.0);
+            left[sampleIdx] += out * drumsPanL;
+            right[sampleIdx] += out * drumsPanR;
           }
         }
       });

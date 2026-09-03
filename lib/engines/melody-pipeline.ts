@@ -10,15 +10,15 @@
  *  1. Musical context creation (root, scale, chord progression)
  *  2. Motif generation (2-4 note rhythmic/melodic seed)
  *  3. Phrase construction (motif + variations across 4 beats)
- *  4. Synth-specific generation (pad chords, arpeggios, plucks, leads)
- *  5. Voice leading & register correction
+ *  4. Voice leading & register correction
+ *  5. Rhythmic refinement (rests, durations, syncopation)
  *  6. Deterministic humanization (velocity variation)
  *  7. Final validation (scale membership, register bounds)
  */
 
 import { pick } from "../music/random.ts";
 import { KEYS, SCALES, STYLES } from "../music/styles.ts";
-import type { GenerateOptions, MelodyNote, MelodySynthType, StyleId } from "../music/types.ts";
+import type { GenerateOptions, MelodyNote, StyleId } from "../music/types.ts";
 import {
   GENRE_MELODY_PROFILES,
   type ChordDegrees,
@@ -44,8 +44,6 @@ interface PipelineContext {
   scaleSize: number;
   profile: GenreMelodyProfile;
   complexity: number;
-  harmonicTemperature: number;
-  synthType: MelodySynthType;
   random: () => number;
   style: StyleId;
   sharedProgression?: ChordDegrees[];
@@ -62,8 +60,6 @@ function createContext(
   const preset = STYLES[options.style] ?? STYLES["trap-br"];
   const root = KEYS[options.key || "C"] ?? 60;
   const comp = Math.min(5, Math.max(1, options.complexity || 3));
-  const harmonicTemperature = Math.min(1.0, Math.max(0.1, (comp - 0.5) / 4.5));
-  const synthType = options.synthType ?? "lead";
 
   const scaleIntervals =
     options.scale && SCALES[options.scale]
@@ -76,8 +72,6 @@ function createContext(
     scaleSize: scaleIntervals.length,
     profile: GENRE_MELODY_PROFILES[options.style] ?? GENRE_MELODY_PROFILES["trap-br"],
     complexity: comp,
-    harmonicTemperature,
-    synthType,
     random,
     style: options.style,
     sharedProgression: options.compositionPlan?.harmonicGrid.map((region) => ({
@@ -136,7 +130,7 @@ function generateMotif(ctx: PipelineContext, chordTones: number[]): MotifNote[] 
 }
 
 // ============================================================
-// STAGE 4: DEVELOP MOTIF INTO PHRASES (FOR LEADS)
+// STAGE 4: DEVELOP MOTIF INTO PHRASES
 // ============================================================
 
 /**
@@ -197,11 +191,11 @@ function developPhrases(
           degree = chord.tones[Math.floor(ctx.random() * chord.tones.length)];
         }
       }
+      // else: exact repetition of original motif
 
-      // Strong beats (step 0, 4, 8, 12) should prefer chord tones based on harmonic temperature
+      // Strong beats (step 0, 4, 8, 12) should prefer chord tones
       const isStrongBeat = step % 4 === 0;
-      const snapThreshold = 0.2 + (1.0 - ctx.harmonicTemperature) * 0.6;
-      if (isStrongBeat && ctx.random() < snapThreshold) {
+      if (isStrongBeat && ctx.random() > 0.3) {
         // Snap to nearest chord tone
         degree = findNearestChordTone(degree, chord.tones, ctx.scaleSize);
       }
@@ -227,8 +221,8 @@ function developPhrases(
       });
     }
 
-    // Add a passing tone on weak beats scaled by harmonic temperature
-    if (ctx.harmonicTemperature > 0.4 && ctx.random() < ctx.harmonicTemperature * 0.7) {
+    // Add a passing tone on weak beats for higher complexity
+    if (ctx.complexity >= 4 && ctx.random() > 0.5) {
       const weakStep = beatStart + (ctx.random() > 0.5 ? 1 : 3);
       if (weakStep < 16 && !notes.some((n) => n.step === weakStep)) {
         // Passing tone: use a non-chord scale degree
@@ -243,150 +237,6 @@ function developPhrases(
         });
       }
     }
-  }
-
-  return notes;
-}
-
-// ============================================================
-// STAGE 4B: SYNTH-SPECIFIC GENERATORS
-// ============================================================
-
-/**
- * Generates rich, sustained chord pad voicings (2-3 voices per chord).
- */
-function generatePadChords(ctx: PipelineContext, progression: ChordDegrees[]): MelodyNote[] {
-  const notes: MelodyNote[] = [];
-  const stepsPerChord = 4;
-
-  for (let beat = 0; beat < 4; beat++) {
-    const step = beat * stepsPerChord;
-    const chord = progression[beat];
-    const tones = chord.tones;
-
-    // Voicing: Root, 3rd, 5th
-    const rootDegree = tones[0];
-    const thirdDegree = tones[1 % tones.length];
-    const fifthDegree = tones[2 % tones.length];
-
-    const rootInterval = ctx.scaleIntervals[rootDegree % ctx.scaleSize];
-    const thirdInterval = ctx.scaleIntervals[thirdDegree % ctx.scaleSize];
-    const fifthInterval = ctx.scaleIntervals[fifthDegree % ctx.scaleSize];
-
-    // Warm pad octave (MIDI 55 - 72)
-    let rootNote = ctx.root + rootInterval;
-    while (rootNote < 50) rootNote += 12;
-    while (rootNote > 64) rootNote -= 12;
-
-    let thirdNote = ctx.root + thirdInterval;
-    while (thirdNote <= rootNote) thirdNote += 12;
-    while (thirdNote > 74) thirdNote -= 12;
-
-    let fifthNote = ctx.root + fifthInterval;
-    while (fifthNote <= thirdNote) fifthNote += 12;
-    while (fifthNote > 79) fifthNote -= 12;
-
-    const baseVel = 80;
-    const duration = 4; // Sustained through whole beat region
-
-    notes.push({ step, note: rootNote, velocity: baseVel, duration });
-    notes.push({ step, note: thirdNote, velocity: baseVel - 4, duration });
-    notes.push({ step, note: fifthNote, velocity: baseVel - 6, duration });
-
-    // If 7th tone is present or complexity >= 4, add smooth 7th color
-    if (tones.length >= 4 || (ctx.complexity >= 4 && ctx.random() > 0.4)) {
-      const seventhDegree = tones.length >= 4 ? tones[3] : (tones[0] + 6) % ctx.scaleSize;
-      const seventhInterval = ctx.scaleIntervals[seventhDegree % ctx.scaleSize];
-      let seventhNote = ctx.root + seventhInterval;
-      while (seventhNote <= fifthNote) seventhNote += 12;
-      if (seventhNote <= 84) {
-        notes.push({ step, note: seventhNote, velocity: baseVel - 10, duration });
-      }
-    }
-  }
-
-  return notes;
-}
-
-/**
- * Generates 16th-note arpeggiated movement outlining current chord harmonies.
- */
-function generateArpeggio(ctx: PipelineContext, progression: ChordDegrees[]): MelodyNote[] {
-  const notes: MelodyNote[] = [];
-
-  for (let s = 0; s < 16; s++) {
-    const beat = Math.floor(s / 4);
-    const chord = progression[beat];
-    const tones = chord.tones;
-    const slot = s % 4;
-
-    // Arp patterns (1-3-5-3 or 1-5-8-5)
-    let degreeIdx = 0;
-    let octaveOffset = 12;
-
-    if (slot === 0) {
-      degreeIdx = 0; // Root
-    } else if (slot === 1) {
-      degreeIdx = 1 % tones.length; // 3rd
-    } else if (slot === 2) {
-      degreeIdx = 2 % tones.length; // 5th
-    } else {
-      degreeIdx = 1 % tones.length; // 3rd or octave
-      if (ctx.random() > 0.5) octaveOffset += 12;
-    }
-
-    const degree = tones[degreeIdx];
-    const interval = ctx.scaleIntervals[degree % ctx.scaleSize];
-    let note = ctx.root + interval + octaveOffset;
-    while (note < 60) note += 12;
-    while (note > 86) note -= 12;
-
-    const velocity = slot === 0 ? 92 : slot === 2 ? 84 : 74;
-    notes.push({
-      step: s,
-      note,
-      velocity,
-      duration: 1,
-    });
-  }
-
-  return notes;
-}
-
-/**
- * Generates syncopated, rhythmic high-register pluck motifs.
- */
-function generatePluckMelody(
-  ctx: PipelineContext,
-  motif: MotifNote[],
-  progression: ChordDegrees[],
-): MelodyNote[] {
-  const notes: MelodyNote[] = [];
-  const pluckRhythm = [0, 2, 5, 8, 10, 13];
-
-  for (let i = 0; i < pluckRhythm.length; i++) {
-    const step = pluckRhythm[i];
-    const beat = Math.floor(step / 4);
-    const chord = progression[beat];
-    const isStrong = step % 4 === 0;
-
-    // Pick chord tone on strong steps, or pentatonic passing tone
-    let degree = chord.tones[i % chord.tones.length];
-    if (!isStrong && ctx.random() > 0.4) {
-      const pentatonicStep = (degree + (ctx.random() > 0.5 ? 2 : 1)) % ctx.scaleSize;
-      degree = pentatonicStep;
-    }
-
-    const interval = ctx.scaleIntervals[degree % ctx.scaleSize];
-    let note = ctx.root + interval + 12;
-    if (ctx.complexity >= 4 && ctx.random() > 0.6) note += 12;
-    while (note < 65) note += 12;
-    while (note > 92) note -= 12;
-
-    const velocity = isStrong ? 95 : 82;
-    const duration = isStrong ? 2 : 1;
-
-    notes.push({ step, note, velocity, duration });
   }
 
   return notes;
@@ -421,6 +271,9 @@ function applyVoiceLeading(notes: MelodyNote[], ctx: PipelineContext): MelodyNot
       const prev = sorted[i - 1].note;
       const jump = Math.abs(sorted[i].note - prev);
       if (jump > ctx.profile.maxJump) {
+        // First try every in-register octave equivalent. The old alternating
+        // while-loop could bounce forever between two pitches (for example a
+        // six-semitone jump with maxJump=5, reproduced by hip-hop seed 8).
         const original = sorted[i].note;
         let candidate = original;
         let bestJump = Math.abs(candidate - prev);
@@ -473,7 +326,7 @@ function applyVoiceLeading(notes: MelodyNote[], ctx: PipelineContext): MelodyNot
 
 function humanizeVelocity(notes: MelodyNote[], random: () => number): MelodyNote[] {
   return notes.map((note) => {
-    const variation = Math.round((random() * 2 - 1) * 8);
+    const variation = Math.round((random() * 2 - 1) * 12);
     const velocity = Math.max(55, Math.min(120, note.velocity + variation));
     return { ...note, velocity };
   });
@@ -484,33 +337,54 @@ function humanizeVelocity(notes: MelodyNote[], random: () => number): MelodyNote
 // ============================================================
 
 /**
- * Ensures all notes belong strictly to the scale.
+ * Ensures all notes belong to the scale (allowing chromatic passing tones
+ * within ±1 semitone on weak beats only).
  */
 function validateNotes(notes: MelodyNote[], ctx: PipelineContext): MelodyNote[] {
   const scaleSet = new Set<number>();
   // Build set of all valid MIDI notes across octaves
-  for (let octave = -3; octave <= 5; octave++) {
+  for (let octave = -2; octave <= 4; octave++) {
     for (const interval of ctx.scaleIntervals) {
       scaleSet.add(ctx.root + interval + octave * 12);
     }
   }
-  const scaleArr = Array.from(scaleSet).sort((a, b) => a - b);
 
-  return notes
-    .filter((note) => {
-      // Must have valid step
-      if (note.step < 0 || note.step >= 16) return false;
-      // Must have valid velocity
-      if (note.velocity <= 0 || note.velocity > 127) return false;
-      // Must have positive duration
-      if (note.duration <= 0) return false;
-      // Must not be NaN
-      if (!Number.isFinite(note.note)) return false;
-      return true;
-    })
-    .map((note) => {
-      if (!scaleSet.has(note.note)) {
+  return notes.filter((note) => {
+    // Must have valid step
+    if (note.step < 0 || note.step >= 16) return false;
+    // Must have valid velocity
+    if (note.velocity <= 0 || note.velocity > 127) return false;
+    // Must have positive duration
+    if (note.duration <= 0) return false;
+    // Must not be NaN
+    if (!Number.isFinite(note.note)) return false;
+
+    // Check scale membership (allow ±1 semitone passing tones on weak beats)
+    if (!scaleSet.has(note.note)) {
+      const isWeakBeat = note.step % 4 !== 0;
+      const isNeighbor = scaleSet.has(note.note - 1) || scaleSet.has(note.note + 1);
+      if (!(isWeakBeat && isNeighbor)) {
         // Snap to nearest scale note
+        let bestNote = note.note;
+        let bestDist = Infinity;
+        for (const sn of scaleSet) {
+          const dist = Math.abs(sn - note.note);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestNote = sn;
+          }
+        }
+        return { ...note, note: bestNote } as unknown as boolean; // will be handled below
+      }
+    }
+    return true;
+  }).map((note) => {
+    // Second pass: snap invalid notes
+    const scaleArr = Array.from(scaleSet);
+    if (!scaleSet.has(note.note)) {
+      const isWeakBeat = note.step % 4 !== 0;
+      const isNeighbor = scaleSet.has(note.note - 1) || scaleSet.has(note.note + 1);
+      if (!(isWeakBeat && isNeighbor)) {
         let bestNote = note.note;
         let bestDist = Infinity;
         for (const sn of scaleArr) {
@@ -522,8 +396,9 @@ function validateNotes(notes: MelodyNote[], ctx: PipelineContext): MelodyNote[] 
         }
         return { ...note, note: bestNote };
       }
-      return note;
-    });
+    }
+    return note;
+  });
 }
 
 // ============================================================
@@ -580,39 +455,26 @@ export function runMelodyPipeline(options: GenerateOptions, random: () => number
   // Stage 2: Select chord progression
   const progression = selectProgression(ctx);
 
-  let notes: MelodyNote[];
+  // Stage 3: Generate motif from first chord
+  const firstChordTones = progression[0].tones.map(
+    (t) => ((t % ctx.scaleSize) + ctx.scaleSize) % ctx.scaleSize,
+  );
+  const motif = generateMotif(ctx, firstChordTones);
 
-  // Stage 3 & 4: Specialized generation by synth role
-  if (ctx.synthType === "pad") {
-    notes = generatePadChords(ctx, progression);
-  } else if (ctx.synthType === "arp") {
-    notes = generateArpeggio(ctx, progression);
-  } else if (ctx.synthType === "pluck") {
-    const firstChordTones = progression[0].tones.map(
-      (t) => ((t % ctx.scaleSize) + ctx.scaleSize) % ctx.scaleSize,
-    );
-    const motif = generateMotif(ctx, firstChordTones);
-    notes = generatePluckMelody(ctx, motif, progression);
-  } else {
-    // Lead / default melody
-    const firstChordTones = progression[0].tones.map(
-      (t) => ((t % ctx.scaleSize) + ctx.scaleSize) % ctx.scaleSize,
-    );
-    const motif = generateMotif(ctx, firstChordTones);
-    notes = developPhrases(ctx, motif, progression);
-    notes = applyVoiceLeading(notes, ctx);
-  }
+  // Stage 4: Develop motif into phrases across 4 beats
+  let notes = developPhrases(ctx, motif, progression);
 
-  // Stage 5: Humanize velocity
+  // Stage 5: Voice leading & register correction
+  notes = applyVoiceLeading(notes, ctx);
+
+  // Stage 6: Humanize velocity
   notes = humanizeVelocity(notes, random);
 
-  // Stage 6: Validate & Snap to scale
+  // Stage 7: Validate
   notes = validateNotes(notes, ctx);
 
-  // Re-apply voice leading for leads
-  if (ctx.synthType === "lead") {
-    notes = applyVoiceLeading(notes, ctx);
-  }
+  // Re-apply voice leading after validation to guarantee maxJump invariant
+  notes = applyVoiceLeading(notes, ctx);
 
   // Ensure at least some notes exist (fallback)
   if (notes.length < 2) {
@@ -627,19 +489,15 @@ export function runMelodyPipeline(options: GenerateOptions, random: () => number
     ];
   }
 
-  // Deduplicate: For pad allow polyphony (multiple notes on same step with distinct pitches)
-  // For lead/arp/pluck keep unique steps
-  const isPolyphonic = ctx.synthType === "pad";
-  const seen = new Set<string>();
+  // Remove duplicate steps (keep first)
+  const seen = new Set<number>();
   const deduped: MelodyNote[] = [];
-
   for (const n of notes) {
-    const key = isPolyphonic ? `${n.step}:${n.note}` : `${n.step}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+    if (!seen.has(n.step)) {
+      seen.add(n.step);
       deduped.push(n);
     }
   }
 
-  return deduped.sort((a, b) => a.step - b.step || a.note - b.note);
+  return deduped.sort((a, b) => a.step - b.step);
 }

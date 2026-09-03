@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".sites-runtime/**",
+    "__git_backup__/**",
   ]),
 ]);
 

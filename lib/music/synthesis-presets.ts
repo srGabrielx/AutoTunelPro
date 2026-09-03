@@ -20,12 +20,12 @@ export interface DrumKitSynthConfig {
 
 export const DRUM_KIT_SYNTH_CONFIGS: Record<DrumKitMode, DrumKitSynthConfig> = {
   "trap-808": {
-    // Classic TR-808 inharmonic metallic square wave bank
+    // Classic TR-808 inharmonic metallic square wave bank with smooth filtering
     hatInharmonicFreqs: [245, 306, 384, 422, 659, 866],
-    hatMetalRatio: 0.65,
-    hatNoiseRatio: 0.35,
-    hatFilterCutoff: 7500,
-    openHatCutoff: 6200,
+    hatMetalRatio: 0.48,
+    hatNoiseRatio: 0.52,
+    hatFilterCutoff: 7000,
+    openHatCutoff: 5800,
     snareBodyFreq: 185,
     snareNoiseCutoff: 3200,
     clapCenterFreq: 1400,
@@ -33,14 +33,14 @@ export const DRUM_KIT_SYNTH_CONFIGS: Record<DrumKitMode, DrumKitSynthConfig> = {
     kickSubFreq: 48,
   },
   "drill-punch": {
-    // Sharp, crisp metallic frequencies with bright transient snap
+    // Sharp transient snap with controlled top-end to prevent clipping
     hatInharmonicFreqs: [290, 395, 480, 620, 780, 940],
-    hatMetalRatio: 0.72,
-    hatNoiseRatio: 0.28,
-    hatFilterCutoff: 8200,
-    openHatCutoff: 6800,
+    hatMetalRatio: 0.54,
+    hatNoiseRatio: 0.46,
+    hatFilterCutoff: 7400,
+    openHatCutoff: 6400,
     snareBodyFreq: 210,
-    snareNoiseCutoff: 4000,
+    snareNoiseCutoff: 3800,
     clapCenterFreq: 1550,
     kickTransientFreq: 195,
     kickSubFreq: 52,
@@ -108,54 +108,54 @@ export function getMelodySynthConfig(synthType: MelodySynthType, style: StyleId 
     case "lead":
       return {
         voiceCount,
-        detuneCents: isDarkTrap ? 9 : 7,
+        detuneCents: isDarkTrap ? 8 : 6,
         gainCompensation,
-        filterStartCutoff: 3600,
-        filterEndCutoff: 400,
-        filterQ: 2.4,
-        decayExp: 4.8,
+        filterStartCutoff: 2600,
+        filterEndCutoff: 320,
+        filterQ: 1.6,
+        decayExp: 3.8,
         osc1Type: "sawtooth",
         osc2Type: "sawtooth",
-        baseVol: 0.23,
+        baseVol: 0.19,
       };
     case "pad":
       return {
         voiceCount,
-        detuneCents: 10,
+        detuneCents: 8,
         gainCompensation,
-        filterStartCutoff: 2000,
-        filterEndCutoff: 320,
-        filterQ: 1.6,
+        filterStartCutoff: 1800,
+        filterEndCutoff: 280,
+        filterQ: 1.2,
         decayExp: 2.0,
         osc1Type: "sawtooth",
         osc2Type: "triangle",
-        baseVol: 0.27,
+        baseVol: 0.22,
       };
     case "pluck":
       return {
         voiceCount,
         detuneCents: 5,
         gainCompensation,
-        filterStartCutoff: 4800,
-        filterEndCutoff: 400,
-        filterQ: 3.8,
-        decayExp: 6.8,
+        filterStartCutoff: 3000,
+        filterEndCutoff: 340,
+        filterQ: 1.8,
+        decayExp: 5.0,
         osc1Type: "sawtooth",
         osc2Type: "sine",
-        baseVol: 0.25,
+        baseVol: 0.20,
       };
     case "arp":
       return {
         voiceCount,
         detuneCents: 6,
         gainCompensation,
-        filterStartCutoff: 3600,
-        filterEndCutoff: 420,
-        filterQ: 2.8,
-        decayExp: 5.2,
+        filterStartCutoff: 2600,
+        filterEndCutoff: 320,
+        filterQ: 1.7,
+        decayExp: 4.2,
         osc1Type: "sawtooth",
         osc2Type: "sawtooth",
-        baseVol: 0.23,
+        baseVol: 0.19,
       };
   }
 }
@@ -165,26 +165,30 @@ export interface Bass808SynthConfig {
   parallelSatGain: number;   // Upper harmonic saturation for mobile/small speakers
   pitchDiveStartMultiplier: number;
   pitchDiveDurationSec: number;
+  harmonicCutoffHz: number;  // Lowpass filter cutoff to eliminate high-pitched buzz
 }
 
 export const BASS_808_CONFIGS: Record<BassDrive, Bass808SynthConfig> = {
   clean: {
-    cleanSubGain: 0.92,
-    parallelSatGain: 0.08,
-    pitchDiveStartMultiplier: 1.35,
+    cleanSubGain: 0.94,
+    parallelSatGain: 0.06,
+    pitchDiveStartMultiplier: 1.30,
     pitchDiveDurationSec: 0.020,
+    harmonicCutoffHz: 340,
   },
   warm: {
-    cleanSubGain: 0.78,
-    parallelSatGain: 0.38,
-    pitchDiveStartMultiplier: 1.45,
-    pitchDiveDurationSec: 0.024,
+    cleanSubGain: 0.84,
+    parallelSatGain: 0.20,
+    pitchDiveStartMultiplier: 1.40,
+    pitchDiveDurationSec: 0.025,
+    harmonicCutoffHz: 420,
   },
   overdrive: {
-    cleanSubGain: 0.62,
-    parallelSatGain: 0.52,
-    pitchDiveStartMultiplier: 1.55,
+    cleanSubGain: 0.74,
+    parallelSatGain: 0.30,
+    pitchDiveStartMultiplier: 1.48,
     pitchDiveDurationSec: 0.028,
+    harmonicCutoffHz: 480,
   },
 };
 

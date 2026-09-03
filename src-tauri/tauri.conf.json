@@ -1,18 +1,18 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "autotunel-pro",
-  "version": "1.0.0",
-  "identifier": "com.autotunel.pro",
+  "productName": "AutoTunel Studio",
+  "version": "0.1.0",
+  "identifier": "com.tauri.dev",
   "build": {
-    "frontendDist": "../out",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm run dev",
+    "beforeBuildCommand": "pnpm run build"
   },
   "app": {
     "windows": [
       {
-        "title": "AutoTunel PRO",
+        "title": "AutoTunel Studio",
         "width": 800,
         "height": 600,
         "resizable": true,

@@ -289,8 +289,8 @@ function makeProfileHit(
   drum: DrumHit["drum"],
   step: number,
 ): DrumHit {
-  const baseVelocity = drum === "kick" ? 108 : drum === "hat" ? 82 : 101;
-  const velocityNoise = eventChance(seed, `${drum}:velocity`, step) * 18 - 9;
+  const baseVelocity = drum === "kick" ? 96 : drum === "hat" ? 70 : 88;
+  const velocityNoise = eventChance(seed, `${drum}:velocity`, step) * 12 - 6;
   const isProtectedBeat = (drum === "kick" || drum === "snare" || drum === "clap")
     && step % 4 === 0;
   const swing = step % 2 === 1 ? (input.swing ?? 0) * 0.1 : 0;
@@ -495,6 +495,23 @@ function chordPitch(
   return rootMidi + octaveOffset + (intervals[degree % intervals.length] ?? 0);
 }
 
+function chordPitchForBass(
+  plan: CompositionPlan,
+  step: number,
+  octaveOffset: number,
+): number {
+  let pitch = chordPitch(plan, step, octaveOffset);
+  // Ancorar o 808 estritamente no sub-grave (entre MIDI 24/C1 ~32.7Hz e 42/F#2 ~92.5Hz)
+  // Impedindo que o grave invada médios-agudos
+  while (pitch > 42) {
+    pitch -= 12;
+  }
+  while (pitch < 24) {
+    pitch += 12;
+  }
+  return pitch;
+}
+
 function shapeMelodyForSection(
   dna: MelodyResult,
   plan: CompositionPlan,
@@ -597,8 +614,8 @@ function buildCoordinatedBass(
     const isResponse = !exactKickSet.has(step);
     return {
       step,
-      note: chordPitch(plan, step, input.bassOctave),
-      velocity: clampVelocity(82 + section.energy * 31 + eventChance(seed, "bass:velocity", step) * 8),
+      note: chordPitchForBass(plan, step, input.bassOctave),
+      velocity: clampVelocity(74 + section.energy * 20 + eventChance(seed, "bass:velocity", step) * 6),
       duration: Math.min(desiredDuration, maximumDuration, STEPS_PER_BAR - step),
       slide: isResponse && input.complexity >= 3,
     };
@@ -735,7 +752,6 @@ function buildCandidate(
       layer,
       result: generateMelody({
         style: layer.style,
-        synthType: layer.synthType,
         bpm: input.bpm,
         key: input.key,
         scale: input.globalScale,
@@ -933,7 +949,6 @@ export function regenerateCompositionTrack(
     const { melodyProfile } = extractProfiles(resolved.input);
     const dna = generateMelody({
       style: layer.style,
-      synthType: layer.synthType,
       bpm: resolved.input.bpm,
       key: resolved.input.key,
       scale: resolved.input.globalScale,

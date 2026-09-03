@@ -7,7 +7,6 @@ import {
 } from "./canonical-timeline.ts";
 import {
   BASS_808_CONFIGS,
-  DRUM_KIT_SYNTH_CONFIGS,
   getMelodySynthConfig,
 } from "./synthesis-presets.ts";
 import type {
@@ -89,14 +88,14 @@ export class SampleAccurateAudioEngine {
   private delayNode: DelayNode | null = null;
   private delayGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
+  private masterLimiter: DynamicsCompressorNode | null = null;
   private bassSidechainGain: GainNode | null = null;
 
   // Per-track persistent GainNodes and Stereo Panners
   private trackGainNodes: Map<string, GainNode> = new Map();
   private trackPannerNodes: Map<string, StereoPannerNode> = new Map();
-  private lastOpenHatGain: GainNode | null = null;
-  private currentDrumKit: DrumKitMode = "trap-808";
   private trackVolumes: Map<string, number> = new Map();
+  private trackPans: Map<string, number> = new Map();
 
   // Pre-allocated noise buffers per AudioContext
   private snareNoiseBuffer: AudioBuffer | null = null;
@@ -181,10 +180,23 @@ export class SampleAccurateAudioEngine {
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
 
-      // Master Gain
+      // Master Gain with Headroom
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 1.0;
-      this.masterGain.connect(this.ctx.destination);
+      this.masterGain.gain.value = 0.92; // -0.7 dBFS safe headroom
+
+      // Master Brickwall Limiter to guarantee zero digital clipping
+      if (typeof this.ctx.createDynamicsCompressor === "function") {
+        this.masterLimiter = this.ctx.createDynamicsCompressor();
+        this.masterLimiter.threshold.setValueAtTime(-1.0, this.ctx.currentTime);
+        this.masterLimiter.knee.setValueAtTime(3.0, this.ctx.currentTime);
+        this.masterLimiter.ratio.setValueAtTime(20.0, this.ctx.currentTime);
+        this.masterLimiter.attack.setValueAtTime(0.002, this.ctx.currentTime);
+        this.masterLimiter.release.setValueAtTime(0.050, this.ctx.currentTime);
+        this.masterGain.connect(this.masterLimiter);
+        this.masterLimiter.connect(this.ctx.destination);
+      } else {
+        this.masterGain.connect(this.ctx.destination);
+      }
 
       // Bass Dedicated Sidechain Gain (Between Bass TrackGain and MasterGain)
       this.bassSidechainGain = this.ctx.createGain();
@@ -231,20 +243,8 @@ export class SampleAccurateAudioEngine {
     const sData = this.snareNoiseBuffer.getChannelData(0);
     for (let i = 0; i < snareSamples; i++) sData[i] = nextNoise();
 
-    // Build hat buffers using kit-specific frequencies
-    this.rebuildHatBuffers(ctx, sampleRate, nextNoise, this.currentDrumKit);
-  }
-
-  private rebuildHatBuffers(
-    ctx: AudioContext | BaseAudioContext,
-    sampleRate: number,
-    nextNoise: () => number,
-    kit: DrumKitMode
-  ) {
-    const kitConfig = DRUM_KIT_SYNTH_CONFIGS[kit];
-    const inharmonicFreqs = kitConfig.hatInharmonicFreqs;
-    const metalRatio = kitConfig.hatMetalRatio;
-    const noiseRatio = kitConfig.hatNoiseRatio;
+    // Inharmonic Metallic Hat Buffer (Analogue Roland TR-808/909 Modeling)
+    const inharmonicFreqs = [245, 306, 384, 422, 659, 866];
 
     // Closed Hat noise buffer (0.05s)
     const hatSamples = Math.ceil(sampleRate * 0.05);
@@ -254,10 +254,10 @@ export class SampleAccurateAudioEngine {
       const t = i / sampleRate;
       let metal = 0;
       for (let f = 0; f < inharmonicFreqs.length; f++) {
-        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.08 : -0.08;
       }
-      const noise = nextNoise();
-      hData[i] = metal * metalRatio + noise * noiseRatio;
+      const noise = nextNoise() * 0.7;
+      hData[i] = metal * 0.48 + noise * 0.52;
     }
 
     // Open-hat noise buffer (0.25s)
@@ -268,22 +268,21 @@ export class SampleAccurateAudioEngine {
       const t = i / sampleRate;
       let metal = 0;
       for (let f = 0; f < inharmonicFreqs.length; f++) {
-        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.12 : -0.12;
+        metal += Math.sin(2 * Math.PI * inharmonicFreqs[f] * t) > 0 ? 0.08 : -0.08;
       }
-      const noise = nextNoise();
-      ohData[i] = metal * (metalRatio * 0.85) + noise * (noiseRatio * 1.3);
+      const noise = nextNoise() * 0.7;
+      ohData[i] = metal * 0.45 + noise * 0.55;
     }
   }
 
   private initDistortionCurves() {
     const kWarm = 2;
     const kOverdrive = 8;
-    const CURVE_SIZE = 8192;
-    this.distWarmCurve = new Float32Array(CURVE_SIZE);
-    this.distOverdriveCurve = new Float32Array(CURVE_SIZE);
+    this.distWarmCurve = new Float32Array(128);
+    this.distOverdriveCurve = new Float32Array(128);
 
-    for (let i = 0; i < CURVE_SIZE; i++) {
-      const x = (i * 2) / CURVE_SIZE - 1;
+    for (let i = 0; i < 128; i++) {
+      const x = (i * 2) / 128 - 1;
       this.distWarmCurve[i] = ((Math.PI + kWarm) * x) / (Math.PI + kWarm * Math.abs(x));
       this.distOverdriveCurve[i] = ((Math.PI + kOverdrive) * x) / (Math.PI + kOverdrive * Math.abs(x));
     }
@@ -305,25 +304,35 @@ export class SampleAccurateAudioEngine {
     const gain = ctx.createGain();
     gain.gain.value = 0.8; // default 80%
 
-    // 808 Bass connects through bassSidechainGain (centered mono); others connect via StereoPanner
-    if (trackId === "bass" && this.bassSidechainGain) {
-      gain.connect(this.bassSidechainGain);
-    } else {
-      if (typeof ctx.createStereoPanner === "function") {
-        const panner = ctx.createStereoPanner();
-        // Calculate default spatial stereo spread
-        let defaultPan = 0;
+    // Persistent StereoPanner for all tracks (bass, drums, and melody layers)
+    if (typeof ctx.createStereoPanner === "function") {
+      const panner = ctx.createStereoPanner();
+      let defaultPan = this.trackPans.get(trackId);
+      if (defaultPan === undefined) {
         if (trackId.startsWith("layer-")) {
           const index = parseInt(trackId.replace("layer-", ""), 10);
           if (!isNaN(index)) {
-            // Alternating stereo separation: Layer 0 -> center, Layer 1 -> left (-0.28), Layer 2 -> right (+0.28), Layer 3 -> left (-0.45)...
             defaultPan = index === 0 ? 0 : (index % 2 === 1 ? -1 : 1) * Math.min(0.55, 0.22 + Math.floor((index - 1) / 2) * 0.15);
+          } else {
+            defaultPan = 0;
           }
+        } else {
+          defaultPan = 0; // Center for bass, drums
         }
-        panner.pan.value = defaultPan;
-        this.trackPannerNodes.set(trackId, panner);
-        gain.connect(panner);
+      }
+      panner.pan.value = Math.max(-1, Math.min(1, defaultPan));
+      this.trackPannerNodes.set(trackId, panner);
+      gain.connect(panner);
+
+      // 808 Bass routes through bassSidechainGain before master
+      if (trackId === "bass" && this.bassSidechainGain) {
+        panner.connect(this.bassSidechainGain);
+      } else {
         panner.connect(this.masterGain || ctx.destination);
+      }
+    } else {
+      if (trackId === "bass" && this.bassSidechainGain) {
+        gain.connect(this.bassSidechainGain);
       } else {
         gain.connect(this.masterGain || ctx.destination);
       }
@@ -337,9 +346,11 @@ export class SampleAccurateAudioEngine {
    * Set stereo pan (-1.0 full left to +1.0 full right) for a track.
    */
   public setTrackPan(trackId: string, pan: number) {
+    const safePan = Math.max(-1, Math.min(1, pan));
+    this.trackPans.set(trackId, safePan);
+    this.getOrCreateTrackGain(trackId);
     const panner = this.trackPannerNodes.get(trackId);
     if (!panner || !this.ctx) return;
-    const safePan = Math.max(-1, Math.min(1, pan));
     panner.pan.setTargetAtTime(safePan, this.ctx.currentTime, 0.015);
   }
 
@@ -507,17 +518,6 @@ export class SampleAccurateAudioEngine {
       drumKit,
       blocks,
     };
-
-    // Rebuild hat noise buffers when drum kit changes
-    if (drumKit !== this.currentDrumKit && this.ctx) {
-      this.currentDrumKit = drumKit;
-      let noiseSeed = 42;
-      const nextNoise = (): number => {
-        noiseSeed = (1664525 * noiseSeed + 1013904223) % 4294967296;
-        return (noiseSeed / 4294967296) * 2.0 - 1.0;
-      };
-      this.rebuildHatBuffers(this.ctx, this.ctx.sampleRate, nextNoise, drumKit);
-    }
 
     const style = bass?.style ?? drums?.style ?? melodyLayers[0]?.style ?? "trap-br";
     const activeBlock: CanonicalArrangementBlockInput = {
@@ -871,7 +871,7 @@ export class SampleAccurateAudioEngine {
         } else if (ev.instrument === "open-hat") {
           this.playOpenHat(hitTime, ev.velocity);
         } else {
-          this.playHat(hitTime, ev.velocity, ev.pitchCents, ev.filterCurve);
+          this.playHat(hitTime, ev.velocity, ev.pitchCents, ev.filterCurve, ev.durationSec);
         }
       }
     }
@@ -881,12 +881,11 @@ export class SampleAccurateAudioEngine {
 
   private playKick(when: number, velocity = 90, kit: DrumKitMode = "trap-808") {
     if (!this.ctx) return;
-    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[kit];
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const vol = (velocity / 127) * (kit === "funk-tamborzao" ? 0.55 : 0.45);
-    const startFreq = kitCfg.kickTransientFreq;
-    const endFreq = kitCfg.kickSubFreq;
+    const startFreq = kit === "drill-punch" ? 180 : kit === "funk-tamborzao" ? 140 : 155;
+    const endFreq = kit === "funk-tamborzao" ? 52 : 44;
 
     osc.type = kit === "funk-tamborzao" ? "triangle" : "sine";
     osc.frequency.setValueAtTime(startFreq, when);
@@ -899,24 +898,8 @@ export class SampleAccurateAudioEngine {
     osc.connect(gain).connect(trackGain);
     osc.start(when);
     osc.stop(when + 0.33);
-    this.trackNode(osc);
 
-    // Transient click layer: short noise burst for punch/presence
-    if (this.snareNoiseBuffer) {
-      const clickNoise = this.ctx.createBufferSource();
-      clickNoise.buffer = this.snareNoiseBuffer;
-      const clickFilter = this.ctx.createBiquadFilter();
-      clickFilter.type = "bandpass";
-      clickFilter.frequency.value = kit === "drill-punch" ? 3500 : 2200;
-      clickFilter.Q.value = 2.0;
-      const clickGain = this.ctx.createGain();
-      clickGain.gain.setValueAtTime(vol * 0.35, when);
-      clickGain.gain.exponentialRampToValueAtTime(0.001, when + 0.004);
-      clickNoise.connect(clickFilter).connect(clickGain).connect(trackGain);
-      clickNoise.start(when);
-      clickNoise.stop(when + 0.005);
-      this.trackNode(clickNoise);
-    }
+    this.trackNode(osc);
   }
 
   private playClap(when: number, velocity = 92) {
@@ -971,12 +954,11 @@ export class SampleAccurateAudioEngine {
       this.trackNode(noise);
     }
 
-    // Body tone using kit-specific frequency
-    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[kit];
+    // Body tone
     const osc = this.ctx.createOscillator();
     const tGain = this.ctx.createGain();
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(kitCfg.snareBodyFreq, when);
+    osc.frequency.setValueAtTime(190, when);
     osc.frequency.exponentialRampToValueAtTime(85, when + 0.07);
 
     const trackGain = this.getOrCreateTrackGain("drums");
@@ -993,17 +975,10 @@ export class SampleAccurateAudioEngine {
     when: number,
     velocity = 75,
     pitchCents?: number,
-    filterCurve?: { startHz: number; endHz: number; durationMs: number }
+    filterCurve?: { startHz: number; endHz: number; durationMs: number },
+    durationSec?: number
   ) {
     if (!this.ctx || !this.hatNoiseBuffer) return;
-
-    // Open-hat choke: closed hat cuts off any sustaining open hat
-    if (this.lastOpenHatGain) {
-      this.lastOpenHatGain.gain.cancelScheduledValues(when);
-      this.lastOpenHatGain.gain.setValueAtTime(0.001, when);
-      this.lastOpenHatGain = null;
-    }
-
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.hatNoiseBuffer;
 
@@ -1013,6 +988,7 @@ export class SampleAccurateAudioEngine {
       } catch {}
     }
 
+    // Highpass filter for clean transient definition
     const filter = this.ctx.createBiquadFilter();
     filter.type = "highpass";
     if (filterCurve) {
@@ -1022,44 +998,50 @@ export class SampleAccurateAudioEngine {
         when + filterCurve.durationMs / 1000
       );
     } else {
-      filter.frequency.setValueAtTime(7500, when);
+      filter.frequency.setValueAtTime(6800, when);
     }
+
+    // Lowpass filter to tame ultra-high frequencies (>13.5kHz) that cause harsh digital clipping
+    const tameFilter = this.ctx.createBiquadFilter();
+    tameFilter.type = "lowpass";
+    tameFilter.frequency.setValueAtTime(13500, when);
+    tameFilter.Q.value = 0.707;
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
-    const dur = 0.028;
-    gain.gain.setValueAtTime((velocity / 127) * 0.11, when);
+    const dur = durationSec ? Math.max(0.012, Math.min(0.028, durationSec)) : 0.024;
+    gain.gain.setValueAtTime((velocity / 127) * 0.082, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(trackGain);
+    noise.connect(filter).connect(tameFilter).connect(gain).connect(trackGain);
     noise.start(when);
-    noise.stop(when + dur);
+    noise.stop(when + dur + 0.005);
     this.trackNode(noise);
   }
 
   private playOpenHat(when: number, velocity = 80) {
     if (!this.ctx || !this.openHatNoiseBuffer) return;
-    const dur = 0.22;
+    const dur = 0.20;
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.openHatNoiseBuffer;
 
-    const kitCfg = DRUM_KIT_SYNTH_CONFIGS[this.currentDrumKit];
     const filter = this.ctx.createBiquadFilter();
     filter.type = "highpass";
-    filter.frequency.value = kitCfg.openHatCutoff;
+    filter.frequency.value = 5800;
+
+    const tameFilter = this.ctx.createBiquadFilter();
+    tameFilter.type = "lowpass";
+    tameFilter.frequency.setValueAtTime(14000, when);
 
     const trackGain = this.getOrCreateTrackGain("drums");
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime((velocity / 127) * 0.14, when);
+    gain.gain.setValueAtTime((velocity / 127) * 0.11, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + dur);
 
-    noise.connect(filter).connect(gain).connect(trackGain);
+    noise.connect(filter).connect(tameFilter).connect(gain).connect(trackGain);
     noise.start(when);
-    noise.stop(when + dur);
+    noise.stop(when + dur + 0.005);
     this.trackNode(noise);
-
-    // Store for open-hat choke
-    this.lastOpenHatGain = gain;
   }
 
   private play808Bass(
@@ -1072,29 +1054,27 @@ export class SampleAccurateAudioEngine {
   ) {
     if (!this.ctx) return;
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const vol = (velocity / 127) * 0.75;
+    const vol = (velocity / 127) * 0.75; // Sub presence without clipping
     const cfg = BASS_808_CONFIGS[drive] || BASS_808_CONFIGS.warm;
 
     const trackGain = this.getOrCreateTrackGain("bass");
 
-    // Lowpass filter envelope: bright attack that closes over time (muffled)
-    const bassFilter = this.ctx.createBiquadFilter();
-    bassFilter.type = "lowpass";
-    bassFilter.frequency.setValueAtTime(550, when);
-    bassFilter.frequency.exponentialRampToValueAtTime(110, when + durationSec * 0.6);
-    bassFilter.Q.value = 1.0;
-
-    // 1. Clean Sub Oscillator (Preserves pure fundamental for physical subwoofers)
+    // 1. Clean Sub Oscillator (Preserves pure fundamental for deep warm bass)
     const cleanOsc = this.ctx.createOscillator();
     const cleanGain = this.ctx.createGain();
     cleanOsc.type = "sine";
     cleanOsc.frequency.setValueAtTime(freq * cfg.pitchDiveStartMultiplier, when);
     cleanOsc.frequency.exponentialRampToValueAtTime(freq, when + cfg.pitchDiveDurationSec);
 
-    // 2. Parallel Saturated Oscillator (Upper harmonics for mobile speaker clarity)
+    // 2. Parallel Saturated Oscillator (Warm low-mids without harsh high buzz)
     const satOsc = this.ctx.createOscillator();
     const satGain = this.ctx.createGain();
     const satDist = this.ctx.createWaveShaper();
+    const satLowpass = this.ctx.createBiquadFilter();
+    satLowpass.type = "lowpass";
+    satLowpass.frequency.setValueAtTime(cfg.harmonicCutoffHz || 420, when);
+    satLowpass.Q.value = 0.707;
+
     satOsc.type = "triangle";
     satOsc.frequency.setValueAtTime(freq * cfg.pitchDiveStartMultiplier, when);
     satOsc.frequency.exponentialRampToValueAtTime(freq, when + cfg.pitchDiveDurationSec);
@@ -1112,7 +1092,7 @@ export class SampleAccurateAudioEngine {
       satOsc.frequency.exponentialRampToValueAtTime(freq * 1.45, when + durationSec * 0.75);
     }
 
-    // Parallel Gain Envelopes (Added sustain to prevent 'choco'/weak bass)
+    // Parallel Gain Envelopes with smooth sustain
     const sustainHold = Math.min(0.25, durationSec * 0.4);
     
     cleanGain.gain.setValueAtTime(vol * cfg.cleanSubGain, when);
@@ -1123,12 +1103,8 @@ export class SampleAccurateAudioEngine {
     satGain.gain.setValueAtTime(vol * cfg.parallelSatGain, when + sustainHold);
     satGain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
-    // Route: cleanOsc → filter → cleanGain → trackGain
-    //        satOsc → satDist → filter → satGain → trackGain
-    cleanOsc.connect(bassFilter);
-    satOsc.connect(satDist).connect(bassFilter);
-    bassFilter.connect(cleanGain).connect(trackGain);
-    bassFilter.connect(satGain).connect(trackGain);
+    cleanOsc.connect(cleanGain).connect(trackGain);
+    satOsc.connect(satDist).connect(satLowpass).connect(satGain).connect(trackGain);
 
     cleanOsc.start(when);
     satOsc.start(when);
@@ -1152,9 +1128,7 @@ export class SampleAccurateAudioEngine {
     const trackGain = this.getOrCreateTrackGain(layerId);
     const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
     const cfg = getMelodySynthConfig(synthType);
-    // Exponential velocity curve for more natural dynamics
-    const velCurve = Math.pow(velocity / 127, 1.5);
-    const vol = velCurve * cfg.baseVol * cfg.gainCompensation * volScale;
+    const vol = (velocity / 127) * cfg.baseVol * cfg.gainCompensation * volScale;
 
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
@@ -1172,25 +1146,7 @@ export class SampleAccurateAudioEngine {
     filter.frequency.exponentialRampToValueAtTime(cfg.filterEndCutoff, when + durationSec * 0.92);
     filter.Q.value = cfg.filterQ;
 
-    // ADSR Envelope: Attack → Decay → Sustain → Release
-    const isPercussive = synthType === "pluck" || synthType === "arp";
-    const attackTime = isPercussive ? 0.003 : 0.012;
-    const decayTime = isPercussive ? 0.06 : 0.1;
-    const sustainLevel = isPercussive ? 0.4 : 0.7;
-    const releaseTime = Math.min(0.15, durationSec * 0.15);
-
-    gain.gain.setValueAtTime(0.001, when);
-    gain.gain.linearRampToValueAtTime(vol, when + attackTime);
-    gain.gain.exponentialRampToValueAtTime(
-      Math.max(0.001, vol * sustainLevel),
-      when + attackTime + decayTime
-    );
-    if (durationSec > attackTime + decayTime + releaseTime) {
-      gain.gain.setValueAtTime(
-        Math.max(0.001, vol * sustainLevel),
-        when + durationSec - releaseTime
-      );
-    }
+    gain.gain.setValueAtTime(vol, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + durationSec);
 
     osc1.connect(filter);

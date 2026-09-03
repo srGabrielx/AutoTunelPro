@@ -46,7 +46,6 @@ export interface GenerateOptions {
   scale?: ScaleId;
   complexity: number;
   seed?: number;
-  synthType?: MelodySynthType;
   bassOctave?: BassOctave;
   drumPattern?: DrumPatternMode;
   swing?: number;       // 0 to 100 %
@@ -86,10 +85,11 @@ export interface MelodyLayer {
   result: MelodyResult | null;
 }
 
-/** Per-track volume/mute configuration, keyed by track ID */
+/** Per-track volume/mute/pan configuration, keyed by track ID */
 export interface TrackSettings {
   volume: number;  // 0 to 1, default 0.8
   muted: boolean;
+  pan?: number;    // -1 (Full Left) to +1 (Full Right), default 0 (Center)
 }
 
 /** Discriminated union for individually-added drum element tracks */
